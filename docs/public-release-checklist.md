@@ -21,7 +21,7 @@ Current asset decision: **safe to proceed to a separate publication review**; ex
 ## 2026-09-29 publication execution
 
 - Public GitHub repository: https://github.com/wedsamuel1230/mg400-browser-simulator
-- First public release commit: `8de3d568f93d4677f66413f405237166aaefd544`
+- Verify the current public `main` head with `git ls-remote origin refs/heads/main`; do not hardcode a commit SHA in this checklist because later documentation edits change it.
 - GitHub visibility and `main` contents were verified through the GitHub API. The tree contains no `.scratch`, `.env`, `dist`, `fork.stl`, or `magnet.stl` paths.
 - `npm run release:check` passed before the commit. The repository contains the MIT root license, the pinned vendor model license, SPA `vercel.json`, and the release smoke workflow.
 - Vercel deployment remains **blocked in this execution environment**. The cached Vercel CLI 60.1.3 runs offline, but `vercel whoami` reports `Logged out` and `vercel deploy --prod --yes` returns `No existing credentials found`. The exposed Vercel MCP deploy endpoint also returns `Tool deploy_to_vercel not found`. No deployment URL or deployment ID is claimed.

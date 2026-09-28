@@ -1,13 +1,13 @@
 import { BLOCK_SIZE_MM, type BlockColor, type CellBlock, type ProjectDocument } from "../domain";
 
 export const DEFAULT_CELL_BLOCKS: CellBlock[] = [
-  { id: "tower-1", color: "neutral", source: "pickup", position: { x: 360, y: -80 }, r: 0 },
-  { id: "tower-2", color: "neutral", source: "pickup", position: { x: 410, y: -80 }, r: 0 },
-  { id: "tower-3", color: "neutral", source: "pickup", position: { x: 460, y: -80 }, r: 0 },
-  { id: "feed-black-1", color: "black", source: "feeder", position: { x: 360, y: -180 }, r: 0 },
-  { id: "feed-white-1", color: "white", source: "feeder", position: { x: 410, y: -180 }, r: 0 },
-  { id: "feed-black-2", color: "black", source: "feeder", position: { x: 460, y: -180 }, r: 0 },
-  { id: "feed-white-2", color: "white", source: "feeder", position: { x: 490, y: -180 }, r: 0 },
+  { id: "tower-1", color: "neutral", source: "pickup", position: { x: 300, y: -80 }, r: 0 },
+  { id: "tower-2", color: "neutral", source: "pickup", position: { x: 340, y: -80 }, r: 0 },
+  { id: "tower-3", color: "neutral", source: "pickup", position: { x: 360, y: -80 }, r: 0 },
+  { id: "feed-black-1", color: "black", source: "feeder", position: { x: 300, y: -180 }, r: 0 },
+  { id: "feed-white-1", color: "white", source: "feeder", position: { x: 310, y: -180 }, r: 0 },
+  { id: "feed-black-2", color: "black", source: "feeder", position: { x: 320, y: -180 }, r: 0 },
+  { id: "feed-white-2", color: "white", source: "feeder", position: { x: 315, y: -180 }, r: 0 },
 ];
 
 export const DEFAULT_FEEDER_ORDER = ["feed-black-1", "feed-white-1", "feed-black-2", "feed-white-2"];

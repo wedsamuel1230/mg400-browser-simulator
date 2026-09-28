@@ -186,7 +186,7 @@ function migrateV8Project(value: Record<string, unknown>): Record<string, unknow
   const scene = isRecord(value.scene) ? value.scene : {};
   const block = isRecord(scene.block) && isFiniteNumber(scene.block.x) && isFiniteNumber(scene.block.y)
     ? { x: scene.block.x, y: scene.block.y }
-    : { x: 360, y: -80 };
+    : { x: 300, y: -80 };
   const blocks = cloneCellBlocks(DEFAULT_CELL_BLOCKS);
   blocks[0].position = { ...block };
   return {
@@ -274,10 +274,10 @@ function migrateV5Project(value: Record<string, unknown>): Record<string, unknow
     ? points.map((point) => {
         if (!isRecord(point) || point.kind !== "cartesian" || !isPose(point.pose)) return point;
         const pose = { ...point.pose };
-        if (point.name === "PickPoint") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
-        if (point.name === "PickApproach") Object.assign(pose, { x: 360 - (isFork ? 60 : 0), z: isFork ? FORK_SUPPORT_HEIGHT_MM : 95 });
-        if (point.name === "PlacePoint") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
-        if (point.name === "PlaceApproach") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM + 80 : 95 });
+        if (point.name === "PickPoint") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
+        if (point.name === "PickApproach") Object.assign(pose, { x: 300 - (isFork ? 60 : 0), z: isFork ? FORK_SUPPORT_HEIGHT_MM : 95 });
+        if (point.name === "PlacePoint") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
+        if (point.name === "PlaceApproach") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM + 80 : 95 });
         return { ...point, pose };
       })
     : points;
@@ -297,7 +297,7 @@ function migrateV5Project(value: Record<string, unknown>): Record<string, unknow
     ...value,
     schemaVersion: 7,
     scene: isUntouchedReferenceCell
-      ? { ...scene, block: { x: 360, y: -80 }, drop: { x: 360, y: 80 } }
+      ? { ...scene, block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } }
       : scene,
     points: migratedPoints,
     script,
@@ -332,10 +332,10 @@ function migrateV6Project(value: Record<string, unknown>): Record<string, unknow
     ? points.map((point) => {
         if (!isRecord(point) || point.kind !== "cartesian" || !isPose(point.pose)) return point;
         const pose = { ...point.pose };
-        if (point.name === "PickPoint") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
-        if (point.name === "PickApproach") Object.assign(pose, { x: isFork ? 300 : 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 95 });
-        if (point.name === "PlacePoint") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
-        if (point.name === "PlaceApproach") Object.assign(pose, { x: 360, z: isFork ? FORK_SUPPORT_HEIGHT_MM + 80 : 95 });
+        if (point.name === "PickPoint") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
+        if (point.name === "PickApproach") Object.assign(pose, { x: isFork ? 240 : 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 95 });
+        if (point.name === "PlacePoint") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM : 15 });
+        if (point.name === "PlaceApproach") Object.assign(pose, { x: 300, z: isFork ? FORK_SUPPORT_HEIGHT_MM + 80 : 95 });
         return { ...point, pose };
       })
     : points;
@@ -351,7 +351,7 @@ function migrateV6Project(value: Record<string, unknown>): Record<string, unknow
     ...value,
     schemaVersion: 7,
     scene: isUntouchedReferenceCell
-      ? { ...scene, block: { x: 360, y: -80 }, drop: { x: 360, y: 80 } }
+      ? { ...scene, block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } }
       : scene,
     points: migratedPoints,
     script,

@@ -8,9 +8,13 @@ This report captures the implementation outcomes for the [Wayfinder task map](..
 
 ## Public release execution (2026-09-29)
 
-The public GitHub repository is live at https://github.com/wedsamuel1230/mg400-browser-simulator (public, `main`, commit `8de3d568f93d4677f66413f405237166aaefd544`). GitHub API inspection confirmed that `.scratch`, `.env`, `dist`, and the unknown-rights `fork.stl`/`magnet.stl` files are absent. `npm run release:check` passed before publication.
+The public GitHub repository is live at https://github.com/wedsamuel1230/mg400-browser-simulator (public, `main`). Verify the current remote head with `git ls-remote origin refs/heads/main`; GitHub API inspection confirmed that `.scratch`, `.env`, `dist`, and the unknown-rights `fork.stl`/`magnet.stl` files are absent. `npm run release:check` passed before publication.
 
 Vercel deployment was not completed: cached CLI 60.1.3 is available offline, but `vercel whoami` reports `Logged out` and `vercel deploy --prod --yes` returns `No existing credentials found`; the exposed Vercel deploy connector also returns `Tool deploy_to_vercel not found`. No deployment URL or deployment ID is recorded, and the release remains open for a Vercel-authenticated execution environment. The source remains safe to deploy without an API key or unknown-rights tool mesh.
+
+## Wayfinder Issue 26 — default composite mission repair (2026-09-29)
+
+Fresh schema-9 production-preview runs now complete all four advanced paths from cleared local storage: Tower Lua and Python each complete 3/3 with `tower-1/2/3` at Z=15/30/45 mm and R=90°; Sort Lua and Python each complete 4/4 feeder cycles and 4/4 unloads with distinct feeder IDs. Default tower supply is X=300/340/360; feeder supply is X=300/310/320/315, chosen from reachable endpoints. Sort progress is derived from feeder IDs whose source changed from `feeder`, so remaining inventory cannot inflate the count. Controller logs include block ID and final pose. Snippets now replace only after confirmation, define their own values, and use motion-only examples for passive Fork. Preflight strips comments and recognizes Lua/Python DO1 ON/TRUE/1 variants. Issue evidence is recorded in the local Issue 26 file and map; focused migration/curriculum tests passed (2 files, 16 tests); full suite passed (22 files, 122 tests), `npm run typecheck`, `npm run build`, and `npm run release:check` passed. Browser evidence is `.scratch/mg400-virtual-training-simulator/evidence/issue26-sort-python-complete.png` with matching `.yml` trace (local ignored evidence; Sort COMPLETE, 4/4 cycles and 4/4 unloaded).
 
 The bilingual [student guide](student-guide.md) and [instructor guide](instructor-guide.md) describe the current course release, classroom flow, tool differences, key/privacy behavior, and simulation boundaries.
 

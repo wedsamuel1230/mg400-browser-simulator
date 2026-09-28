@@ -388,11 +388,13 @@ export class SimulationController {
       this.events.setAttached(true);
       this.attachedCellBlockId = candidates.find((candidate) => candidate.position === block)?.id ?? null;
       this.events.setAttachedCellBlockId?.(this.attachedCellBlockId);
-      this.events.addLog("Magnet mode logically attached the reference block to the configured TCP.", "info");
+      this.events.addLog(`Magnet attached ${this.attachedCellBlockId ?? "reference block"} at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm.`, "info");
       return;
     }
     if (!attached) throw new Error("Place failed: there is no block attached to the tool.");
     const tcp = this.kinematics.forward(this.events.getJoints(), project.tool.flangeOffset, activeTcpOffset(project.tool));
+    const placedCellBlockId = this.attachedCellBlockId;
+    let placedStackLevel: number | undefined;
     this.events.setAttached(false);
     this.events.setBlock({ x: tcp.x, y: tcp.y });
     const candidates = this.events.getCellBlocks?.();
@@ -401,6 +403,7 @@ export class SimulationController {
       const inTowerZone = Math.hypot(tcp.x - project.scene.drop.x, tcp.y - project.scene.drop.y) <= towerRadius;
       const towerBlocks = candidates.filter((candidate) => candidate.source === "output" && candidate.stackLevel !== undefined);
       const stackLevel = inTowerZone ? towerBlocks.length : undefined;
+      placedStackLevel = stackLevel;
       const attachedCandidate = candidates.find((candidate) => candidate.id === this.attachedCellBlockId);
       const unloading = attachedCandidate?.source === "output" && Math.hypot(tcp.x - project.scene.drop.x, tcp.y - project.scene.drop.y) > towerRadius;
       this.events.setCellBlocks?.(candidates.map((candidate) => candidate.id === this.attachedCellBlockId
@@ -409,7 +412,7 @@ export class SimulationController {
     }
     this.attachedCellBlockId = null;
     this.events.setAttachedCellBlockId?.(null);
-    this.events.addLog(`Block placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm.`, "info");
+    this.events.addLog(`Block ${placedCellBlockId ?? "reference block"} placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm${placedStackLevel === undefined ? "" : `, Z ${(15 * (placedStackLevel + 1)).toFixed(1)} mm, R ${tcp.r.toFixed(1)}°`}.`, "info");
   }
 
   private waitForIdle(): Promise<void> {

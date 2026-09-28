@@ -126,8 +126,8 @@ describe("project document validation", () => {
 
     const migrated = validateProject(legacy);
     expect(migrated.schemaVersion).toBe(9);
-    expect(migrated.scene).toMatchObject({ block: { x: 360, y: -80 }, drop: { x: 300, y: 80 } });
-    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 360, z: 15 } });
+    expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
+    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, z: 15 } });
   });
 
   it("migrates an untouched v5 fork cell to its raised support plane and keeps custom cells intact", () => {
@@ -148,9 +148,9 @@ describe("project document validation", () => {
     });
 
     const migrated = validateProject(legacy);
-    expect(migrated.scene.block).toEqual({ x: 360, y: -80 });
-    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 360, z: FORK_SUPPORT_HEIGHT_MM } });
-    expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 300, z: FORK_SUPPORT_HEIGHT_MM } });
+    expect(migrated.scene.block).toEqual({ x: 300, y: -80 });
+    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, z: FORK_SUPPORT_HEIGHT_MM } });
+    expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 240, z: FORK_SUPPORT_HEIGHT_MM } });
     expect(migrated.script).not.toMatch(/\bDO\s*\(/i);
 
     const custom = structuredClone(legacy);
@@ -177,9 +177,9 @@ describe("project document validation", () => {
 
     const migrated = validateProject(legacy);
     expect(migrated.schemaVersion).toBe(9);
-    expect(migrated.scene).toMatchObject({ block: { x: 360, y: -80 }, drop: { x: 300, y: 80 } });
-    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 360, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
-    expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 300, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
+    expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
+    expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
+    expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 240, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
     expect(migrated.points.find((point) => point.name === "PlacePoint")).toMatchObject({ pose: { x: 300, y: 80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
     expect(migrated.points.find((point) => point.name === "PlaceApproach")).toMatchObject({ pose: { x: 300, y: 80, z: FORK_SUPPORT_HEIGHT_MM + 80, r: 0 } });
     expect(migrated.script).toBe(DEFAULT_FORK_SCRIPT);
@@ -200,8 +200,8 @@ describe("project document validation", () => {
       return point;
     });
     const migratedMagnet = validateProject(oldMagnet);
-    expect(migratedMagnet.scene.block).toEqual({ x: 360, y: -80 });
-    expect(migratedMagnet.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 360, z: 15 } });
+    expect(migratedMagnet.scene.block).toEqual({ x: 300, y: -80 });
+    expect(migratedMagnet.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, z: 15 } });
 
     const customFork = structuredClone(oldMagnet);
     (customFork.tool as Record<string, unknown>).mode = "fork";

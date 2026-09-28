@@ -279,13 +279,14 @@ export default function App() {
     [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError],
   );
   const towerBlocks = project.scene.blocks.filter((block) => block.stackLevel !== undefined);
-  const sortBlocks = project.scene.blocks.filter((block) => block.source === "feeder" || block.source === "unloaded");
+  const feederIds = useMemo(() => new Set(project.scene.initialBlocks.filter((block) => block.source === "feeder").map((block) => block.id)), [project.scene.initialBlocks]);
+  const processedSortBlocks = project.scene.blocks.filter((block) => feederIds.has(block.id) && block.source !== "feeder");
   const sortUnloaded = project.scene.blocks.filter((block) => block.source === "unloaded").length;
   const preflight = useMemo(() => {
-    const source = programText;
-    const poweredAction = /\b(?:DO|do)\s*\(/.test(source) || /\b(?:Pick|Place|pick|place)\s*\(/.test(source);
+    const source = programText.split("\n").map((line) => line.replace(/(?:--|#).*$/, "")).join("\n");
+    const poweredAction = /\b(?:DO|Pick|Place)\s*\(/i.test(source);
     if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
-    if (project.tool.mode === "magnet" && !/\b(?:DO|do)\s*\(\s*1\s*,\s*(?:ON|on)/.test(source)) return { kind: "warning" as const, text: "Magnet preflight: this program has no DO1 ON attach step. Run the simulator only after adding attachment and release actions." };
+    if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
     if (!recommendation.ready) return { kind: "warning" as const, text: "Setup preflight: teach the highlighted Home, pick, or place points before running." };
     return { kind: "pass" as const, text: `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
   }, [project.tool.mode, programText, recommendation.ready]);
@@ -442,10 +443,13 @@ export default function App() {
   }
 
   function insertSnippet(snippet: string) {
+    const language = projectRef.current.programmingLanguage;
+    const existing = language === "lua" ? projectRef.current.script : projectRef.current.pythonScript;
+    if (existing.trim() && !window.confirm("Replace the current editor program with this standalone learning example?")) return;
     replaceProject((current) => current.programmingLanguage === "lua"
-      ? { ...current, script: `${current.script.trimEnd()}\n\n${snippet}\n` }
-      : { ...current, pythonScript: `${current.pythonScript.trimEnd()}\n\n${snippet}\n` });
-    addLog(`Inserted a ${project.programmingLanguage === "lua" ? "Lua" : "Python"} learning snippet.`, "info");
+      ? { ...current, script: `${snippet.trim()}\n` }
+      : { ...current, pythonScript: `${snippet.trim()}\n` });
+    addLog(`Loaded a standalone ${language === "lua" ? "Lua" : "Python"} learning snippet.`, "info");
   }
 
   function pauseOrResume() {
@@ -843,10 +847,12 @@ export default function App() {
               <summary>Beginner snippets · insert into {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
               <p>Local examples need no API key. Insert one, read the explanation, then run it in the simulator.</p>
               <div className="snippet-grid">
-                <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "if ready then\n  print(\"ready\")\nelse\n  print(\"check setup\")\nend" : "if ready:\n    print(\"ready\")\nelse:\n    print(\"check setup\")")}><strong>If / else</strong><span>Choose one branch from a condition.</span></button>
+                <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "local ready = true\nif ready then\n  print(\"ready\")\nelse\n  print(\"check setup\")\nend" : "ready = True\nif ready:\n    print(\"ready\")\nelse:\n    print(\"check setup\")")}><strong>If / else</strong><span>Choose one branch from a defined condition.</span></button>
                 <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "for layer = 1, 3 do\n  print(\"cycle\", layer)\nend" : "for layer in range(3):\n    print(\"cycle\", layer)")}><strong>Bounded loop</strong><span>Repeat a known number of cycles.</span></button>
                 <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "MovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})\nRelMovL({0, 0, 80, 0}, {CP=0})" : "await mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)\nawait rel_mov_l([0, 0, 80, 0], cp=0")}><strong>Move sequence</strong><span>Joint move, linear move, then relative lift.</span></button>
-                <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "-- Magnet: attach with DO1\nDO(1, ON)\n-- Passive fork: do not use DO/Pick/Place" : "# Magnet: attach with DO1\ndo(1, ON)\n# Passive fork: do not use do/pick/place")}><strong>Tool rule</strong><span>{project.tool.mode === "magnet" ? "Magnet uses virtual DO1." : "Fork is passive and uses no DO."}</span></button>
+                <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua"
+                  ? (project.tool.mode === "magnet" ? "MovJ(PickPoint, {CP=0})\nDO(1, ON)\nRelMovL({0, 0, 80, 0}, {CP=0})\nDO(1, OFF)\nSync()" : "JointMovJ(Home, {CP=0})\nMovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})\nRelMovL({0, 0, 80, 0}, {CP=0})\nJointMovJ(Home, {CP=0})\nSync()")
+                  : (project.tool.mode === "magnet" ? "await mov_j(PickPoint, cp=0)\ndo(1, True)\nawait rel_mov_l([0, 0, 80, 0], cp=0)\ndo(1, False)\nawait sync()" : "await joint_mov_j(Home, cp=0)\nawait mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)\nawait rel_mov_l([0, 0, 80, 0], cp=0)\nawait joint_mov_j(Home, cp=0)\nawait sync()"))}><strong>Tool rule</strong><span>{project.tool.mode === "magnet" ? "Standalone Magnet attach example." : "Standalone passive Fork motion example; no DO."}</span></button>
               </div>
             </details>
           </section>
@@ -863,7 +869,7 @@ export default function App() {
               <article className={`mission-card ${sortUnloaded >= 4 ? "mission-complete" : ""}`}>
                 <div className="mission-card-heading"><strong>Sort · black / white</strong><span>{sortUnloaded >= 4 ? "COMPLETE" : "IN PROGRESS"}</span></div>
                 <p>Use the known feeder order black → white → black → white; white rotates +45° while attached, then unload all.</p>
-                <div className="mission-metrics"><span><b>{Math.min(sortBlocks.length, 4)}/4</b><small>feed cycles</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>attached</small></span><span><b>{sortUnloaded}/4</b><small>unloaded</small></span></div>
+                <div className="mission-metrics"><span><b>{processedSortBlocks.length}/4</b><small>feed cycles</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>attached</small></span><span><b>{sortUnloaded}/4</b><small>unloaded</small></span></div>
                 <small className="mission-action">This is a configured order, not color sensing. Run the parity example with Magnet mode.</small>
               </article>
             </div>
