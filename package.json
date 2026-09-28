@@ -1,0 +1,40 @@
+{
+  "name": "mg400-virtual-training-simulator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/copy-pyodide-assets.mjs && vite --host 127.0.0.1",
+    "prebuild": "node scripts/copy-pyodide-assets.mjs",
+    "build": "tsc -b && vite build",
+    "release:check": "node scripts/check-public-release.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --pool=threads --maxWorkers=1 --testTimeout=15000",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "4.7.0",
+    "lucide-react": "1.48.0",
+    "monaco-editor": "0.57.0",
+    "pyodide": "314.0.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1",
+    "urdf-loader": "0.13.1",
+    "wasmoon": "1.16.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "30.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}

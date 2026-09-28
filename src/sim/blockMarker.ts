@@ -1,0 +1,63 @@
+import {
+  BoxGeometry,
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  Shape,
+  MeshStandardMaterial,
+  ShapeGeometry,
+} from "three";
+import { BLOCK_SIZE_MM, type BlockColor } from "../domain";
+import { MODEL_PALETTE } from "./modelPalette";
+
+const MARKER_COLOR = "#152326";
+
+/** Creates the unchanged 40 × 40 × 15 mm teaching block with a visible local +X arrow. */
+export function createReferenceBlock(color: BlockColor = "neutral"): Mesh<BoxGeometry, MeshStandardMaterial> {
+  const blockColor = color === "black" ? "#202629" : color === "white" ? "#eef4ef" : MODEL_PALETTE.block;
+  const block = new Mesh(
+    new BoxGeometry(BLOCK_SIZE_MM.x, BLOCK_SIZE_MM.y, BLOCK_SIZE_MM.z),
+    new MeshStandardMaterial({ color: blockColor, roughness: 0.46, metalness: 0.03 }),
+  );
+  block.name = `${color} 40 x 40 x 15 mm reference block`;
+
+  const arrow = new Shape();
+  arrow.moveTo(-15, -2);
+  arrow.lineTo(5, -2);
+  arrow.lineTo(5, -5);
+  arrow.lineTo(14, 0);
+  arrow.lineTo(5, 5);
+  arrow.lineTo(5, 2);
+  arrow.lineTo(-15, 2);
+  arrow.closePath();
+  const geometry = new ShapeGeometry(arrow);
+  const material = new MeshBasicMaterial({
+    color: MARKER_COLOR,
+    side: DoubleSide,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+  });
+
+  const top = new Mesh(geometry, material);
+  top.name = "Block orientation arrow on top (+X)";
+  top.position.z = BLOCK_SIZE_MM.z / 2 + 0.25;
+  top.userData.directionAxis = "+X";
+  block.add(top);
+
+  // Side marks stay visible when the magnet hides the block's top face.
+  for (const side of [-1, 1] as const) {
+    const sideArrow = new Mesh(geometry, material);
+    sideArrow.name = `Block orientation arrow on ${side < 0 ? "-Y" : "+Y"} side (+X)`;
+    sideArrow.rotation.x = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+    sideArrow.position.y = side * (BLOCK_SIZE_MM.y / 2 + 0.25);
+    sideArrow.userData.directionAxis = "+X";
+    block.add(sideArrow);
+  }
+
+  block.userData.orientationMarker = {
+    meaning: "The arrow points along the block's local +X direction.",
+    color: MARKER_COLOR,
+  };
+  return block;
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+.vercel/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+.scratch/issue23-local-tools/
+.scratch/
