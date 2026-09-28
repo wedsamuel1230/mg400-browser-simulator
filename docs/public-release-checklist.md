@@ -16,4 +16,12 @@ Before publishing, verify the vendor MG400 ROS `LICENSE` remains beside its nine
 
 The candidate includes `vercel.json` for the static SPA fallback and `.github/workflows/release-smoke.yml` for `npm ci`, full tests, typecheck, build, and the public asset gate. These prepare release automation; they do not publish or deploy.
 
-Current asset decision: **safe to proceed to a separate publication review**; no publication or deployment was made during this audit. Exact owner meshes remain prohibited from bundling.
+Current asset decision: **safe to proceed to a separate publication review**; exact owner meshes remain prohibited from bundling.
+
+## 2026-09-29 publication execution
+
+- Public GitHub repository: https://github.com/wedsamuel1230/mg400-browser-simulator
+- First public release commit: `8de3d568f93d4677f66413f405237166aaefd544`
+- GitHub visibility and `main` contents were verified through the GitHub API. The tree contains no `.scratch`, `.env`, `dist`, `fork.stl`, or `magnet.stl` paths.
+- `npm run release:check` passed before the commit. The repository contains the MIT root license, the pinned vendor model license, SPA `vercel.json`, and the release smoke workflow.
+- Vercel deployment remains **blocked in this execution environment**. No `vercel` CLI is installed; `npx vercel` could not retrieve or start the CLI, and the exposed Vercel MCP deploy endpoint returned `Tool deploy_to_vercel not found`. No deployment URL or deployment ID is claimed, and no retry was made after the ambiguous CLI attempt.

@@ -6,6 +6,12 @@ A local-only Dobot MG400 virtual training simulator is implemented in this proje
 
 This report captures the implementation outcomes for the [Wayfinder task map](../.scratch/mg400-virtual-training-simulator/map.md). Product files, source provenance, and the Lua compatibility boundary are documented in the linked project README and guides.
 
+## Public release execution (2026-09-29)
+
+The public GitHub repository is live at https://github.com/wedsamuel1230/mg400-browser-simulator (public, `main`, commit `8de3d568f93d4677f66413f405237166aaefd544`). GitHub API inspection confirmed that `.scratch`, `.env`, `dist`, and the unknown-rights `fork.stl`/`magnet.stl` files are absent. `npm run release:check` passed before publication.
+
+Vercel deployment was not completed: the local CLI was unavailable and the exposed Vercel deploy connector returned `Tool deploy_to_vercel not found`; `npx vercel` did not start successfully. No deployment URL or deployment ID is recorded, and the release remains open for a Vercel-authenticated execution environment. The source remains safe to deploy without an API key or unknown-rights tool mesh.
+
 The bilingual [student guide](student-guide.md) and [instructor guide](instructor-guide.md) describe the current course release, classroom flow, tool differences, key/privacy behavior, and simulation boundaries.
 
 ## Task outcomes
