@@ -23,6 +23,22 @@ function getSwatchColors(label: string) {
 describe("RobotViewport color guide", () => {
   afterEach(cleanup);
 
+  it("localizes the canvas and simulation region for Traditional Chinese", async () => {
+    render(<RobotViewport
+      joints={[0, 0, 0, 0]}
+      project={DEFAULT_PROJECT}
+      blockPosition={{ x: 360, y: -80 }}
+      attached={false}
+      target={null}
+      cameraResetToken={0}
+      uiLanguage="zh-Hant"
+    />);
+
+    expect(screen.getByRole("region", { name: "互動式 MG400 三維模擬" })).toBeInTheDocument();
+    expect(screen.getByLabelText("MG400 機械臂、工作台及工件")).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector(".viewport-overlay")).toBeNull());
+  });
+
   it("renders swatches from the same colors used by the robot, tool, TCP, target, and block", async () => {
     render(<RobotViewport
       joints={[0, 0, 0, 0]}

@@ -163,6 +163,7 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 .accuracy-badge > span { background: #73cfb9; box-shadow: 0 0 7px #5cbaaa; }
 .viewport-shell { position: relative; min-height: 0; overflow: hidden; border: 1px solid #2a393b; border-radius: 12px; background: #10171a; box-shadow: inset 0 0 60px #071012, 0 10px 28px #05090a90; }
 .robot-canvas { display: block; width: 100%; height: 100%; outline: none; }
+.robot-canvas:focus-visible { outline: 3px solid #ffe09d; outline-offset: -3px; }
 .viewport-hud { position: absolute; z-index: 2; display: flex; align-items: center; gap: 7px; pointer-events: none; }
 .viewport-hud-top { top: 13px; left: 14px; }
 .viewport-hud-bottom { right: 15px; bottom: 13px; left: 15px; justify-content: space-between; }

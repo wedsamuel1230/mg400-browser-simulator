@@ -238,7 +238,19 @@ export default function App() {
     subtitle: "MG400 虛擬訓練工作格", title: "取放 · 訓練工作格 01", local: "僅限本機", training: "訓練中心", lesson: "開始第 1 課",
     guided: "訓練模式", free: "自由模式", import: "匯入專案", export: "匯出專案", chooseLesson: "選課", loadExample: "載入範例", run: "執行程式", seeResult: "查看結果",
     tool: "工具與取件", everyday: "日常操作", advanced: "進階設定", calibration: "校準、容差及模型匯入",
-  } : { subtitle: "MG400 VIRTUAL TRAINING CELL", title: "Pick & place · Training cell 01", local: "LOCAL ONLY", training: "Training", lesson: "Start lesson 1", guided: "Training mode", free: "Free mode", import: "Import project", export: "Export project", chooseLesson: "Choose a lesson", loadExample: "Load example", run: "Run program", seeResult: "See result", tool: "Tool & pickup", everyday: "Everyday controls", advanced: "Advanced settings", calibration: "Calibration, tolerance and model import" };
+    language: "切換介面語言", pause: "暫停模擬", resume: "繼續模擬", stop: "停止模擬", resetRobot: "重設機械臂與工作格",
+    teachPoints: "示教點", jointPoint: "儲存關節點", deletePoint: "刪除示教點", jogControls: "點動及示教點控制",
+    cartesianStep: "笛卡兒點動步距（毫米）", jointStep: "關節點動步距（度）",
+    modelLoadHeading: "MG400 模型載入失敗",
+    modelLoadDetail: "無法載入隨附的 MG400 運動學模型。",
+  } : {
+    subtitle: "MG400 VIRTUAL TRAINING CELL", title: "Pick & place · Training cell 01", local: "LOCAL ONLY", training: "Training", lesson: "Start lesson 1", guided: "Training mode", free: "Free mode", import: "Import project", export: "Export project", chooseLesson: "Choose a lesson", loadExample: "Load example", run: "Run program", seeResult: "See result", tool: "Tool & pickup", everyday: "Everyday controls", advanced: "Advanced settings", calibration: "Calibration, tolerance and model import",
+    language: "Switch interface language", pause: "Pause simulation", resume: "Resume simulation", stop: "Stop simulation", resetRobot: "Reset robot pose and cell",
+    teachPoints: "Teach points", jointPoint: "Save a joint point", deletePoint: "Delete teach point", jogControls: "Jog and point controls",
+    cartesianStep: "Cartesian jog step in millimetres", jointStep: "Joint jog step in degrees",
+    modelLoadHeading: "MG400 model failed to load",
+    modelLoadDetail: "Could not load the bundled MG400 kinematic model.",
+  };
   const [trainingLessonId, setTrainingLessonId] = useState<string | null>(null);
   const [localToolMeshes, setLocalToolMeshes] = useState<LocalToolMeshes>({});
   const [toolMeshMessage, setToolMeshMessage] = useState("Using freely distributable teaching placeholders; local meshes are optional and stay in this browser.");
@@ -957,12 +969,12 @@ export default function App() {
             <button className={`mode-toggle ${!freeMode ? "active" : ""}`} onClick={() => { if (freeMode) toggleFreeMode(); }} aria-pressed={!freeMode}>{ui.guided}</button>
             <button className={`mode-toggle ${freeMode ? "active" : ""}`} onClick={() => { if (!freeMode) toggleFreeMode(); }} aria-pressed={freeMode}>{ui.free}</button>
           </div>
-          <button className="language-switch" onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")} aria-label="Switch interface language">{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>
+          <button className="language-switch" onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")} aria-label={ui.language}>{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>
           <input ref={fileInputRef} name="project-file" type="file" accept="application/json,.json" className="visually-hidden" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
         </div>
       </header>
 
-      <section className={`commandbar${!showWorkshop ? " guided-quiet" : ""}`} aria-label="Simulation controls">
+      <section className={`commandbar${!showWorkshop ? " guided-quiet" : ""}`} aria-label={uiLanguage === "zh-Hant" ? "模擬控制" : "Simulation controls"}>
         <div className="run-actions">
           <button ref={runButtonRef} className="run-button" onClick={startRun} disabled={!canRun || preflight.kind === "error"} title="Run the program currently shown in the editor in this local simulator.">
             {kinematics ? <Play size={16} fill="currentColor" /> : <LoaderCircle size={16} className="spin" />}
@@ -970,11 +982,11 @@ export default function App() {
           </button>
           {runLessonCue && <span className="run-lesson-cue" role="status">{uiLanguage === "zh-Hant" ? "範例已載入，按此執行並查看結果。" : "Example loaded. Run it to see the result."}</span>}
           {hasCurrentRun && latestPrintOutput !== null && <span className="run-result-output" role="status" aria-live="polite" title={latestPrintOutput}>{uiLanguage === "zh-Hant" ? "輸出：" : "Output: "}{latestPrintOutput}</span>}
-          <button className="control-button" onClick={pauseOrResume} disabled={status !== "running" && status !== "paused"} aria-label={status === "paused" ? "Resume simulation" : "Pause simulation"} title={status === "paused" ? "Resume" : "Pause"}>
+          <button className="control-button" onClick={pauseOrResume} disabled={status !== "running" && status !== "paused"} aria-label={status === "paused" ? ui.resume : ui.pause} title={status === "paused" ? ui.resume : ui.pause}>
             {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
           </button>
-          <button className="control-button stop-control" onClick={stopRun} disabled={status !== "running" && status !== "paused"} aria-label="Stop simulation" title="Stop"><Square size={15} fill="currentColor" /></button>
-          <button className="control-button" onClick={resetRobot} title="Reset robot pose and cell" aria-label="Reset robot"><RotateCcw size={16} /></button>
+          <button className="control-button stop-control" onClick={stopRun} disabled={status !== "running" && status !== "paused"} aria-label={ui.stop} title={ui.stop}><Square size={15} fill="currentColor" /></button>
+          <button className="control-button" onClick={resetRobot} title={ui.resetRobot} aria-label={ui.resetRobot}><RotateCcw size={16} /></button>
         </div>
         <div className={`status-pill status-${status.toLowerCase()}`}><span className="status-indicator" />{runtimeLabel}</div>
         <div className={`run-preflight run-preflight-${preflight.kind}`} role="status" aria-live="polite"><span aria-hidden="true">{preflight.kind === "pass" ? "✓" : "!"}</span><strong>{preflight.kind === "pass" ? (uiLanguage === "zh-Hant" ? "可以執行" : "Ready") : (uiLanguage === "zh-Hant" ? "執行前檢查" : "Preflight")}</strong><span>{preflight.text}</span></div>
@@ -993,7 +1005,7 @@ export default function App() {
         <button className="workshop-toggle" onClick={() => setShowWorkshop((show) => !show)} aria-expanded={showWorkshop}>{showWorkshop ? (uiLanguage === "zh-Hant" ? "收起程式與控制" : "Hide code and controls") : (uiLanguage === "zh-Hant" ? "打開程式與控制" : "Open code and controls")} <ChevronDown size={15} className={showWorkshop ? "chevron-open" : ""} /></button>
       </section>}
 
-      {modelError && <div className="model-warning"><AlertCircle size={16} /> {modelError}</div>}
+      {modelError && <div className="model-warning" role="alert" aria-live="assertive"><AlertCircle size={16} /><strong>{ui.modelLoadHeading}</strong><span>{modelError === "Could not load the bundled MG400 kinematic model." ? ui.modelLoadDetail : modelError}</span></div>}
 
         <div className={`workspace-grid${coachOpen ? " has-coach" : ""}${freeMode ? " free-active" : ""}${!freeMode && !showWorkshop ? " guided-focus" : ""}${freeMode && !showWorkshop ? " free-focus" : ""}`}>
         {freeModeTopPanel}
@@ -1070,10 +1082,10 @@ export default function App() {
               <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "示教點" : "Teach points"}</h2><small>{uiLanguage === "zh-Hant" ? "儲存機械臂移動目標" : "Saved targets for robot moves"}</small></div></div>
               <div className="point-actions">
                 <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current"}</button>
-                <button className="small-icon-button" onClick={addJointPoint} title="Teach current joint angles" aria-label="Teach a joint point" disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
+              <button className="small-icon-button" onClick={addJointPoint} title={ui.jointPoint} aria-label={ui.jointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
               </div>
             </div>
-            <div className="point-list" role="listbox" aria-label="Teach points">
+            <div className="point-list" role="listbox" aria-label={ui.teachPoints}>
               {project.points.map((point) => {
                 const pointPosition = getPointPose(point, kinematics, project);
                 return (
@@ -1103,7 +1115,7 @@ export default function App() {
               {project.points.length === 0 && <div className="empty-state">{uiLanguage === "zh-Hant" ? "尚未儲存示教點。移動機械臂，再示教目前位置。" : "No saved points yet. Jog the robot, then teach its current position."}</div>}
             </div>
             {selectedPoint && <div className="point-editor">
-              <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? "Joint target" : "Cartesian target"}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> Go to</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`Delete ${selectedPoint.name}`} title="Delete point"><Trash2 size={14} /></button></div></div>
+              <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節目標" : "Joint target") : (uiLanguage === "zh-Hant" ? "笛卡兒目標" : "Cartesian target")}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "前往" : "Go to"}</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`${ui.deletePoint} ${selectedPoint.name}`} title={ui.deletePoint}><Trash2 size={14} /></button></div></div>
               {selectedPoint.kind === "cartesian" ? <div className="point-fields four-fields">
                 <NumericField label="X" value={selectedPoint.pose.x} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("x", value)} />
                 <NumericField label="Y" value={selectedPoint.pose.y} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("y", value)} />
@@ -1117,7 +1129,7 @@ export default function App() {
           </section>
 
           <section className="panel console-panel">
-            <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title="Clear run log" aria-label="Clear run log"><Trash2 size={14} /></button></div>
+            <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"} aria-label={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"}><Trash2 size={14} /></button></div>
             <div className="console-entries" aria-live="polite">
               {logs.slice(0, 4).map((entry) => <div className={`console-entry log-${entry.level}`} key={entry.id}><span className="log-time">{entry.time}</span><span>{entry.message}</span></div>)}
               {logs.length === 0 && <span className="console-empty">{uiLanguage === "zh-Hant" ? "程式訊息會顯示於此。" : "Program messages will appear here."}</span>}
@@ -1179,7 +1191,7 @@ export default function App() {
             <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
 
-          <section className="telemetry-strip" aria-label="Current robot position">
+          <section className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>
             <div className="telemetry-title"><span className="telemetry-pulse" />{uiLanguage === "zh-Hant" ? "TCP 位置" : "TCP POSITION"}</div>
             <div className="telemetry-values"><span>X <strong>{format(pose.x)}</strong><small>mm</small></span><span>Y <strong>{format(pose.y)}</strong><small>mm</small></span><span>Z <strong>{format(pose.z)}</strong><small>mm</small></span><span>R <strong>{format(pose.r)}</strong><small>°</small></span></div>
             <div className="telemetry-separator" />
@@ -1188,7 +1200,7 @@ export default function App() {
 
           <section className="panel motion-panel">
             <div className="motion-panel-header">
-              <div className="segmented-tabs" role="tablist" aria-label="Jog and point controls">
+              <div className="segmented-tabs" role="tablist" aria-label={ui.jogControls}>
                 <button
                   id="teach-motion-tab"
                   className={selectedTab === "points" ? "active-tab" : ""}
@@ -1232,17 +1244,17 @@ export default function App() {
               <div className="reference-note"><span className="block-swatch" /><span className="block-size">Block {format(BLOCK_SIZE_MM.x, 0)} × {format(BLOCK_SIZE_MM.y, 0)} × {format(BLOCK_SIZE_MM.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> block-local +X</span><span className="note-divider" /><span className="reference-tool-guidance">{project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO`}</span></div>
             </div> : <div className="motion-content jog-content" id="jog-motion-panel" role="tabpanel" aria-labelledby="jog-motion-tab">
               <div className="jog-group cartesian-jog">
-                <div className="jog-group-title"><Crosshair size={14} /> CARTESIAN <label>step <input aria-label="Cartesian jog step in millimetres" type="number" min="1" max="100" value={jogStep} disabled={busy} onChange={(event) => setJogStep(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /> mm</label></div>
+                <div className="jog-group-title"><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "笛卡兒座標" : "CARTESIAN"} <label>{uiLanguage === "zh-Hant" ? "步距" : "step"} <input aria-label={ui.cartesianStep} type="number" min="1" max="100" value={jogStep} disabled={busy} onChange={(event) => setJogStep(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /> mm</label></div>
                 <div className="jog-button-grid">
-                  <span /><button aria-label="Jog X positive" onClick={() => jogCartesian("x", jogStep)} disabled={busy}><ArrowRight size={16} /> X+</button><span />
-                  <button aria-label="Jog Y positive" onClick={() => jogCartesian("y", jogStep)} disabled={busy}><ArrowUp size={16} /> Y+</button><button className="jog-center" onClick={resetRobot} disabled={busy}><RotateCcw size={14} /></button><button aria-label="Jog Y negative" onClick={() => jogCartesian("y", -jogStep)} disabled={busy}><ArrowDown size={16} /> Y−</button>
-                  <span /><button aria-label="Jog X negative" onClick={() => jogCartesian("x", -jogStep)} disabled={busy}><ArrowLeft size={16} /> X−</button><span />
+                  <span /><button aria-label={uiLanguage === "zh-Hant" ? "沿 X 正方向點動" : "Jog X positive"} onClick={() => jogCartesian("x", jogStep)} disabled={busy}><ArrowRight size={16} /> X+</button><span />
+                  <button aria-label={uiLanguage === "zh-Hant" ? "沿 Y 正方向點動" : "Jog Y positive"} onClick={() => jogCartesian("y", jogStep)} disabled={busy}><ArrowUp size={16} /> Y+</button><button className="jog-center" onClick={resetRobot} disabled={busy} aria-label={ui.resetRobot} title={ui.resetRobot}><RotateCcw size={14} /></button><button aria-label={uiLanguage === "zh-Hant" ? "沿 Y 負方向點動" : "Jog Y negative"} onClick={() => jogCartesian("y", -jogStep)} disabled={busy}><ArrowDown size={16} /> Y−</button>
+                  <span /><button aria-label={uiLanguage === "zh-Hant" ? "沿 X 負方向點動" : "Jog X negative"} onClick={() => jogCartesian("x", -jogStep)} disabled={busy}><ArrowLeft size={16} /> X−</button><span />
                 </div>
-                <div className="vertical-jog"><button onClick={() => jogCartesian("z", jogStep)} aria-label="Jog Z positive" disabled={busy}>Z+ <ArrowUp size={15} /></button><button onClick={() => jogCartesian("z", -jogStep)} aria-label="Jog Z negative" disabled={busy}>Z− <ArrowDown size={15} /></button><button onClick={() => jogCartesian("r", 5)} aria-label="Rotate R positive" disabled={busy}>R+ 5°</button><button onClick={() => jogCartesian("r", -5)} aria-label="Rotate R negative" disabled={busy}>R− 5°</button></div>
+                <div className="vertical-jog"><button onClick={() => jogCartesian("z", jogStep)} aria-label={uiLanguage === "zh-Hant" ? "沿 Z 正方向點動" : "Jog Z positive"} disabled={busy}>Z+ <ArrowUp size={15} /></button><button onClick={() => jogCartesian("z", -jogStep)} aria-label={uiLanguage === "zh-Hant" ? "沿 Z 負方向點動" : "Jog Z negative"} disabled={busy}>Z− <ArrowDown size={15} /></button><button onClick={() => jogCartesian("r", 5)} aria-label={uiLanguage === "zh-Hant" ? "正向旋轉 R 5 度" : "Rotate R positive"} disabled={busy}>R+ 5°</button><button onClick={() => jogCartesian("r", -5)} aria-label={uiLanguage === "zh-Hant" ? "反向旋轉 R 5 度" : "Rotate R negative"} disabled={busy}>R− 5°</button></div>
               </div>
               <div className="jog-group joint-jog">
-                <div className="jog-group-title"><Activity size={14} /> JOINTS <label>step <input aria-label="Joint jog step in degrees" type="number" min="1" max="30" value={jointStep} disabled={busy} onChange={(event) => setJointStep(Math.max(1, Math.min(30, Number(event.target.value) || 1)))} /> °</label></div>
-                <div className="joint-jog-list">{joints.map((joint, index) => <div className="joint-jog-row" key={index}><span>J{index + 1}</span><button aria-label={`Jog J${index + 1} negative`} onClick={() => jogJoint(index, -1)} disabled={busy}>−</button><div className="joint-meter"><span style={{ width: `${Math.max(0, Math.min(100, ((deg(joint) - JOINT_LIMITS_DEG[index].min) / (JOINT_LIMITS_DEG[index].max - JOINT_LIMITS_DEG[index].min)) * 100))}%` }} /></div><strong>{format(deg(joint), 0)}°</strong><button aria-label={`Jog J${index + 1} positive`} onClick={() => jogJoint(index, 1)} disabled={busy}>+</button></div>)}</div>
+                <div className="jog-group-title"><Activity size={14} /> {uiLanguage === "zh-Hant" ? "關節" : "JOINTS"} <label>{uiLanguage === "zh-Hant" ? "步距" : "step"} <input aria-label={ui.jointStep} type="number" min="1" max="30" value={jointStep} disabled={busy} onChange={(event) => setJointStep(Math.max(1, Math.min(30, Number(event.target.value) || 1)))} /> °</label></div>
+                <div className="joint-jog-list">{joints.map((joint, index) => <div className="joint-jog-row" key={index}><span>J{index + 1}</span><button aria-label={uiLanguage === "zh-Hant" ? `J${index + 1} 負方向點動` : `Jog J${index + 1} negative`} onClick={() => jogJoint(index, -1)} disabled={busy}>−</button><div className="joint-meter"><span style={{ width: `${Math.max(0, Math.min(100, ((deg(joint) - JOINT_LIMITS_DEG[index].min) / (JOINT_LIMITS_DEG[index].max - JOINT_LIMITS_DEG[index].min)) * 100))}%` }} /></div><strong>{format(deg(joint), 0)}°</strong><button aria-label={uiLanguage === "zh-Hant" ? `J${index + 1} 正方向點動` : `Jog J${index + 1} positive`} onClick={() => jogJoint(index, 1)} disabled={busy}>+</button></div>)}</div>
               </div>
             </div>}
             {showToolSettings && <div className="tool-settings-content">

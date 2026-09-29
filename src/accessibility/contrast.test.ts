@@ -39,4 +39,12 @@ describe("small UI text contrast", () => {
     const background = declarationFor(".numeric-input-wrap input:disabled", "background");
     expect(contrastRatio(color, background)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("gives the keyboard-placement canvas a visible high-contrast focus ring", () => {
+    const rule = styles.match(/\.robot-canvas:focus-visible\s*\{([^}]*)\}/);
+    expect(rule?.[1]).toMatch(/outline:\s*3px solid #ffe09d/i);
+    const color = rule?.[1].match(/outline:\s*3px solid (#[\da-f]{6})/i)?.[1];
+    expect(color).toBeDefined();
+    expect(contrastRatio(color!, "#10171a")).toBeGreaterThanOrEqual(3);
+  });
 });
