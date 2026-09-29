@@ -88,6 +88,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
   return (
     <div className="viewport-shell" role="region" aria-label="Interactive 3D MG400 simulation">
       <canvas ref={canvasRef} tabIndex={placementArmed ? 0 : -1} className={`robot-canvas${placementArmed ? " placement-armed" : ""}`} aria-label={placementArmed ? (uiLanguage === "zh-Hant" ? "已聚焦工作台；方向鍵移動，Enter 放置，Escape 取消" : "Worktable focused; arrows move, Enter places, Escape cancels") : "3D MG400 robot, work table, and block"} />
+      {placementArmed && <div className="placement-hud" role="status"><strong>{uiLanguage === "zh-Hant" ? "工作台擺放模式" : "Table placement mode"}</strong><span>{uiLanguage === "zh-Hant" ? "點擊工作台放置；方向鍵移動，Enter 確認，Escape 取消。" : "Click the table to place; arrows move, Enter confirms, Escape cancels."}</span><button type="button" onClick={onTableCancel}>{uiLanguage === "zh-Hant" ? "取消／返回物件" : "Cancel / back to object"}</button></div>}
       <div className="viewport-hud viewport-hud-top">
         <div className="hud-chip"><span className="live-dot" /> {uiLanguage === "zh-Hant" ? "即時模擬" : "LIVE SIMULATION"}</div>
         <div className="hud-chip muted-chip">{uiLanguage === "zh-Hant" ? "毫米 · 度 · Z 向上" : "MM · DEG · Z-UP"}</div>

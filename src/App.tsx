@@ -331,7 +331,11 @@ export default function App() {
         setSaved(true);
       } catch (error) {
         setSaved(false);
-        addLog(error instanceof Error ? error.message : "Could not save the local project.", "error");
+        const message = error instanceof Error ? error.message : "Could not save the local project.";
+        const localized = uiLanguage === "zh-Hant" && message.includes("Cell object position is outside")
+          ? "工作格物件位置超出支援範圍（X/Y ±500 mm、Z 0–300 mm）。請調整座標。"
+          : message;
+        addLog(localized, "error");
       }
     }, 250);
     return () => window.clearTimeout(handle);

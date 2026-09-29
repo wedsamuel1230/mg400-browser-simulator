@@ -671,6 +671,10 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 .free-mode-top { grid-column: 1 / -1; grid-row: 1; }
 .robot-canvas.placement-armed { cursor: crosshair; }
 .placement-active { border-color: #e0ad60; color: #ffe2ad; background: #3a2d1d; }
+.placement-hud { position: absolute; z-index: 5; top: 14px; left: 14px; right: 14px; display: grid; gap: 4px; max-width: min(520px, calc(100% - 28px)); padding: 11px 13px; border: 1px solid #e0ad60; border-radius: 9px; color: #fff1c9; background: #302719ed; box-shadow: 0 5px 18px #0008; }
+.placement-hud strong { font-size: 15px; }
+.placement-hud span { font-size: 13px; line-height: 1.45; }
+.placement-hud button { justify-self: start; min-height: 34px; border: 1px solid #e0ad60; border-radius: 6px; padding: 0 10px; color: #ffe8b3; background: #42351f; cursor: pointer; }
 .workspace-grid.free-active { grid-template-rows: auto 1fr; }
 .workspace-grid.free-active > .left-workspace,
 .workspace-grid.free-active > .right-workspace { grid-row: 2; }
