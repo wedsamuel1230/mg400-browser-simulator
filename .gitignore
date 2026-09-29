@@ -9,3 +9,5 @@ dist/
 !.env.example
 .scratch/issue23-local-tools/
 .scratch/
+.vercel
+.env*
