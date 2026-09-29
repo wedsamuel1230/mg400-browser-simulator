@@ -24,7 +24,7 @@ export function resetCell(project: ProjectDocument): ProjectDocument {
       ...project.scene,
       blocks,
       feederOrder: project.scene.initialBlocks.filter((block) => block.source === "feeder").map((block) => block.id),
-      block: { ...blocks[0].position },
+      block: { ...(blocks[0]?.position ?? project.scene.block) },
     },
   };
 }
@@ -44,7 +44,7 @@ export function setCellBlockColor(block: CellBlock, color: BlockColor): CellBloc
 }
 
 export function validateCellBlocks(blocks: CellBlock[], feederOrder: string[]): void {
-  if (blocks.length < 1 || blocks.length > 32) throw new Error("Cell must contain between 1 and 32 blocks.");
+  if (blocks.length > 32) throw new Error("Cell must contain at most 32 blocks.");
   const ids = new Set<string>();
   for (const block of blocks) {
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(block.id) || ids.has(block.id)) throw new Error("Cell block IDs must be unique lowercase identifiers.");

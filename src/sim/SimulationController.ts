@@ -27,6 +27,7 @@ export type ControllerEvents = {
   setDigitalOutput: (index: number, value: boolean) => void;
   setStatus: (status: RunStatus) => void;
   addLog: (message: string, level: "info" | "warning" | "error") => void;
+  setPrintOutput?: (message: string) => void;
 };
 
 export class SimulationController {
@@ -166,6 +167,7 @@ export class SimulationController {
         this.replyState(message.requestId, message.state);
         break;
       case "print":
+        this.events.setPrintOutput?.(message.message);
         this.events.addLog(message.message, message.level);
         break;
       case "script-complete":

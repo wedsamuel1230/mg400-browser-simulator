@@ -61,15 +61,15 @@ export const LESSONS: Lesson[] = [
     outcome: { en: "Use the selected language's comment, named value, and print statement without moving the robot.", "zh-Hant": "學會所選語言的註解、命名變數及 print 指令，全程不會移動機械臂。" },
     prerequisite: { en: "None. Start here if this is your first time coding.", "zh-Hant": "無。如果你第一次寫程式，請由此開始。" },
     explanation: [
-      { en: "A program runs from top to bottom. A comment is a note for people that the language skips: Lua starts one with `--`; Python starts one with `#`. The next line gives text a name (`local greeting = ...` in Lua; `greeting = ...` in Python), and `print(greeting)` shows it in the Run output.", "zh-Hant": "程式會由上而下執行。註解是給人看的提示，程式會略過：Lua 用 `--` 開始註解；Python 用 `#`。下一行為文字命名（Lua 寫 `local greeting = ...`；Python 寫 `greeting = ...`），而 `print(greeting)` 會在 Run 輸出區顯示文字。" },
+      { en: "A program runs from top to bottom. A comment is a note for people that the language skips: Lua starts one with `--`; Python starts one with `#`. The next line gives text a name (`local greeting = ...` in Lua; `greeting = ...` in Python), and `print(greeting)` shows it in the Run output.", "zh-Hant": "程式會由上而下執行。註解是給人看的提示，程式會略過：Lua 用 `--` 開始註解；Python 用 `#`。下一行為文字命名（Lua 寫 `local greeting = ...`；Python 寫 `greeting = ...`），而 `print(greeting)` 會在 執行記錄區顯示文字。" },
       { en: "In both examples, `=` stores a value. Both languages later use `==` to compare values; Lua closes `if` and loop blocks with `end`, while Python uses indentation. You do not need those ideas to run this first example.", "zh-Hant": "兩個範例都用 `=` 儲存數值。兩種語言之後都會用 `==` 比較數值；Lua 用 `end` 結束 `if` 和迴圈區塊，Python 則用縮排。本範例暫時不需要這些概念。" },
       { en: "In this simulator, Lua is the MG400 training language, limited to the documented simulator subset. Python is for this simulator only; its code cannot run on a physical Dobot controller. Lua and Python keep separate editor programs, and the lesson example always follows the selected language tab.", "zh-Hant": "本模擬器以 Lua 作 MG400 訓練語言，但只支援已列明的模擬器子集。Python 只供本模擬器使用，程式不能在實體 Dobot 控制器執行。Lua 和 Python 的編輯器程式分開儲存；課程範例會跟隨目前選取的語言分頁。" },
-      { en: "This text-only lesson example has no robot commands and needs no API key. The editor may still contain the full pick-and-place demo. Run executes the program in the editor, not the example preview in this lesson. Loading this example asks you to confirm before it replaces the editor contents.", "zh-Hant": "本課的文字範例沒有機械臂指令，也不需 API key。編輯器可能仍有完整取放示範程式。Run 會執行編輯器內的程式，不會執行課程中的預覽範例。載入本範例前，系統會先請你確認才替換編輯器內容。" },
+      { en: "This text-only lesson example has no robot commands and needs no API key. The editor may still contain the full pick-and-place demo. Run executes the program in the editor, not the example preview in this lesson. Loading this example asks you to confirm before it replaces the editor contents.", "zh-Hant": "本課的文字範例沒有機械臂指令，也不需 API key。編輯器可能仍有完整取放示範程式。「執行編輯器程式」會執行編輯器內的程式，不會執行課程中的預覽範例。載入本範例前，系統會先請你確認才替換編輯器內容。" },
     ],
     guidedSteps: [
       { en: "Read the three lines in the selected-language example and find which one is a note, which one saves text, and which one displays it.", "zh-Hant": "閱讀所選語言的三行程式，找出哪行是註解、哪行儲存文字，以及哪行負責顯示文字。" },
-      { en: "To practise, choose Load this example… and confirm the replacement. Until you load it, Run will execute the current editor program, not the lesson preview. You can also skip running and just read the example.", "zh-Hant": "如要練習，請按「載入此範例…」並確認替換。在載入之前，Run 會執行編輯器目前的程式，而非課堂預覽；你亦可以跳過執行，只閱讀範例。" },
-      { en: "After loading the example, change the words inside the quotes and press Run. Check that only the printed message changes while the virtual robot stays still.", "zh-Hant": "載入範例後，修改引號內的文字再按 Run。確認只有輸出的訊息改變，而虛擬機械臂保持不動。" },
+      { en: "To practise, choose Load this example… and confirm the replacement. Until you load it, Run will execute the current editor program, not the lesson preview. You can also skip running and just read the example.", "zh-Hant": "如要練習，請按「載入此範例…」並確認替換。在載入之前，「執行編輯器程式」會執行編輯器目前的程式，而非課堂預覽；你亦可以跳過執行，只閱讀範例。" },
+      { en: "After loading the example, change the words inside the quotes and press Run. Check that only the printed message changes while the virtual robot stays still.", "zh-Hant": "載入範例後，修改引號內的文字再按「執行編輯器程式」。確認只有輸出的訊息改變，而虛擬機械臂保持不動。" },
     ],
     practice: { en: "After loading the lesson example, change the message to introduce yourself, run it, and explain in one sentence what `print` did.", "zh-Hant": "載入課堂範例後，把訊息改成自我介紹，再執行並用一句話說明 `print` 做了甚麼。" },
     examples: {
@@ -80,9 +80,9 @@ export const LESSONS: Lesson[] = [
       {
         en: "What does `print(greeting)` do in this example?",
         "zh-Hant": "在本範例中，`print(greeting)` 會做甚麼？",
-        options: { en: ["Save new text", "Display the greeting in Run output", "Move the robot arm"], "zh-Hant": ["儲存新文字", "在 Run 輸出區顯示問候文字", "移動機械臂"] },
+        options: { en: ["Save new text", "Display the greeting in Run output", "Move the robot arm"], "zh-Hant": ["儲存新文字", "在 執行記錄區顯示問候文字", "移動機械臂"] },
         answer: 1,
-        explanation: { en: "`print` writes the value to the Run output. The example has no motion command.", "zh-Hant": "`print` 會把變數內容寫到 Run 輸出區。本範例沒有機械臂移動指令。" },
+        explanation: { en: "`print` writes the value to the Run output. The example has no motion command.", "zh-Hant": "`print` 會把變數內容寫到 執行記錄區。本範例沒有機械臂移動指令。" },
       },
     ],
   },
@@ -95,13 +95,13 @@ export const LESSONS: Lesson[] = [
     outcome: { en: "Run one MovJ command to move to the active tool's saved PickApproach point; it does not contact or pick the block.", "zh-Hant": "執行一個 MovJ 指令，移至目前工具已儲存的 PickApproach 接近點；不會接觸或拾起方塊。" },
     prerequisite: { en: "Complete or review the first print program. This runs only in the simulator, not on a physical MG400.", "zh-Hant": "先完成或重溫第一個 print 程式。本課只會在模擬器移動，不會控制實體 MG400。" },
     explanation: [
-      { en: "PickApproach and PickPoint are saved Cartesian TCP poses. In the Teach panel, Teach pick pair creates or refreshes them for the active tool and current block. A point name lets code refer to a pose without typing its coordinates.", "zh-Hant": "PickApproach 和 PickPoint 是已儲存的笛卡兒 TCP 姿態。在 Teach 面板按 Teach pick pair，便會按目前工具及方塊位置建立或更新兩個教點。程式可用名稱引用姿態，毋須輸入座標。" },
+      { en: "PickApproach and PickPoint are saved Cartesian TCP poses. In the Teach panel, Teach pick pair creates or refreshes them for the active tool and current block. A point name lets code refer to a pose without typing its coordinates.", "zh-Hant": "PickApproach 和 PickPoint 是已儲存的笛卡兒 TCP 姿態。在「示教點面板」按 「示教拾取點組」，便會按目前工具及方塊位置建立或更新兩個教點。程式可用名稱引用姿態，毋須輸入座標。" },
       { en: "MovJ moves the TCP to the named approach pose, and Sync waits for that queued move to finish. This is a single simulated move: it contains no DO, Pick, Place, or straight-line insertion command, and does not pick up the block.", "zh-Hant": "MovJ 會把 TCP 移至指定接近姿態，而 Sync 會等待佇列中的移動完成。這只是一個模擬移動：沒有 DO、Pick、Place 或直線插入指令，也不會拾起方塊。" },
-      { en: "The configured TCP is 60 mm along +X from the flange and can be changed in Tool & pickup. The magnet's taught approach is above the block. The passive, unpowered fork's entry point is 60 mm before the block at its raised support height, Z=20 mm. This first move goes only to that approach pose; it does not insert, lift, or pick up anything.", "zh-Hant": "目前設定的 TCP 位於法蘭 +X 方向 60 mm，可在 Tool & pickup 修改。磁吸工具的接近點位於方塊上方；無動力叉臂的入口點則位於方塊前方 60 mm、Z=20 mm 抬高承托面。本次只移至接近姿態，不會插入、抬起或拾取任何物件。" },
+      { en: "The configured TCP is 60 mm along +X from the flange and can be changed in Tool & pickup. The magnet's taught approach is above the block. The passive, unpowered fork's entry point is 60 mm before the block at its raised support height, Z=20 mm. This first move goes only to that approach pose; it does not insert, lift, or pick up anything.", "zh-Hant": "目前設定的 TCP 位於法蘭 +X 方向 60 mm，可在 「工具與取件」 修改。磁吸工具的接近點位於方塊上方；無動力叉臂的入口點則位於方塊前方 60 mm、Z=20 mm 抬高承托面。本次只移至接近姿態，不會插入、抬起或拾取任何物件。" },
     ],
     guidedSteps: [
-      { en: "Close Training Center to return to the workspace. Your current lesson and completed course progress stay saved; the selected tool and taught points save automatically with this local project. In the Teach panel, select Magnet pickup or Fork pickup and click Teach pick pair. Choose Training in the top bar to resume this lesson; PickApproach will match the selected tool.", "zh-Hant": "先關閉訓練中心返回工作區。本課位置及已完成進度會保留；所選工具和教點會自動儲存到本機專案。在 Teach 面板選擇 Magnet pickup 或 Fork pickup，再按 Teach pick pair。按頂部的 Training 即可繼續本課；PickApproach 會配合所選工具。" },
-      { en: "Load this lesson's example and confirm the selected Lua or Python editor replacement. Then press Run editor code; the command uses the saved point, not the preview text in this lesson.", "zh-Hant": "載入本課範例，並確認替換目前選取的 Lua 或 Python 編輯器內容。然後按 Run editor code；指令會使用已儲存教點，不會執行課堂內的預覽文字。" },
+      { en: "Close Training Center to return to the workspace. Your current lesson and completed course progress stay saved; the selected tool and taught points save automatically with this local project. In the Teach panel, select Magnet pickup or Fork pickup and click Teach pick pair. Choose Training in the top bar to resume this lesson; PickApproach will match the selected tool.", "zh-Hant": "先關閉訓練中心返回工作區。本課位置及已完成進度會保留；所選工具和教點會自動儲存到本機專案。在「示教點面板」選擇 「磁吸拾取」 或 「叉臂拾取」，再按 「示教拾取點組」。按頂部的「訓練中心」 即可繼續本課；PickApproach 會配合所選工具。" },
+      { en: "Load this lesson's example and confirm the selected Lua or Python editor replacement. Then press Run editor code; the command uses the saved point, not the preview text in this lesson.", "zh-Hant": "載入本課範例，並確認替換目前選取的 Lua 或 Python 編輯器內容。然後按 「執行編輯器程式」；指令會使用已儲存教點，不會執行課堂內的預覽文字。" },
       { en: "Watch the TCP marker and position move to PickApproach. Sync waits until the move finishes. The block stays where it is; no pickup is attempted.", "zh-Hant": "觀察 TCP 標記及位置移至 PickApproach。Sync 會等待移動完成。方塊會留在原位；程式不會嘗試拾取。" },
       { en: "Try the other tool mode: close the lesson, select that tool, teach the pick pair, reopen the lesson, and run the same example. Compare the TCP display. This is a kinematic simulation and does not check collision clearance.", "zh-Hant": "試用另一種工具模式：關閉課堂、選擇另一工具、教取件點、重新開啟本課，再執行相同範例並比較 TCP 讀數。這是運動學模擬，沒有檢查碰撞間隙。" },
     ],
@@ -134,7 +134,7 @@ export const LESSONS: Lesson[] = [
     ],
     guidedSteps: [
       { en: "Read the example and predict which message appears when blockHeight is 15.", "zh-Hant": "閱讀範例，預測 blockHeight 為 15 時會顯示哪個訊息。" },
-      { en: "Change blockHeight to 10, then 5. Predict each result before pressing Run, then compare with the output. Notice that Lua uses then/end while Python uses a colon and indentation.", "zh-Hant": "把 blockHeight 改成 10，再改成 5。每次按 Run 前先預測結果，再對照輸出。留意 Lua 用 then／end，而 Python 用冒號及縮排。" },
+      { en: "Change blockHeight to 10, then 5. Predict each result before pressing Run, then compare with the output. Notice that Lua uses then/end while Python uses a colon and indentation.", "zh-Hant": "把 blockHeight 改成 10，再改成 5。每次按「執行編輯器程式」 前先預測結果，再對照輸出。留意 Lua 用 then／end，而 Python 用冒號及縮排。" },
       { en: "Change one comparison, such as > to >=. Explain which value now enters a different branch; keep this practice free of robot commands.", "zh-Hant": "把其中一個比較符號由 > 改為 >=，說明哪個數值現在會進入不同分支；本練習先不要加入機械臂指令。" },
     ],
     practice: { en: "Write an if/else that prints “ready” when blockHeight is at least 10 and “check height” otherwise. Test both results with print-only code.", "zh-Hant": "寫一個 if／else：blockHeight 大於或等於 10 時輸出「ready」，否則輸出「check height」。用只含 print 的程式測試兩個結果。" },
@@ -213,8 +213,8 @@ export const LESSONS: Lesson[] = [
     ],
     guidedSteps: [
       { en: "Find TCP POSITION under the 3D view and note the unit labels.", "zh-Hant": "在 3D 視窗下方找出 TCP POSITION，留意各欄的單位。" },
-      { en: "Open Jog, make a small X or Y move, then compare the readout with the grid.", "zh-Hant": "開啟 Jog，沿 X 或 Y 軸小幅移動，再對照讀數與網格。" },
-      { en: "Open Tool & pickup and inspect the configured TCP offset and pickup tolerance.", "zh-Hant": "打開 Tool & pickup，查看 TCP 偏移及取件容差。" },
+      { en: "Open Jog, make a small X or Y move, then compare the readout with the grid.", "zh-Hant": "開啟 點動，沿 X 或 Y 軸小幅移動，再對照讀數與網格。" },
+      { en: "Open Tool & pickup and inspect the configured TCP offset and pickup tolerance.", "zh-Hant": "打開 「工具與取件」，查看 TCP 偏移及取件容差。" },
     ],
     practice: { en: "For each tool mode, state the block-centre height and the correct pickup/contact height. Explain why the magnet and passive fork use different target heights.", "zh-Hant": "分別寫出兩種工具模式下的方塊中心高度及取件／接觸高度，並解釋磁吸工具與無動力叉臂為何使用不同目標高度。" },
     examples: {
@@ -252,7 +252,7 @@ export const LESSONS: Lesson[] = [
     ],
     guidedSteps: [
       { en: "Select a taught point and inspect its X/Y/Z/R fields.", "zh-Hant": "選取一個教點，查看 X/Y/Z/R 欄位。" },
-      { en: "Jog the simulated arm, then use Teach current pose to save a new Cartesian point.", "zh-Hant": "Jog 模擬機械臂，再按 Teach current pose 儲存新的笛卡兒教點。" },
+      { en: "Jog the simulated arm, then use Teach current pose to save a new Cartesian point.", "zh-Hant": "點動 模擬機械臂，再按 「示教目前位置」 儲存新的笛卡兒教點。" },
       { en: "Compare the program's MovJ and MovL examples; run only targets inside the modeled workspace.", "zh-Hant": "比較程式中的 MovJ 與 MovL 範例；只執行位於模擬工作範圍內的目標。" },
     ],
     practice: { en: "Teach a point named SafeAbove, set its Z above the block, and describe why a straight-line approach is useful before pickup.", "zh-Hant": "教一個名為 SafeAbove 的點，將 Z 設於方塊上方，並說明取件前採用直線接近的好處。" },
@@ -329,9 +329,9 @@ export const LESSONS: Lesson[] = [
       { en: "Here DO(1, ON) and DO(1, OFF) map to the simulator's logical magnet attach/release actions. The 3D block follows the configured TCP transform; this is not force, vacuum, contact, or grasp physics.", "zh-Hant": "此模擬器把 DO(1, ON) 及 DO(1, OFF) 映射成磁吸工具的邏輯附上／釋放動作。3D 方塊會跟隨設定的 TCP 變換，並非力度、真空、接觸或抓取物理模擬。" },
     ],
     guidedSteps: [
-      { en: "Select Magnet pickup, then use Teach pick pair and Teach place pair to create the contact and approach points.", "zh-Hant": "選擇 Magnet pickup，再按 Teach pick pair 及 Teach place pair 建立接觸點及接近點。" },
+      { en: "Select Magnet pickup, then use Teach pick pair and Teach place pair to create the contact and approach points.", "zh-Hant": "選擇 「磁吸拾取」，再按 「示教拾取點組」 及 「示教放置點組」 建立接觸點及接近點。" },
       { en: "Keep the descent and retreat as MovL. Use DO(1, ON) only after reaching the magnet contact point; release with DO(1, OFF) at the place point.", "zh-Hant": "以 MovL 作下降及撤離。到達磁吸接觸點後才執行 DO(1, ON)；到達放置點後用 DO(1, OFF) 釋放。" },
-      { en: "Run the reference program and inspect the success messages in Run log.", "zh-Hant": "執行示範程式，並在 Run log 查看成功訊息。" },
+      { en: "Run the reference program and inspect the success messages in Run log.", "zh-Hant": "執行示範程式，並在 「執行記錄」 查看成功訊息。" },
     ],
     practice: { en: "Move the drop point, regenerate its taught pair, then describe which action actually attaches the block and which merely moves it.", "zh-Hant": "移動放置位置、重新教出放置點組合，再說明哪個指令會附上方塊，哪些指令只負責移動。" },
     examples: {
@@ -370,7 +370,7 @@ export const LESSONS: Lesson[] = [
       { en: "This is a software simulation rule: the block is rigidly attached in the scene. It does not calculate magnetic force, slipping, collisions, or a real robot's tool calibration.", "zh-Hant": "這是軟件模擬規則：場景中的方塊會以剛性方式附在工具上。本模擬不計算磁力、滑動、碰撞或實體機械臂的工具校準。" },
     ],
     guidedSteps: [
-      { en: "Select Magnet pickup and confirm that PickPoint/PickApproach and PlacePoint/PlaceApproach are taught for the current cell.", "zh-Hant": "選擇 Magnet pickup，並確認 PickPoint／PickApproach 及 PlacePoint／PlaceApproach 已按目前工作站教好。" },
+      { en: "Select Magnet pickup and confirm that PickPoint/PickApproach and PlacePoint/PlaceApproach are taught for the current cell.", "zh-Hant": "選擇 「磁吸拾取」，並確認 PickPoint／PickApproach 及 PlacePoint／PlaceApproach 已按目前工作站教好。" },
       { en: "Load the example for the selected language. Read it from top to bottom: the block attaches first, then rises, then the tool turns +90° while carrying the block.", "zh-Hant": "載入所選語言的範例，由上而下閱讀：先附上方塊，再抬高，然後才攜帶方塊把工具轉 +90°。" },
       { en: "Run the simulation and watch the dark arrow. It should turn while the block is attached, remain turned on the travel to PlacePoint, and stop changing when DO1 releases the block.", "zh-Hant": "執行模擬並觀察深色箭嘴。方塊附在工具上時箭嘴應隨工具旋轉；移往 PlacePoint 時保持轉後方向；DO1 釋放後則不再跟隨手腕改變。" },
     ],
@@ -411,7 +411,7 @@ export const LESSONS: Lesson[] = [
     guidedSteps: [
       { en: "Configure three pickup blocks and teach PickPoint, PlaceApproach, and PlacePoint at the tower zone.", "zh-Hant": "設定三個取件方塊，並在方塔區教 PickPoint、PlaceApproach 及 PlacePoint。" },
       { en: "Load the finite-loop example and verify DO1 turns on only after the descent and off after each release.", "zh-Hant": "載入有限循環範例，確認 DO1 只在下降後開啟，並在每次釋放後關閉。" },
-      { en: "Run and watch each arrow rotate while attached; Reset robot restores the source arrangement.", "zh-Hant": "執行並觀察每支箭嘴在附著期間旋轉；Reset robot 會還原來源排列。" },
+      { en: "Run and watch each arrow rotate while attached; Reset robot restores the source arrangement.", "zh-Hant": "執行並觀察每支箭嘴在附著期間旋轉；「重設機械臂」 會還原來源排列。" },
     ],
     practice: { en: "Change the loop count to two, predict the highest layer, then restore three.", "zh-Hant": "把循環次數改為兩次，預測最高層，再還原為三次。" },
     examples: {
@@ -439,9 +439,9 @@ export const LESSONS: Lesson[] = [
       { en: "Every DO1 ON follows pickup alignment and every white turn follows the safe lift. After sorting, the unload pass picks stored output blocks and places them in the unload zone.", "zh-Hant": "每次 DO1 ON 都在對準取件後執行，白色旋轉必須在安全抬高後執行。分類後，卸載流程會拾取已存放的輸出方塊並放到卸載區。" },
     ],
     guidedSteps: [
-      { en: "Read Feeder order in Tool & pickup and keep four feeder blocks configured as black → white → black → white.", "zh-Hant": "閱讀 Tool & pickup 的 Feeder order，並保持四個供料方塊為黑 → 白 → 黑 → 白。" },
+      { en: "Read Feeder order in Tool & pickup and keep four feeder blocks configured as black → white → black → white.", "zh-Hant": "閱讀 「工具與取件」 的 Feeder order，並保持四個供料方塊為黑 → 白 → 黑 → 白。" },
       { en: "Use index % 2 to select the black or white bin; rotate only the white branch after lifting the attached block.", "zh-Hant": "用 index % 2 選擇黑箱或白箱；只在附著方塊抬高後於白色分支旋轉。" },
-      { en: "Run the unload pass and Reset robot to restore all four feeder blocks.", "zh-Hant": "執行卸載流程，再按 Reset robot 還原四個供料方塊。" },
+      { en: "Run the unload pass and Reset robot to restore all four feeder blocks.", "zh-Hant": "執行卸載流程，再按 「重設機械臂」 還原四個供料方塊。" },
     ],
     practice: { en: "Swap the two bin coordinates and predict the final positions without changing the feeder order.", "zh-Hant": "交換兩個箱的座標，預測最終位置而不改變供料次序。" },
     examples: {
@@ -469,7 +469,7 @@ export const LESSONS: Lesson[] = [
       { en: "Lowering the supported block back onto the three pads at the drop zone releases it. DO1 is an ordinary virtual output and does not control the fork or the block.", "zh-Hant": "在放置區把方塊降回三個承托墊便會釋放。DO1 只是一般虛擬輸出，不會控制叉臂或方塊。" },
     ],
     guidedSteps: [
-      { en: `Select Fork pickup. Teach PickPoint at the block centre on the ${FORK_SUPPORT_HEIGHT_MM} mm support plane, then teach PickApproach 60 mm before it along tool -X at the same height.`, "zh-Hant": `選擇 Fork pickup。在方塊承托面 Z=${FORK_SUPPORT_HEIGHT_MM} mm 教 PickPoint，再沿工具 -X 方向、同一高度、於其前方 60 mm 教 PickApproach。` },
+      { en: `Select Fork pickup. Teach PickPoint at the block centre on the ${FORK_SUPPORT_HEIGHT_MM} mm support plane, then teach PickApproach 60 mm before it along tool -X at the same height.`, "zh-Hant": `選擇 「叉臂拾取」。在方塊承托面 Z=${FORK_SUPPORT_HEIGHT_MM} mm 教 PickPoint，再沿工具 -X 方向、同一高度、於其前方 60 mm 教 PickApproach。` },
       { en: "Use MovL from PickApproach to PickPoint to slide beneath the block. Then lift in +Z; the fork picks the block automatically.", "zh-Hant": "用 MovL 從 PickApproach 水平滑至 PickPoint，再沿 +Z 抬起；叉臂會自動拾起方塊。" },
       { en: "Move to PlaceApproach, lower with MovL until the block rests on the support pads, then lift clear. Watch it release without any DO command.", "zh-Hant": "移至 PlaceApproach，再用 MovL 降至方塊放回承托墊的位置，然後向上離開；觀察方塊在沒有任何 DO 指令下釋放。" },
     ],
@@ -549,11 +549,11 @@ export const LESSONS: Lesson[] = [
     outcome: { en: "Diagnose common program failures and explain what evidence is still required before physical robot use.", "zh-Hant": "診斷常見程式錯誤，並說明實際操作機械臂前仍欠缺哪些驗證。" },
     prerequisite: { en: "Complete the Foundation and Intermediate tracks, or use them as a review.", "zh-Hant": "完成初階及中階課程，或按需要重溫。" },
     explanation: [
-      { en: "A visible error can come from a malformed point, an unsupported option, a target outside the modeled joint/workspace limits, or a pick outside the tolerance zone. Read the first run-log error and fix one cause at a time.", "zh-Hant": "可見錯誤可能源自教點格式不正確、不支援的選項、目標超出模擬關節／工作範圍，或取件位置超出容差。先讀取 Run log 第一個錯誤，再一次修正一個原因。" },
+      { en: "A visible error can come from a malformed point, an unsupported option, a target outside the modeled joint/workspace limits, or a pick outside the tolerance zone. Read the first run-log error and fix one cause at a time.", "zh-Hant": "可見錯誤可能源自教點格式不正確、不支援的選項、目標超出模擬關節／工作範圍，或取件位置超出容差。先讀取 「執行記錄」 第一個錯誤，再一次修正一個原因。" },
       { en: "This is a local kinematic training simulator using vendor URDF/STL geometry. It has no physical calibration, accurate dynamics, force/contact sensing, safety-rated collision detection, robot telemetry, or hardware command path. A successful animation does not validate a real cell.", "zh-Hant": "這是以原廠 URDF/STL 幾何建立的本機運動學教學模擬器。它沒有實體校準、精確動力學、力度／接觸感測、具安全認證的碰撞偵測、機械臂遙測或硬件控制路徑。動畫成功不代表實體工作站已驗證。" },
     ],
     guidedSteps: [
-      { en: "Temporarily set a point outside the workspace and run it; read the error in Run log.", "zh-Hant": "暫時把教點設到工作範圍以外並執行，在 Run log 閱讀錯誤。" },
+      { en: "Temporarily set a point outside the workspace and run it; read the error in Run log.", "zh-Hant": "暫時把教點設到工作範圍以外並執行，在 「執行記錄」 閱讀錯誤。" },
       { en: "Use Stop during motion and confirm the robot holds its current simulated pose.", "zh-Hant": "移動途中按 Stop，確認機械臂維持當前模擬姿態。" },
       { en: "Restore a valid point, run the reference cycle, and export a project copy for your instructor.", "zh-Hant": "還原有效教點、執行示範流程，並匯出專案副本交給導師。" },
     ],
@@ -565,7 +565,7 @@ export const LESSONS: Lesson[] = [
     questions: [
       {
         en: "A run-log message says the target is outside the modeled workspace. What is the right first response?",
-        "zh-Hant": "Run log 顯示目標超出模擬工作範圍，第一步應怎樣做？",
+        "zh-Hant": "「執行記錄」 顯示目標超出模擬工作範圍，第一步應怎樣做？",
         options: { en: ["Inspect the target and joint/TCP setup, then choose a valid modeled point", "Assume the real robot can safely reach it", "Disable all checks and publish the code"], "zh-Hant": ["檢查目標及關節／TCP 設定，再選擇有效模擬點", "假設實體機械臂一定安全可達", "關閉所有檢查並發布程式"] },
         answer: 0,
         explanation: { en: "The error diagnoses this model's reachability; it is not proof about any particular physical robot or installation.", "zh-Hant": "錯誤說明的是這個模型中的可達性，並非任何特定實體機械臂或安裝的安全證明。" },

@@ -79,7 +79,10 @@ export class SimulatorScene {
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(560, -720, 520);
     this.camera.lookAt(150, 0, 115);
-    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false });
+    // Keep the last frame available to embedded-browser screenshot/readback paths.
+    // Some WebKit/Electron and browser automation compositors otherwise capture
+    // only the cleared WebGL back buffer even while the scene itself is rendered.
+    this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
@@ -313,7 +316,9 @@ export class SimulatorScene {
     const isFork = state.project.tool.mode === "fork";
     this.forkFixtures.visible = isFork;
     const cellBlocks = state.project.scene.blocks ?? [];
-    for (const block of cellBlocks.slice(1)) {
+    const baseBlock = cellBlocks[0]?.kind === "puck" ? undefined : cellBlocks[0];
+    this.block.visible = Boolean(baseBlock);
+    for (const block of (baseBlock ? cellBlocks.slice(1) : cellBlocks)) {
       let mesh = this.additionalBlocks.get(block.id);
       if (!mesh) {
         mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color);
@@ -336,7 +341,7 @@ export class SimulatorScene {
     this.pickupStand.rotation.z = this.pointRotation(state.project, "PickPoint");
     this.dropStand.rotation.z = this.pointRotation(state.project, "PlacePoint");
     const attachedMesh = state.attachedCellBlockId
-      ? this.additionalBlocks.get(state.attachedCellBlockId) ?? this.block
+      ? (baseBlock?.id === state.attachedCellBlockId ? this.block : this.additionalBlocks.get(state.attachedCellBlockId) ?? this.block)
       : this.block;
     if (state.attached) {
       if (attachedMesh !== this.block && this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
@@ -345,13 +350,15 @@ export class SimulatorScene {
       const centerDelta = isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2;
       attachedMesh.position.set(offset.x, offset.y, offset.z + centerDelta);
       attachedMesh.rotation.set(0, 0, 0);
-      if (attachedMesh !== this.block) this.block.visible = true;
-    } else {
+      if (attachedMesh !== this.block && baseBlock) this.block.visible = true;
+    } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
-      const position = state.blockPosition;
+      const position = baseBlock.position ?? state.blockPosition;
       const supportHeight = isFork ? FORK_SUPPORT_HEIGHT_MM : 0;
-      this.block.position.set(position.x, position.y, supportHeight + (cellBlocks[0]?.stackLevel ?? 0) * BLOCK_SIZE_MM.z + BLOCK_SIZE_MM.z / 2);
-      this.block.rotation.z = rad(cellBlocks[0]?.r ?? 0);
+      this.block.position.set(position.x, position.y, supportHeight + (baseBlock.stackLevel ?? 0) * BLOCK_SIZE_MM.z + BLOCK_SIZE_MM.z / 2);
+      this.block.rotation.z = rad(baseBlock.r);
+    } else {
+      this.block.visible = false;
     }
     if (state.target) {
       this.target.visible = true;

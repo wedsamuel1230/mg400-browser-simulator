@@ -61,7 +61,7 @@ import { TrainingCenter } from "./training/TrainingCenter";
 import type { ProgramLanguage } from "./domain";
 import { recommendPickAndPlace, recommendedProgram } from "./sim/codeRecommendation";
 import { FORK_INSERTION_DISTANCE_MM, forkEntryPose } from "./sim/forkTool";
-import { resetCell } from "./sim/multiBlockCell";
+import { DEFAULT_CELL_BLOCKS, resetCell } from "./sim/multiBlockCell";
 import { CodeAssistant } from "./CodeAssistant";
 import { getRovingFocusIndex } from "./accessibility/rovingFocus";
 import { isLikelyStl } from "./sim/toolImport";
@@ -215,6 +215,7 @@ export default function App() {
   const [modelError, setModelError] = useState("");
   const [status, setStatus] = useState<RunStatus>("ready");
   const [lastRunContext, setLastRunContext] = useState<string | null>(null);
+  const [latestPrintOutput, setLatestPrintOutput] = useState<string | null>(null);
   const [programRunLog, setProgramRunLog] = useState<LogEntry[]>([]);
   const activeProgramRunRef = useRef(false);
   const [logs, setLogs] = useState<LogEntry[]>([
@@ -223,6 +224,9 @@ export default function App() {
   const [outputs, setOutputs] = useState<Record<number, boolean>>({ 1: false });
   const [saved, setSaved] = useState(true);
   const [showToolSettings, setShowToolSettings] = useState(false);
+  const [showWorkshop, setShowWorkshop] = useState(false);
+  const [runLessonCue, setRunLessonCue] = useState(false);
+  const runButtonRef = useRef<HTMLButtonElement>(null);
   const [showTraining, setShowTraining] = useState(false);
   const [freeMode, setFreeMode] = useState(() => window.localStorage.getItem(FREE_MODE_KEY) === "true");
   const [freeSelectedId, setFreeSelectedId] = useState<string | null>(null);
@@ -232,8 +236,9 @@ export default function App() {
   const guidedSceneRef = useRef<ProjectDocument["scene"] | null>(null);
   const ui = uiLanguage === "zh-Hant" ? {
     subtitle: "MG400 虛擬訓練工作格", title: "取放 · 訓練工作格 01", local: "僅限本機", training: "訓練中心", lesson: "開始第 1 課",
-    guided: "訓練模式", free: "自由模式", import: "匯入專案", export: "匯出專案",
-  } : { subtitle: "MG400 VIRTUAL TRAINING CELL", title: "Pick & place · Training cell 01", local: "LOCAL ONLY", training: "Training", lesson: "Start lesson 1", guided: "Training mode", free: "Free mode", import: "Import project", export: "Export project" };
+    guided: "訓練模式", free: "自由模式", import: "匯入專案", export: "匯出專案", chooseLesson: "選課", loadExample: "載入範例", run: "執行程式", seeResult: "查看結果",
+    tool: "工具與取件", everyday: "日常操作", advanced: "進階設定", calibration: "校準、容差及模型匯入",
+  } : { subtitle: "MG400 VIRTUAL TRAINING CELL", title: "Pick & place · Training cell 01", local: "LOCAL ONLY", training: "Training", lesson: "Start lesson 1", guided: "Training mode", free: "Free mode", import: "Import project", export: "Export project", chooseLesson: "Choose a lesson", loadExample: "Load example", run: "Run program", seeResult: "See result", tool: "Tool & pickup", everyday: "Everyday controls", advanced: "Advanced settings", calibration: "Calibration, tolerance and model import" };
   const [trainingLessonId, setTrainingLessonId] = useState<string | null>(null);
   const [localToolMeshes, setLocalToolMeshes] = useState<LocalToolMeshes>({});
   const [toolMeshMessage, setToolMeshMessage] = useState("Using freely distributable teaching placeholders; local meshes are optional and stay in this browser.");
@@ -300,7 +305,9 @@ export default function App() {
   const preflight = useMemo(() => {
     const source = programText.split("\n").map((line) => line.replace(/(?:--|#).*$/, "")).join("\n");
     const poweredAction = /\b(?:DO|Pick|Place)\s*\(/i.test(source);
+    const motionAction = /\b(?:MovJ|MovL|JointMovJ|RelMovL|mov_j|mov_l|joint_mov_j|rel_mov_l|sync|Sync)\s*\(/i.test(source);
     if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "被動叉臂不能使用 DO、Pick 或 Place；請改用滑入 → 抬高 → 放下流程。" : "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
+    if (!motionAction && !poweredAction) return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? "這段程式只輸出文字，不需要工具或教點；可直接執行。" : "This program only prints text; no tool or teach points are needed." };
     if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "磁吸執行前檢查：找不到 DO1 吸附指令；純移動程式仍可執行，但不會預期完成取件。" : "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
     if (!recommendation.ready) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "執行前檢查：請先示教標示的 Home、取件或放置點。" : "Setup preflight: teach the highlighted Home, pick, or place points before running." };
     return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? `${project.tool.mode === "fork" ? "被動叉臂" : "磁吸工具"} 模式符合模擬器檢查。` : `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
@@ -347,6 +354,15 @@ export default function App() {
     controllerRef.current?.stop(false);
     controllerRef.current = undefined;
   }, []);
+
+  useEffect(() => {
+    if (!runLessonCue || !showWorkshop) return;
+    const frame = window.requestAnimationFrame(() => {
+      runButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      runButtonRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [runLessonCue, showWorkshop]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -415,12 +431,14 @@ export default function App() {
           if (next === "complete" || next === "stopped" || next === "error") queueMicrotask(() => { activeProgramRunRef.current = false; });
         },
         addLog,
+        setPrintOutput: setLatestPrintOutput,
       });
     }
     return controllerRef.current;
   }
 
   function startRun() {
+    setRunLessonCue(false);
     if (preflight.kind === "error") {
       addLog(preflight.text, "error");
       return;
@@ -428,6 +446,7 @@ export default function App() {
     const controller = getController();
     if (!controller) return;
     activeProgramRunRef.current = true;
+    setLatestPrintOutput(null);
     setProgramRunLog([]);
     attachedRef.current = false;
     setAttached(false);
@@ -823,6 +842,8 @@ export default function App() {
       }
       if (guided) replaceProject((current) => ({ ...current, scene: structuredClone(guided) }));
       setFreeMode(false);
+      setShowWorkshop(false);
+      setRunLessonCue(false);
       setPlacementArmed(false);
       setPlacementMessage("");
       window.localStorage.setItem(FREE_MODE_KEY, "false");
@@ -831,14 +852,21 @@ export default function App() {
     }
     guidedSceneRef.current = structuredClone(projectRef.current.scene);
     try { window.localStorage.setItem(GUIDED_SCENE_KEY, JSON.stringify(guidedSceneRef.current)); } catch { /* local persistence is best effort */ }
-    let freeScene = projectRef.current.scene;
+    let freeScene: ProjectDocument["scene"] = { ...projectRef.current.scene, blocks: [], initialBlocks: [], feederOrder: [] };
     try {
       const savedFreeScene = window.localStorage.getItem(FREE_SCENE_KEY);
-      if (savedFreeScene) freeScene = JSON.parse(savedFreeScene) as ProjectDocument["scene"];
+      if (savedFreeScene) {
+        const parsed = JSON.parse(savedFreeScene) as ProjectDocument["scene"];
+        const isLegacyUneditedSeed = JSON.stringify(parsed.blocks) === JSON.stringify(DEFAULT_CELL_BLOCKS)
+          && JSON.stringify(parsed.initialBlocks) === JSON.stringify(DEFAULT_CELL_BLOCKS);
+        if (!isLegacyUneditedSeed) freeScene = parsed;
+      }
     } catch { /* use the current cell when no saved Free Mode cell exists */ }
     replaceProject((current) => ({ ...current, scene: structuredClone(freeScene) }));
     setFreeSelectedId(freeScene.blocks[0]?.id ?? null);
     setFreeMode(true);
+    setShowWorkshop(false);
+    setRunLessonCue(false);
     setPlacementArmed(false);
     setPlacementMessage("");
     window.localStorage.setItem(FREE_MODE_KEY, "true");
@@ -873,11 +901,17 @@ export default function App() {
     error: uiLanguage === "zh-Hant" ? "錯誤" : "ERROR",
   }[status];
 
-  const freeModeTopPanel = freeMode ? <section className="free-mode-panel free-mode-top" aria-label="自由模式工作格">
-    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button><button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? "取消點選" : "在工作台點選擺放"}</button></div></div>
-    <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
-    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
-    <small role="status" aria-live="polite">{placementMessage || "只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。"}</small>
+  const freeModeTopPanel = freeMode ? <section className={`free-mode-panel free-mode-top${showWorkshop ? " free-mode-detailed" : ""}`} aria-label={uiLanguage === "zh-Hant" ? "自由模式工作格" : "Free mode workcell"}>
+    <div className="free-mode-heading"><div><strong>{uiLanguage === "zh-Hant" ? "自由模式 · 自訂工作格" : "Free mode · Custom cell"}</strong><span>{uiLanguage === "zh-Hant" ? "加入物件，再點工作台擺放；拖曳工作台可旋轉視角。" : "Add an object, then click the table to place it. Drag the table to orbit."}</span></div><div className="free-object-actions">
+      <button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入方塊" : "Add block"}</button>
+      <button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入磁性圓件" : "Add magnet"}</button>
+      {project.scene.blocks.length > 0 && <button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> {uiLanguage === "zh-Hant" ? "重設" : "Reset"}</button>}
+      {project.scene.blocks.length > 0 && <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>}
+      <button className="workshop-toggle" onClick={() => setShowWorkshop((show) => !show)} aria-expanded={showWorkshop}>{showWorkshop ? (uiLanguage === "zh-Hant" ? "收起程式與控制" : "Hide code and controls") : (uiLanguage === "zh-Hant" ? "打開程式與控制" : "Open code and controls")} <ChevronDown size={15} className={showWorkshop ? "chevron-open" : ""} /></button>
+    </div></div>
+    {project.scene.blocks.length > 0 && <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${block.kind === "puck" ? "puck-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">{block.kind === "puck" ? "●" : "■"}</span> {block.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40 mm 方塊" : "40 mm block")} · {block.id}</button>)}</div>}
+    {showWorkshop && (() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{selected.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40×40×15 mm 方塊" : "40×40×15 mm block")} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
+    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "工作台目前是空的；先加入方塊或磁性圓件。" : "The table is empty. Add a block or magnet puck to begin.") : (uiLanguage === "zh-Hant" ? "只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Contact follows simulator rules; magnetic force, collisions and physical stability are not modeled."))}</small>
   </section> : null;
 
   return (
@@ -897,18 +931,23 @@ export default function App() {
           <span className="top-divider" />
           <button className="start-lesson-button" onClick={() => { setTrainingLessonId("foundation-first-program"); setShowTraining(true); }} title={ui.lesson} aria-label={ui.lesson}><BookOpenCheck size={16} /><span>{ui.lesson}</span></button>
           <button className="help-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }} title={ui.training} aria-label={ui.training}><CircleHelp size={16} /><span>{ui.training}</span></button>
-          <button className={`mode-toggle ${freeMode ? "active" : ""}`} onClick={toggleFreeMode} aria-pressed={freeMode}>{freeMode ? ui.free : ui.guided}</button>
+          <div className="mode-segmented" role="group" aria-label={uiLanguage === "zh-Hant" ? "工作模式" : "Work mode"}>
+            <button className={`mode-toggle ${!freeMode ? "active" : ""}`} onClick={() => { if (freeMode) toggleFreeMode(); }} aria-pressed={!freeMode}>{ui.guided}</button>
+            <button className={`mode-toggle ${freeMode ? "active" : ""}`} onClick={() => { if (!freeMode) toggleFreeMode(); }} aria-pressed={freeMode}>{ui.free}</button>
+          </div>
           <button className="language-switch" onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")} aria-label="Switch interface language">{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>
           <input ref={fileInputRef} name="project-file" type="file" accept="application/json,.json" className="visually-hidden" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
         </div>
       </header>
 
-      <section className="commandbar" aria-label="Simulation controls">
+      <section className={`commandbar${!showWorkshop ? " guided-quiet" : ""}`} aria-label="Simulation controls">
         <div className="run-actions">
-          <button className="run-button" onClick={startRun} disabled={!canRun || preflight.kind === "error"} title="Run the program currently shown in the editor in this local simulator.">
+          <button ref={runButtonRef} className="run-button" onClick={startRun} disabled={!canRun || preflight.kind === "error"} title="Run the program currently shown in the editor in this local simulator.">
             {kinematics ? <Play size={16} fill="currentColor" /> : <LoaderCircle size={16} className="spin" />}
             <span>{uiLanguage === "zh-Hant" ? "執行編輯器程式" : "Run editor code"}</span><kbd>⌘ ↵</kbd>
           </button>
+          {runLessonCue && <span className="run-lesson-cue" role="status">{uiLanguage === "zh-Hant" ? "範例已載入，按此執行並查看結果。" : "Example loaded. Run it to see the result."}</span>}
+          {hasCurrentRun && latestPrintOutput !== null && <span className="run-result-output" role="status" aria-live="polite" title={latestPrintOutput}>{uiLanguage === "zh-Hant" ? "輸出：" : "Output: "}{latestPrintOutput}</span>}
           <button className="control-button" onClick={pauseOrResume} disabled={status !== "running" && status !== "paused"} aria-label={status === "paused" ? "Resume simulation" : "Pause simulation"} title={status === "paused" ? "Resume" : "Pause"}>
             {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
           </button>
@@ -926,9 +965,15 @@ export default function App() {
         <div className={`saved-state ${saved ? "is-saved" : "is-saving"}`}><HardDrive size={15} /><span>{uiLanguage === "zh-Hant" ? (saved ? "已儲存到本機裝置" : "儲存中…") : (saved ? "Saved on this device" : "Saving changes…")}</span></div>
       </section>
 
+      {!freeMode && <section className="first-use-guide" aria-label={uiLanguage === "zh-Hant" ? "開始訓練" : "Start training"}>
+        <div className="first-use-copy"><span className="first-use-eyebrow">{uiLanguage === "zh-Hant" ? "MG400 虛擬訓練" : "MG400 VIRTUAL PRACTICE"}</span><strong>{uiLanguage === "zh-Hant" ? "從第一課開始，先看程式輸出，再探索機械臂動作" : "Start with lesson one: see program output, then explore robot motion"}</strong><span>{uiLanguage === "zh-Hant" ? "先看程式如何輸出文字，再逐步學習機械臂移動。" : "Begin with text output, then learn how programs move the robot."}</span></div>
+        <button className="first-use-action" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }}><BookOpenCheck size={16} /> {ui.chooseLesson}</button>
+        <button className="workshop-toggle" onClick={() => setShowWorkshop((show) => !show)} aria-expanded={showWorkshop}>{showWorkshop ? (uiLanguage === "zh-Hant" ? "收起程式與控制" : "Hide code and controls") : (uiLanguage === "zh-Hant" ? "打開程式與控制" : "Open code and controls")} <ChevronDown size={15} className={showWorkshop ? "chevron-open" : ""} /></button>
+      </section>}
+
       {modelError && <div className="model-warning"><AlertCircle size={16} /> {modelError}</div>}
 
-        <div className={`workspace-grid${coachOpen ? " has-coach" : ""}${freeMode ? " free-active" : ""}`}>
+        <div className={`workspace-grid${coachOpen ? " has-coach" : ""}${freeMode ? " free-active" : ""}${!freeMode && !showWorkshop ? " guided-focus" : ""}${freeMode && !showWorkshop ? " free-focus" : ""}`}>
         {freeModeTopPanel}
         <aside className="left-workspace">
           <section className="panel code-panel">
@@ -945,6 +990,7 @@ export default function App() {
                   <Sparkles size={13} /><span>{uiLanguage === "zh-Hant" ? "AI 程式教練" : "AI coach"}</span><span className="coach-state coach-ready">{uiLanguage === "zh-Hant" ? "可選 BYOK" : "Optional BYOK"}</span>
                 </button>
                 <div className="program-language-tabs" role="group" aria-label="Programming language"><button title="Lua · MG400 training language" aria-label="Lua, MG400 training language" aria-pressed={project.programmingLanguage === "lua"} onClick={() => setProgramLanguage("lua")} disabled={busy}>Lua</button><button title="Python · simulator-only, not Dobot controller code" aria-label="Python, simulator-only and not Dobot controller code" aria-pressed={project.programmingLanguage === "python"} onClick={() => setProgramLanguage("python")} disabled={busy}>Python</button></div>
+                <button className="small-icon-button mobile-import-button" title={ui.import} aria-label={ui.import} onClick={() => fileInputRef.current?.click()} disabled={busy}><Upload size={15} /></button>
                 <button className="small-icon-button" title="Export project" onClick={downloadProject}><Download size={15} /></button>
               </div>
             </div>
@@ -1107,12 +1153,6 @@ export default function App() {
             <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>{uiLanguage === "zh-Hant" ? `供應商 URDF 幾何 · TCP 從法蘭向 X ${tcpOffsetXLabel} · ${project.tool.mode === "fork" ? `被動叉支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm · 不使用 DO` : "磁吸工具接觸方塊頂部"}` : `Vendor URDF geometry · TCP X ${tcpOffsetXLabel} from flange · ${project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}`}</p></div>
           <div className="view-header-actions"><span className="accuracy-badge"><span /> {uiLanguage === "zh-Hant" ? "運動學模擬" : "KINEMATIC SIMULATION"}</span><button className="icon-button" aria-label={uiLanguage === "zh-Hant" ? "重設相機視角" : "Reset camera view"} title={uiLanguage === "zh-Hant" ? "重設視角" : "Reset camera view"} onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
           </div>
-          {freeMode && <section className="free-mode-panel right-free-mode-panel" aria-label="自由模式工作格">
-            <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button></div></div>
-            <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
-            {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
-            <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
-          </section>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>Preparing 3D view</strong><span>Loading the interactive MG400 training cell…</span></div></div></div>}>
             <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
@@ -1162,7 +1202,7 @@ export default function App() {
                   tabIndex={selectedTab === "jog" ? 0 : -1}
                 ><Settings2 size={15} /> {uiLanguage === "zh-Hant" ? "點動" : "Jog"}</button>
               </div>
-              <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> {uiLanguage === "zh-Hant" ? "工具與取件" : "Tool & pickup"} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
+              <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> {ui.tool} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
             </div>
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
               <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>{uiLanguage === "zh-Hant" ? "從目前模擬姿勢示教" : "Teach from the current simulated pose"}</strong><span>{uiLanguage === "zh-Hant" ? <>示教點會以名稱儲存目標。示教目前位置會保存 TCP 座標；儲存關節點會保存 J1–J4 角度。程式可使用 <code>PickApproach</code>，毋須直接輸入數字。</> : <>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</>}</span></div></div>
@@ -1215,8 +1255,8 @@ export default function App() {
                       });
                       addLog(`Active end effector changed to ${mode === "magnet" ? "Magnet" : "Fork"}. Re-teach the pick and place pairs for this tool before running.`, "info");
                     }}>
-                      <option value="magnet">Magnet pickup</option>
-                      <option value="fork">Fork pickup</option>
+                      <option value="magnet">{uiLanguage === "zh-Hant" ? "磁吸拾取" : "Magnet pickup"}</option>
+                      <option value="fork">{uiLanguage === "zh-Hant" ? "叉臂拾取" : "Fork pickup"}</option>
                     </select>
                   </label>
                 </div>
@@ -1230,6 +1270,7 @@ export default function App() {
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <small className="tool-mode-note">{toolMeshMessage}</small>
                 </div>
+                <details className="advanced-tool-settings"><summary>{ui.advanced}<span>{ui.calibration}</span></summary>
                 {(["flangeOffset"] as const).map((path) => <div className="tool-setting-group" key={path}>
                   <strong className="tool-setting-group-title">Flange offset</strong>
                   <div className="tool-setting-fields">
@@ -1273,6 +1314,7 @@ export default function App() {
                   </div>)}</div>
                   <p className="tool-mode-note">Colors and feeder order are configured simulation state; no camera, color sensor, or vision claim is made.</p>
                 </div>
+                </details>
               </div>
               <div className="io-state"><span className={`io-led ${outputs[1] ? "io-on" : ""}`} /> DO1 <strong>{project.tool.mode === "magnet" ? (outputs[1] ? "ON · BLOCK ATTACHED" : "OFF · TOOL CLEAR") : (outputs[1] ? "ON · OUTPUT ONLY" : "OFF · OUTPUT ONLY")}</strong><span className="io-note">{project.tool.mode === "magnet" ? "virtual magnet output" : "not used by the passive fork"}</span></div>
               <p className="tool-mode-note">The active TCP offset is X = {tcpOffsetXLabel} from the flange; the magnet targets the block top, while the passive fork enters 60 mm before the block at support Z={FORK_SUPPORT_HEIGHT_MM} mm. Re-teach pick/place points after changing tool mode. These are simulator settings, not physical calibration.</p>
@@ -1291,6 +1333,8 @@ export default function App() {
           replaceProject((current) => language === "lua"
             ? { ...current, script: example, programmingLanguage: language }
             : { ...current, pythonScript: example, programmingLanguage: language });
+          setShowWorkshop(true);
+          setRunLessonCue(true);
           addLog(`${language === "lua" ? "Lua" : "Python"} lesson example loaded into the program editor.`, "info");
         }}
       />
