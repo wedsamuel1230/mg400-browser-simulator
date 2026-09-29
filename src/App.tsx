@@ -827,6 +827,13 @@ export default function App() {
     error: "ERROR",
   }[status];
 
+  const freeModeTopPanel = freeMode ? <section className="free-mode-panel free-mode-top" aria-label="自由模式工作格">
+    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button></div></div>
+    <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
+    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
+    <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
+  </section> : null;
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -870,12 +877,13 @@ export default function App() {
           <input id="simulation-speed" type="range" min="10" max="200" step="5" value={project.simulation.speed} disabled={busy} onChange={(event) => replaceProject((current) => ({ ...current, simulation: { speed: Number(event.target.value) } }))} />
           <output>{project.simulation.speed}%</output>
         </div>
-        <div className={`saved-state ${saved ? "is-saved" : "is-saving"}`}><HardDrive size={15} /><span>{saved ? "Saved on this device" : "Saving changes…"}</span></div>
+        <div className={`saved-state ${saved ? "is-saved" : "is-saving"}`}><HardDrive size={15} /><span>{uiLanguage === "zh-Hant" ? (saved ? "已儲存到本機裝置" : "儲存中…") : (saved ? "Saved on this device" : "Saving changes…")}</span></div>
       </section>
 
       {modelError && <div className="model-warning"><AlertCircle size={16} /> {modelError}</div>}
 
-      <div className={`workspace-grid${coachOpen ? " has-coach" : ""}`}>
+        <div className={`workspace-grid${coachOpen ? " has-coach" : ""}${freeMode ? " free-active" : ""}`}>
+        {freeModeTopPanel}
         <aside className="left-workspace">
           <section className="panel code-panel">
             <div className="panel-heading code-heading">
@@ -888,7 +896,7 @@ export default function App() {
                   aria-controls="coach-dock"
                   onClick={() => setCoachOpen((open) => !open)}
                 >
-                  <Sparkles size={13} /><span>AI coach</span><span className="coach-state coach-ready">Optional BYOK</span>
+                  <Sparkles size={13} /><span>{uiLanguage === "zh-Hant" ? "AI 程式教練" : "AI coach"}</span><span className="coach-state coach-ready">{uiLanguage === "zh-Hant" ? "可選 BYOK" : "Optional BYOK"}</span>
                 </button>
                 <div className="program-language-tabs" role="group" aria-label="Programming language"><button title="Lua · MG400 training language" aria-label="Lua, MG400 training language" aria-pressed={project.programmingLanguage === "lua"} onClick={() => setProgramLanguage("lua")} disabled={busy}>Lua</button><button title="Python · simulator-only, not Dobot controller code" aria-label="Python, simulator-only and not Dobot controller code" aria-pressed={project.programmingLanguage === "python"} onClick={() => setProgramLanguage("python")} disabled={busy}>Python</button></div>
                 <button className="small-icon-button" title="Export project" onClick={downloadProject}><Download size={15} /></button>
@@ -910,10 +918,10 @@ export default function App() {
                 />
               </Suspense>
             </div>
-            <div className="editor-footnote"><span><span className="mini-dot" /> {project.programmingLanguage === "lua" ? "Lua runs in a local Web Worker" : "Python runs in a local Pyodide Web Worker"}</span><span>Run uses this editor · simulator only</span></div>
+            <div className="editor-footnote"><span><span className="mini-dot" /> {uiLanguage === "zh-Hant" ? (project.programmingLanguage === "lua" ? "Lua 在本機 Web Worker 執行" : "Python 在本機 Pyodide Web Worker 執行") : (project.programmingLanguage === "lua" ? "Lua runs in a local Web Worker" : "Python runs in a local Pyodide Web Worker")}</span><span>{uiLanguage === "zh-Hant" ? "執行此編輯器內容 · 僅供模擬器" : "Run uses this editor · simulator only"}</span></div>
             <details className="syntax-snippets">
-              <summary>Beginner snippets · insert into {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
-              <p>Local examples need no API key. Insert one, read the explanation, then run it in the simulator.</p>
+              <summary>{uiLanguage === "zh-Hant" ? "初學者範例 · 插入" : "Beginner snippets · insert into"} {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
+              <p>{uiLanguage === "zh-Hant" ? "本機範例毋須 API key。插入範例、閱讀說明，再於模擬器執行。" : "Local examples need no API key. Insert one, read the explanation, then run it in the simulator."}</p>
               <div className="snippet-grid">
                 <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "local ready = true\nif ready then\n  print(\"ready\")\nelse\n  print(\"check setup\")\nend" : "ready = True\nif ready:\n    print(\"ready\")\nelse:\n    print(\"check setup\")")}><strong>If / else</strong><span>Choose one branch from a defined condition.</span></button>
                 <button type="button" onClick={() => insertSnippet(project.programmingLanguage === "lua" ? "for layer = 1, 3 do\n  print(\"cycle\", layer)\nend" : "for layer in range(3):\n    print(\"cycle\", layer)")}><strong>Bounded loop</strong><span>Repeat a known number of cycles.</span></button>
@@ -925,29 +933,29 @@ export default function App() {
             </details>
           </section>
 
-          <section className="panel mission-panel" aria-labelledby="mission-heading">
+          {!freeMode && <section className="panel mission-panel" aria-labelledby="mission-heading">
             <div className="panel-heading compact-heading"><div className="heading-title"><span className="heading-icon orange-icon"><Target size={17} /></span><div><h2 id="mission-heading">{uiLanguage === "zh-Hant" ? "任務卡" : "Mission cards"}</h2><small>{uiLanguage === "zh-Hant" ? "即時顯示目前工作格進度" : "Live progress from the current cell state"}</small></div></div></div>
             <div className="mission-cards">
               <article className={`mission-card ${towerBlocks.length >= 3 ? "mission-complete" : ""}`}>
-                <div className="mission-card-heading"><strong>Tower · 3 layers</strong><span>{towerBlocks.length >= 3 ? "COMPLETE" : "IN PROGRESS"}</span></div>
-                <p>Pick, attach, lift, rotate +90°, and place three marked blocks at Z=15/30/45 mm.</p>
-                <div className="mission-metrics"><span><b>{towerBlocks.length}/3</b><small>cycles/layers</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>attached</small></span><span><b>{towerBlocks.length}</b><small>placed</small></span></div>
-                <small className="mission-action">Run the finite tower example in the editor; watch each arrow rotate before release.</small>
+                <div className="mission-card-heading"><strong>{uiLanguage === "zh-Hant" ? "塔 · 3 層" : "Tower · 3 layers"}</strong><span>{towerBlocks.length >= 3 ? (uiLanguage === "zh-Hant" ? "完成" : "COMPLETE") : (uiLanguage === "zh-Hant" ? "進行中" : "IN PROGRESS")}</span></div>
+                <p>{uiLanguage === "zh-Hant" ? "拾取、吸附、升起、旋轉 +90°，再把三個有方向標記的方塊放到 Z=15/30/45 mm。" : "Pick, attach, lift, rotate +90°, and place three marked blocks at Z=15/30/45 mm."}</p>
+                <div className="mission-metrics"><span><b>{towerBlocks.length}/3</b><small>{uiLanguage === "zh-Hant" ? "循環／層" : "cycles/layers"}</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>{uiLanguage === "zh-Hant" ? "已吸附" : "attached"}</small></span><span><b>{towerBlocks.length}</b><small>{uiLanguage === "zh-Hant" ? "已放置" : "placed"}</small></span></div>
+                <small className="mission-action">{uiLanguage === "zh-Hant" ? "在編輯器執行有限塔範例；觀察每個箭頭在釋放前旋轉。" : "Run the finite tower example in the editor; watch each arrow rotate before release."}</small>
               </article>
               <article className={`mission-card ${sortUnloaded >= 4 ? "mission-complete" : ""}`}>
-                <div className="mission-card-heading"><strong>Sort · black / white</strong><span>{sortUnloaded >= 4 ? "COMPLETE" : "IN PROGRESS"}</span></div>
-                <p>Use the known feeder order black → white → black → white; white rotates +45° while attached, then unload all.</p>
-                <div className="mission-metrics"><span><b>{processedSortBlocks.length}/4</b><small>feed cycles</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>attached</small></span><span><b>{sortUnloaded}/4</b><small>unloaded</small></span></div>
-                <small className="mission-action">This is a configured order, not color sensing. Run the parity example with Magnet mode.</small>
+                <div className="mission-card-heading"><strong>{uiLanguage === "zh-Hant" ? "分類 · 黑／白" : "Sort · black / white"}</strong><span>{sortUnloaded >= 4 ? (uiLanguage === "zh-Hant" ? "完成" : "COMPLETE") : (uiLanguage === "zh-Hant" ? "進行中" : "IN PROGRESS")}</span></div>
+                <p>{uiLanguage === "zh-Hant" ? "按已知供料次序黑 → 白 → 黑 → 白；白色物件吸附時旋轉 +45°，最後全部卸下。" : "Use the known feeder order black → white → black → white; white rotates +45° while attached, then unload all."}</p>
+                <div className="mission-metrics"><span><b>{processedSortBlocks.length}/4</b><small>{uiLanguage === "zh-Hant" ? "供料循環" : "feed cycles"}</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>{uiLanguage === "zh-Hant" ? "已吸附" : "attached"}</small></span><span><b>{sortUnloaded}/4</b><small>{uiLanguage === "zh-Hant" ? "已卸下" : "unloaded"}</small></span></div>
+                <small className="mission-action">{uiLanguage === "zh-Hant" ? "這是預先設定的次序，不是顏色感測。使用磁吸工具執行奇偶範例。" : "This is a configured order, not color sensing. Run the parity example with Magnet mode."}</small>
               </article>
             </div>
-          </section>
+          </section>}
 
           <section className="panel points-panel">
             <div className="panel-heading compact-heading">
               <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "示教點" : "Teach points"}</h2><small>{uiLanguage === "zh-Hant" ? "儲存機械臂移動目標" : "Saved targets for robot moves"}</small></div></div>
               <div className="point-actions">
-                <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> Teach current</button>
+                <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current"}</button>
                 <button className="small-icon-button" onClick={addJointPoint} title="Teach current joint angles" aria-label="Teach a joint point" disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
               </div>
             </div>
@@ -978,7 +986,7 @@ export default function App() {
                   </button>
                 );
               })}
-              {project.points.length === 0 && <div className="empty-state">No saved points yet. Jog the robot, then teach its current position.</div>}
+              {project.points.length === 0 && <div className="empty-state">{uiLanguage === "zh-Hant" ? "尚未儲存示教點。移動機械臂，再示教目前位置。" : "No saved points yet. Jog the robot, then teach its current position."}</div>}
             </div>
             {selectedPoint && <div className="point-editor">
               <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? "Joint target" : "Cartesian target"}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> Go to</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`Delete ${selectedPoint.name}`} title="Delete point"><Trash2 size={14} /></button></div></div>
@@ -991,14 +999,14 @@ export default function App() {
                 {selectedPoint.joints.map((value, index) => <NumericField key={index} label={`J${index + 1}`} value={deg(value)} suffix="°" step={1} min={JOINT_LIMITS_DEG[index].min} max={JOINT_LIMITS_DEG[index].max} disabled={busy} onChange={(next) => updateJointPoint(index, next)} />)}
               </div>}
             </div>}
-            <div className="points-footer"><span><Save size={13} /> Points are stored with this project</span><span>{project.points.length} / 100</span></div>
+            <div className="points-footer"><span><Save size={13} /> {uiLanguage === "zh-Hant" ? "示教點會與專案一同儲存" : "Points are stored with this project"}</span><span>{project.points.length} / 100</span></div>
           </section>
 
           <section className="panel console-panel">
             <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title="Clear run log" aria-label="Clear run log"><Trash2 size={14} /></button></div>
             <div className="console-entries" aria-live="polite">
               {logs.slice(0, 4).map((entry) => <div className={`console-entry log-${entry.level}`} key={entry.id}><span className="log-time">{entry.time}</span><span>{entry.message}</span></div>)}
-              {logs.length === 0 && <span className="console-empty">Program messages will appear here.</span>}
+              {logs.length === 0 && <span className="console-empty">{uiLanguage === "zh-Hant" ? "程式訊息會顯示於此。" : "Program messages will appear here."}</span>}
             </div>
           </section>
         </aside>
@@ -1050,10 +1058,10 @@ export default function App() {
 
         <section className="right-workspace">
           <div className="viewport-header">
-            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>Vendor URDF geometry · TCP X {tcpOffsetXLabel} from flange · {project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}</p></div>
-          <div className="view-header-actions"><span className="accuracy-badge"><span /> KINEMATIC SIMULATION</span><button className="icon-button" aria-label="Reset camera view" title="Reset camera view" onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
+            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>{uiLanguage === "zh-Hant" ? `供應商 URDF 幾何 · TCP 從法蘭向 X ${tcpOffsetXLabel} · ${project.tool.mode === "fork" ? `被動叉支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm · 不使用 DO` : "磁吸工具接觸方塊頂部"}` : `Vendor URDF geometry · TCP X ${tcpOffsetXLabel} from flange · ${project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}`}</p></div>
+          <div className="view-header-actions"><span className="accuracy-badge"><span /> {uiLanguage === "zh-Hant" ? "運動學模擬" : "KINEMATIC SIMULATION"}</span><button className="icon-button" aria-label={uiLanguage === "zh-Hant" ? "重設相機視角" : "Reset camera view"} title={uiLanguage === "zh-Hant" ? "重設視角" : "Reset camera view"} onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
           </div>
-          {freeMode && <section className="free-mode-panel" aria-label="自由模式工作格">
+          {freeMode && <section className="free-mode-panel right-free-mode-panel" aria-label="自由模式工作格">
             <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button></div></div>
             <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
             {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
@@ -1064,7 +1072,7 @@ export default function App() {
           </Suspense>
 
           <section className="telemetry-strip" aria-label="Current robot position">
-            <div className="telemetry-title"><span className="telemetry-pulse" />TCP POSITION</div>
+            <div className="telemetry-title"><span className="telemetry-pulse" />{uiLanguage === "zh-Hant" ? "TCP 位置" : "TCP POSITION"}</div>
             <div className="telemetry-values"><span>X <strong>{format(pose.x)}</strong><small>mm</small></span><span>Y <strong>{format(pose.y)}</strong><small>mm</small></span><span>Z <strong>{format(pose.z)}</strong><small>mm</small></span><span>R <strong>{format(pose.r)}</strong><small>°</small></span></div>
             <div className="telemetry-separator" />
             <div className="joint-values">{joints.map((joint, index) => <span key={index}>J{index + 1} <strong>{format(deg(joint))}°</strong></span>)}</div>
@@ -1089,7 +1097,7 @@ export default function App() {
                   aria-selected={selectedTab === "points"}
                   aria-controls="teach-motion-panel"
                   tabIndex={selectedTab === "points" ? 0 : -1}
-                ><Target size={15} /> Teach</button>
+                ><Target size={15} /> {uiLanguage === "zh-Hant" ? "示教" : "Teach"}</button>
                 <button
                   id="jog-motion-tab"
                   className={selectedTab === "jog" ? "active-tab" : ""}
@@ -1106,13 +1114,13 @@ export default function App() {
                   aria-selected={selectedTab === "jog"}
                   aria-controls="jog-motion-panel"
                   tabIndex={selectedTab === "jog" ? 0 : -1}
-                ><Settings2 size={15} /> Jog</button>
+                ><Settings2 size={15} /> {uiLanguage === "zh-Hant" ? "點動" : "Jog"}</button>
               </div>
               <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> {uiLanguage === "zh-Hant" ? "工具與取件" : "Tool & pickup"} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
             </div>
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
-              <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>Teach from the current simulated pose</strong><span>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</span></div></div>
-              <div className="teach-controls"><button className="secondary-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> Teach current pose</button><button className="secondary-button outlined-button" onClick={addJointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> Save joint point</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("pick")} disabled={busy || project.points.length > 98}><Plus size={15} /> Teach pick pair</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("place")} disabled={busy || project.points.length > 98}><Plus size={15} /> Teach place pair</button>{selectedPoint && <button className="secondary-button outlined-button" onClick={moveToSelected} disabled={busy}><Crosshair size={15} /> Go to selected</button>}</div>
+              <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>{uiLanguage === "zh-Hant" ? "從目前模擬姿勢示教" : "Teach from the current simulated pose"}</strong><span>{uiLanguage === "zh-Hant" ? <>示教點會以名稱儲存目標。示教目前位置會保存 TCP 座標；儲存關節點會保存 J1–J4 角度。程式可使用 <code>PickApproach</code>，毋須直接輸入數字。</> : <>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</>}</span></div></div>
+              <div className="teach-controls"><button className="secondary-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current pose"}</button><button className="secondary-button outlined-button" onClick={addJointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "儲存關節點" : "Save joint point"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("pick")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教拾取點組" : "Teach pick pair"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("place")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教放置點組" : "Teach place pair"}</button>{selectedPoint && <button className="secondary-button outlined-button" onClick={moveToSelected} disabled={busy}><Crosshair size={15} /> {uiLanguage === "zh-Hant" ? "前往所選" : "Go to selected"}</button>}</div>
               <div className="reference-note"><span className="block-swatch" /><span className="block-size">Block {format(BLOCK_SIZE_MM.x, 0)} × {format(BLOCK_SIZE_MM.y, 0)} × {format(BLOCK_SIZE_MM.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> block-local +X</span><span className="note-divider" /><span className="reference-tool-guidance">{project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO`}</span></div>
             </div> : <div className="motion-content jog-content" id="jog-motion-panel" role="tabpanel" aria-labelledby="jog-motion-tab">
               <div className="jog-group cartesian-jog">
