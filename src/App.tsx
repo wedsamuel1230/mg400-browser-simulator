@@ -819,12 +819,12 @@ export default function App() {
 
   const targetPose = selectedPose;
   const runtimeLabel = {
-    ready: "READY",
-    running: "RUNNING",
-    paused: "PAUSED",
-    complete: "COMPLETE",
-    stopped: "STOPPED",
-    error: "ERROR",
+    ready: uiLanguage === "zh-Hant" ? "待命" : "READY",
+    running: uiLanguage === "zh-Hant" ? "執行中" : "RUNNING",
+    paused: uiLanguage === "zh-Hant" ? "已暫停" : "PAUSED",
+    complete: uiLanguage === "zh-Hant" ? "完成" : "COMPLETE",
+    stopped: uiLanguage === "zh-Hant" ? "已停止" : "STOPPED",
+    error: uiLanguage === "zh-Hant" ? "錯誤" : "ERROR",
   }[status];
 
   const freeModeTopPanel = freeMode ? <section className="free-mode-panel free-mode-top" aria-label="自由模式工作格">
@@ -1068,7 +1068,7 @@ export default function App() {
             <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
           </section>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>Preparing 3D view</strong><span>Loading the interactive MG400 training cell…</span></div></div></div>}>
-            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} />
+            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} />
           </Suspense>
 
           <section className="telemetry-strip" aria-label="Current robot position">

@@ -13,9 +13,10 @@ type Props = {
   target: Pose | null;
   cameraResetToken: number;
   localToolMeshes?: LocalToolMeshes;
+  uiLanguage?: "zh-Hant" | "en";
 };
 
-export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes }: Props) {
+export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, uiLanguage = "en" }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
   const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target });
@@ -56,26 +57,26 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
     <div className="viewport-shell" role="region" aria-label="Interactive 3D MG400 simulation">
       <canvas ref={canvasRef} className="robot-canvas" aria-label="3D MG400 robot, work table, and block" />
       <div className="viewport-hud viewport-hud-top">
-        <div className="hud-chip"><span className="live-dot" /> LIVE SIMULATION</div>
-        <div className="hud-chip muted-chip">MM · DEG · Z-UP</div>
+        <div className="hud-chip"><span className="live-dot" /> {uiLanguage === "zh-Hant" ? "即時模擬" : "LIVE SIMULATION"}</div>
+        <div className="hud-chip muted-chip">{uiLanguage === "zh-Hant" ? "毫米 · 度 · Z 向上" : "MM · DEG · Z-UP"}</div>
       </div>
       <details className="model-color-guide">
-        <summary>Model colors</summary>
+        <summary>{uiLanguage === "zh-Hant" ? "模型顏色" : "Model colors"}</summary>
         <ul>
           {ROBOT_COLOR_GROUPS.map((group) => <li key={group.id}>
             <span className="model-swatch-group" aria-hidden="true">{group.colors.map((color) => <span key={color} className="model-swatch" style={{ backgroundColor: color }} />)}</span>
             {group.label}
           </li>)}
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>Active tool: {project.tool.mode === "magnet" ? "Magnet" : "Fork"}</li>
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.tcp }} /></span>TCP reference</li>
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.target }} /><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.targetCenter }} /></span>Selected point</li>
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>40 × 40 × 15 mm workpiece</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>{uiLanguage === "zh-Hant" ? "目前工具：" : "Active tool: "}{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸" : "Magnet") : (uiLanguage === "zh-Hant" ? "叉" : "Fork")}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.tcp }} /></span>{uiLanguage === "zh-Hant" ? "TCP 參考" : "TCP reference"}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.target }} /><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.targetCenter }} /></span>{uiLanguage === "zh-Hant" ? "所選示教點" : "Selected point"}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>40 × 40 × 15 mm {uiLanguage === "zh-Hant" ? "工件" : "workpiece"}</li>
         </ul>
-        <p>Training palette overlays the vendor geometry for teaching; it does not represent factory paint.</p>
+        <p>{uiLanguage === "zh-Hant" ? "訓練色彩會覆蓋供應商幾何以便示教，不代表出廠塗裝。" : "Training palette overlays the vendor geometry for teaching; it does not represent factory paint."}</p>
       </details>
       <div className="viewport-hud viewport-hud-bottom">
-        <div className="scene-caption"><Crosshair size={15} /><span>Reference cell · 40 × 40 × 15 mm workpiece</span></div>
-        <span className="scene-controls">Drag to orbit · scroll to zoom</span>
+        <div className="scene-caption"><Crosshair size={15} /><span>{uiLanguage === "zh-Hant" ? "參考工作格 · 40 × 40 × 15 mm 工件" : "Reference cell · 40 × 40 × 15 mm workpiece"}</span></div>
+        <span className="scene-controls">{uiLanguage === "zh-Hant" ? "拖曳旋轉 · 滾動縮放" : "Drag to orbit · scroll to zoom"}</span>
       </div>
       {status.kind !== "ready" && (
         <div className={`viewport-overlay ${status.kind === "error" ? "error-overlay" : ""}`} role="status">

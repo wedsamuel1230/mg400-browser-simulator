@@ -677,6 +677,19 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 .cell-block-editor .cell-block-chip { min-width: 132px; font-size: 14px; padding: 7px 9px; }
 .cell-block-editor select { min-height: 38px; font-size: 14px; }
 
+/* Keep guided mission feedback readable in the narrow training column. */
+.mission-cards { grid-template-columns: 1fr; gap: 12px; }
+.mission-card { padding: 14px; }
+.mission-card-heading { font-size: 16px; line-height: 1.35; }
+.mission-card-heading span { font-size: 12px; }
+.mission-card p { min-height: 0; margin: 9px 0 12px; font-size: 14px; line-height: 1.6; }
+.mission-metrics { gap: 7px; }
+.mission-metrics span { min-height: 54px; padding: 8px 5px; align-content: center; }
+.mission-metrics b { font-size: 16px; }
+.mission-metrics small, .mission-action { font-size: 12px; line-height: 1.5; }
+.mission-action { display: block; margin-top: 10px; }
+.accuracy-badge, .status-pill { font-size: 10px; }
+
 /* Issue 27: the learning surface is a reading interface, not telemetry chrome. */
 .training-sidebar { padding: 20px 16px; }
 .training-progress { font-size: 15px; line-height: 1.5; }
