@@ -669,6 +669,8 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 .free-selected-editor > strong { color: #f0f5f2; font-size: 14px; }
 .free-selected-fields { display: grid; grid-template-columns: repeat(4, minmax(75px, 1fr)) auto; gap: 8px; align-items: end; }
 .free-mode-top { grid-column: 1 / -1; grid-row: 1; }
+.robot-canvas.placement-armed { cursor: crosshair; }
+.placement-active { border-color: #e0ad60; color: #ffe2ad; background: #3a2d1d; }
 .workspace-grid.free-active { grid-template-rows: auto 1fr; }
 .workspace-grid.free-active > .left-workspace,
 .workspace-grid.free-active > .right-workspace { grid-row: 2; }

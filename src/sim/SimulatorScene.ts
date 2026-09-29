@@ -13,11 +13,15 @@ import {
   MeshStandardMaterial,
   Object3D,
   PCFShadowMap,
+  Plane,
   PerspectiveCamera,
+  Raycaster,
   RingGeometry,
   Scene,
   SphereGeometry,
   SRGBColorSpace,
+  Vector2,
+  Vector3,
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -289,6 +293,18 @@ export class SimulatorScene {
     this.camera.up.set(0, 0, 1);
     this.controls.target.set(150, 0, 115);
     this.controls.update();
+  }
+
+  tablePositionFromPointer(clientX: number, clientY: number): { x: number; y: number } | null {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
+    const pointer = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const raycaster = new Raycaster();
+    raycaster.setFromCamera(pointer, this.camera);
+    const hit = new Vector3();
+    if (!raycaster.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), 0), hit)) return null;
+    if (Math.abs(hit.x) > 500 || Math.abs(hit.y) > 500) return null;
+    return { x: Number(hit.x.toFixed(1)), y: Number(hit.y.toFixed(1)) };
   }
 
   private updateBlockParent() {

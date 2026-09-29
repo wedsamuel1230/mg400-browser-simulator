@@ -14,13 +14,16 @@ type Props = {
   cameraResetToken: number;
   localToolMeshes?: LocalToolMeshes;
   uiLanguage?: "zh-Hant" | "en";
+  placementArmed?: boolean;
+  onTablePlace?: (position: { x: number; y: number }) => void;
 };
 
-export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, uiLanguage = "en" }: Props) {
+export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, uiLanguage = "en", placementArmed = false, onTablePlace }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
   const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target });
   const [status, setStatus] = useState<SceneStatus>({ kind: "loading", message: "Preparing viewport…" });
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
   latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target };
 
   useEffect(() => {
@@ -50,12 +53,28 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
   }, [joints, project, blockPosition, attached, attachedCellBlockId, target]);
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !placementArmed) return;
+    const onPointerDown = (event: PointerEvent) => { pointerStart.current = { x: event.clientX, y: event.clientY }; };
+    const onPointerUp = (event: PointerEvent) => {
+      const start = pointerStart.current;
+      pointerStart.current = null;
+      if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
+      const position = sceneRef.current?.tablePositionFromPointer(event.clientX, event.clientY);
+      if (position) onTablePlace?.(position);
+    };
+    canvas.addEventListener("pointerdown", onPointerDown);
+    canvas.addEventListener("pointerup", onPointerUp);
+    return () => { canvas.removeEventListener("pointerdown", onPointerDown); canvas.removeEventListener("pointerup", onPointerUp); };
+  }, [placementArmed, onTablePlace]);
+
+  useEffect(() => {
     if (cameraResetToken > 0) sceneRef.current?.resetCamera();
   }, [cameraResetToken]);
 
   return (
     <div className="viewport-shell" role="region" aria-label="Interactive 3D MG400 simulation">
-      <canvas ref={canvasRef} className="robot-canvas" aria-label="3D MG400 robot, work table, and block" />
+      <canvas ref={canvasRef} className={`robot-canvas${placementArmed ? " placement-armed" : ""}`} aria-label="3D MG400 robot, work table, and block" />
       <div className="viewport-hud viewport-hud-top">
         <div className="hud-chip"><span className="live-dot" /> {uiLanguage === "zh-Hant" ? "即時模擬" : "LIVE SIMULATION"}</div>
         <div className="hud-chip muted-chip">{uiLanguage === "zh-Hant" ? "毫米 · 度 · Z 向上" : "MM · DEG · Z-UP"}</div>

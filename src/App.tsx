@@ -226,6 +226,8 @@ export default function App() {
   const [showTraining, setShowTraining] = useState(false);
   const [freeMode, setFreeMode] = useState(() => window.localStorage.getItem(FREE_MODE_KEY) === "true");
   const [freeSelectedId, setFreeSelectedId] = useState<string | null>(null);
+  const [placementArmed, setPlacementArmed] = useState(false);
+  const [placementMessage, setPlacementMessage] = useState("");
   const [uiLanguage, setUiLanguage] = useState<"zh-Hant" | "en">(() => window.localStorage.getItem(UI_LANGUAGE_KEY) === "en" ? "en" : "zh-Hant");
   const guidedSceneRef = useRef<ProjectDocument["scene"] | null>(null);
   const ui = uiLanguage === "zh-Hant" ? {
@@ -752,6 +754,22 @@ export default function App() {
     });
   }
 
+  function placeSelectedOnTable(position: { x: number; y: number }) {
+    if (!freeMode || !freeSelectedId) return;
+    updateCellBlock(freeSelectedId, { x: position.x, y: position.y, z: 0 });
+    setPlacementArmed(false);
+    setPlacementMessage(uiLanguage === "zh-Hant" ? `已將 ${freeSelectedId} 放到 X ${position.x}、Y ${position.y} mm。` : `Placed ${freeSelectedId} at X ${position.x}, Y ${position.y} mm.`);
+  }
+
+  function armTablePlacement() {
+    if (!freeSelectedId) {
+      setPlacementMessage(uiLanguage === "zh-Hant" ? "請先選取一個物件，再點選工作台。" : "Select an object before choosing a table position.");
+      return;
+    }
+    setPlacementMessage(uiLanguage === "zh-Hant" ? "請在 3D 工作台點選位置；拖曳仍可旋轉視角。" : "Click the 3D worktable; drag still orbits the camera.");
+    setPlacementArmed(true);
+  }
+
   function addCellBlock() {
     addCellObject("block");
   }
@@ -782,6 +800,8 @@ export default function App() {
       }
       if (guided) replaceProject((current) => ({ ...current, scene: structuredClone(guided) }));
       setFreeMode(false);
+      setPlacementArmed(false);
+      setPlacementMessage("");
       window.localStorage.setItem(FREE_MODE_KEY, "false");
       addLog("已返回訓練模式；導引工作格已還原。", "info");
       return;
@@ -794,7 +814,10 @@ export default function App() {
       if (savedFreeScene) freeScene = JSON.parse(savedFreeScene) as ProjectDocument["scene"];
     } catch { /* use the current cell when no saved Free Mode cell exists */ }
     replaceProject((current) => ({ ...current, scene: structuredClone(freeScene) }));
+    setFreeSelectedId(freeScene.blocks[0]?.id ?? null);
     setFreeMode(true);
+    setPlacementArmed(false);
+    setPlacementMessage("");
     window.localStorage.setItem(FREE_MODE_KEY, "true");
     addLog("已進入自由模式；物件只按模擬器邏輯接觸，不代表磁力或實體穩定性。", "info");
   }
@@ -828,10 +851,10 @@ export default function App() {
   }[status];
 
   const freeModeTopPanel = freeMode ? <section className="free-mode-panel free-mode-top" aria-label="自由模式工作格">
-    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button></div></div>
+    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button><button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? setPlacementArmed(false) : armTablePlacement()} disabled={busy}>{placementArmed ? "取消點選" : "在工作台點選擺放"}</button></div></div>
     <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
     {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
-    <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
+    <small>{placementMessage || "只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。"}</small>
   </section> : null;
 
   return (
@@ -1068,7 +1091,7 @@ export default function App() {
             <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
           </section>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>Preparing 3D view</strong><span>Loading the interactive MG400 training cell…</span></div></div></div>}>
-            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} />
+            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} />
           </Suspense>
 
           <section className="telemetry-strip" aria-label="Current robot position">
