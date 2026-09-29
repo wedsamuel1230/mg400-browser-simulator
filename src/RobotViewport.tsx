@@ -3,6 +3,7 @@ import { AlertTriangle, Crosshair, LoaderCircle } from "lucide-react";
 import type { JointAngles, Pose, ProjectDocument } from "./domain";
 import { MODEL_PALETTE, ROBOT_COLOR_GROUPS } from "./sim/modelPalette";
 import { SimulatorScene, type LocalToolMeshes, type SceneStatus } from "./sim/SimulatorScene";
+import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
 
 type Props = {
   joints: JointAngles;
@@ -102,7 +103,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
         <ul>
           {ROBOT_COLOR_GROUPS.map((group) => <li key={group.id}>
             <span className="model-swatch-group" aria-hidden="true">{group.colors.map((color) => <span key={color} className="model-swatch" style={{ backgroundColor: color }} />)}</span>
-            {group.label}
+            {uiLanguage === "zh-Hant" ? ({ Base: "底座", Shoulder: "肩部", "Arms and linkage": "手臂及連桿", "Wrist and flange": "腕部及法蘭" }[group.label] ?? group.label) : group.label}
           </li>)}
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>{uiLanguage === "zh-Hant" ? "目前工具：" : "Active tool: "}{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸" : "Magnet") : (uiLanguage === "zh-Hant" ? "叉" : "Fork")}</li>
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.tcp }} /></span>{uiLanguage === "zh-Hant" ? "TCP 參考" : "TCP reference"}</li>
@@ -118,7 +119,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       {status.kind !== "ready" && (
         <div className={`viewport-overlay ${status.kind === "error" ? "error-overlay" : ""}`} role="status">
           {status.kind === "loading" ? <LoaderCircle className="spin" size={23} /> : <AlertTriangle size={23} />}
-          <div><strong>{status.kind === "loading" ? (uiLanguage === "zh-Hant" ? "正在載入機械臂模型" : "Loading robot model") : (uiLanguage === "zh-Hant" ? "無法載入機械臂模型" : "Model could not load")}</strong><span>{status.kind === "loading" && uiLanguage === "zh-Hant" ? "正在準備三維工作格…" : status.message}</span></div>
+          <div><strong>{status.kind === "loading" ? (uiLanguage === "zh-Hant" ? "正在載入機械臂模型" : "Loading robot model") : (uiLanguage === "zh-Hant" ? "無法載入機械臂模型" : "Model could not load")}</strong><span>{status.kind === "loading" && uiLanguage === "zh-Hant" ? "正在準備三維工作格…" : localizeWorkspaceMessage(status.message ?? "", uiLanguage)}</span></div>
         </div>
       )}
     </div>
