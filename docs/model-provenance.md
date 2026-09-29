@@ -7,6 +7,7 @@
 - Files bundled in `public/models/mg400/mg400_description/`: URDF and nine STL meshes.
 - License: MIT, copyright (c) 2022 Dobot. The original `LICENSE` file is preserved beside the model.
 - The model supplies visual link geometry, axes/origins and mimic-joint relationships. Its URDF joint limits are not used as product limits because they conflict with Dobot’s versioned user guide/product data.
+- The pinned URDF assigns white visual materials to the robot links. The colors in `src/sim/modelPalette.ts` are project-authored teaching-visualization overlays used to distinguish link groups; they are not sourced from Dobot and do not claim factory-color fidelity.
 
 ## Published joint ranges and source URDF ranges
 

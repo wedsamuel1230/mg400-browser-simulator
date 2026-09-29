@@ -4,6 +4,8 @@ Licensed source: [MIT](LICENSE). The bundled Dobot MG400 visual model has its ow
 
 A local browser training simulator for one Dobot MG400 pick-and-place cell. It loads vendor visual geometry, calculates four-axis forward/inverse kinematics, teaches named targets, and executes a bounded DobotStudio Pro 2.8 Lua subset in an isolated Web Worker.
 
+The bundled MG400 URDF uses white visual materials. The colored link palette in `src/sim/modelPalette.ts` is a project-authored teaching visualization to make link groups easier to distinguish; it does not represent verified Dobot factory colors. See [model provenance](docs/model-provenance.md).
+
 ## Start locally
 
 Requirements: Node.js 20.19+ (or 22.12+) and npm. From this directory:

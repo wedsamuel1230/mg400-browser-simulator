@@ -10,7 +10,7 @@ This report captures the implementation outcomes for the [Wayfinder task map](..
 
 The public GitHub repository is live at https://github.com/wedsamuel1230/mg400-browser-simulator (public, `main`). Verify the current remote head with `git ls-remote origin refs/heads/main`; GitHub API inspection confirmed that `.scratch`, `.env`, `dist`, and the unknown-rights `fork.stl`/`magnet.stl` files are absent. `npm run release:check` passed before publication.
 
-Vercel deployment was not completed: cached CLI 60.1.3 is available offline, but `vercel whoami` reports `Logged out` and `vercel deploy --prod --yes` returns `No existing credentials found`; the exposed Vercel deploy connector also returns `Tool deploy_to_vercel not found`. No deployment URL or deployment ID is recorded, and the release remains open for a Vercel-authenticated execution environment. The source remains safe to deploy without an API key or unknown-rights tool mesh.
+The current production deployment is available at https://mg400-browser-simulator.vercel.app. The release evidence supplied for this status records deployment `dpl_Gc538GnCC4gYGGGrSzeWW8BH44mm` as `READY` for commit `0a6b815`. This status was reconciled from that deployment evidence on 2026-09-29; no fresh Vercel query or deployment was performed in this hardening pass. The source remains safe to deploy without an API key or unknown-rights tool mesh.
 
 ## Wayfinder Issue 26 — default composite mission repair (2026-09-29)
 

@@ -19,6 +19,7 @@ function makeHarness(options: {
   project?: ProjectDocument;
   initialJoints?: JointAngles;
   forward?: (joints: JointAngles) => Pose;
+  solve?: (pose: Pose, current: JointAngles) => { ok: boolean; joints: JointAngles; positionErrorMm: number; angleErrorDeg: number };
 } = {}) {
   let joints: JointAngles = options.initialJoints ?? [rad(0), rad(30), rad(45), rad(0)];
   let status: RunStatus = "ready";
@@ -29,7 +30,7 @@ function makeHarness(options: {
   const positions: JointAngles[] = [];
   const fakeKinematics = {
     forward: options.forward ?? ((value: JointAngles) => ({ x: value[0] * 100, y: 0, z: 100, r: 0 })),
-    solve: () => ({ ok: false, joints, positionErrorMm: 100, angleErrorDeg: 0 }),
+    solve: options.solve ?? (() => ({ ok: false, joints, positionErrorMm: 100, angleErrorDeg: 0 })),
   } as unknown as MG400Kinematics;
   const events: ControllerEvents = {
     getProject: () => structuredClone(project) as ProjectDocument,
@@ -82,6 +83,53 @@ describe("relative Cartesian motion", () => {
 
     harness.setJoints([30, 40, 50, 60]);
     expect(resolveRelativeMotion(request).targetPose).toEqual({ x: 31, y: 42, z: 53, r: 64 });
+  });
+
+  it("executes queued RelMovL from the pose reached by the prior queued motion", async () => {
+    animationFrameMocks();
+    const workerInstances: Array<{
+      onmessage: ((event: MessageEvent) => void) | null;
+      posted: unknown[];
+      emit: (message: unknown) => void;
+    }> = [];
+    class MockLuaWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+      posted: unknown[] = [];
+      constructor() {
+        workerInstances.push(this);
+      }
+      postMessage(message: unknown) { this.posted.push(message); }
+      terminate() {}
+      emit(message: unknown) { this.onmessage?.({ data: message } as MessageEvent); }
+    }
+    vi.stubGlobal("Worker", MockLuaWorker);
+    const harness = makeHarness({
+      forward: (value) => ({ x: value[0] * 100, y: 0, z: 100, r: 0 }),
+      solve: (pose) => ({
+        ok: true,
+        joints: [pose.x / 100, rad(0), rad(0), rad(0)],
+        positionErrorMm: 0,
+        angleErrorDeg: 0,
+      }),
+    });
+
+    harness.controller.run("first move; then relative move", []);
+    const worker = workerInstances[0];
+    worker.emit({
+      type: "motion",
+      motion: { commandId: 1, command: "MovJ", targetPose: { x: 10, y: 0, z: 100, r: 0 }, speed: 100, acceleration: 100, sync: false },
+    });
+    worker.emit({
+      type: "motion",
+      motion: { commandId: 2, command: "RelMovL", relativeOffset: { x: 5, y: 0, z: 0, r: 0 }, speed: 100, acceleration: 100, sync: false },
+    });
+    worker.emit({ type: "script-complete" });
+
+    await vi.waitFor(() => expect(harness.status()).toBe("complete"), { timeout: 1_000 });
+    expect(worker.posted).toContainEqual({ type: "motion-complete", commandId: 1 });
+    expect(worker.posted).toContainEqual({ type: "motion-complete", commandId: 2 });
+    expect(harness.positions.at(-1)?.[0]).toBeCloseTo(0.15, 4);
   });
 });
 

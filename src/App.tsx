@@ -281,16 +281,22 @@ export default function App() {
   const importForkBlockMesh = async (file: File | undefined) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".stl")) {
-      setToolMeshMessage("Choose an STL file for the fork-task block. The file stays in this browser.");
+      setToolMeshMessage(uiLanguage === "zh-Hant"
+        ? "請選擇 STL 檔案。檔案只在目前瀏覽器工作階段載入，不會上傳或加入程式包。"
+        : "Choose an STL file. It is loaded only for this browser session, never uploaded or bundled.");
       return;
     }
     const bytes = await file.arrayBuffer();
     if (!isLikelyStl(bytes)) {
-      setToolMeshMessage(`${file.name} is not a readable STL. The procedural 40 × 40 × 15 mm fallback remains active.`);
+      setToolMeshMessage(uiLanguage === "zh-Hant"
+        ? `${file.name} 不是可讀取的 STL。會繼續使用程式產生的 40 × 40 × 15 mm 方塊；檔案不會上傳或加入程式包。`
+        : `${file.name} is not a readable STL. The procedural 40 × 40 × 15 mm block remains active; the file is not uploaded or bundled.`);
       return;
     }
     setLocalToolMeshes((current) => ({ ...current, block: bytes }));
-    setToolMeshMessage(`Fork-task block model loaded locally from ${file.name}; it is not uploaded or included in project export.`);
+    setToolMeshMessage(uiLanguage === "zh-Hant"
+      ? `已在目前瀏覽器工作階段載入 ${file.name}；不會上傳、儲存至專案或加入程式包。`
+      : `Loaded ${file.name} for this browser session only; it is not uploaded, saved in the project, or bundled.`);
   };
 
   const selectedPoint = project.points.find((point) => point.id === selectedId);
@@ -1282,8 +1288,9 @@ export default function App() {
                   <div className="tool-import-actions">
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "magnet"; toolMeshInputRef.current?.click(); }} disabled={busy}>Import local magnet STL</button>
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "fork"; toolMeshInputRef.current?.click(); }} disabled={busy}>Import local fork STL</button>
-                    <button className="secondary-button outlined-button" type="button" onClick={() => blockMeshInputRef.current?.click()} disabled={busy}>{uiLanguage === "zh-Hant" ? "匯入 Body1 方塊" : "Import fork-task block STL"}</button>
+                    <button className="secondary-button outlined-button" type="button" onClick={() => blockMeshInputRef.current?.click()} disabled={busy}>{uiLanguage === "zh-Hant" ? "本機匯入 Body1 方塊 STL" : "Import Body1 block STL locally"}</button>
                   </div>
+                  <small className="tool-mode-note">{uiLanguage === "zh-Hant" ? "Body1 只會在目前瀏覽器工作階段載入；不會上傳、儲存至專案或加入公開程式包。" : "Body1 is loaded only for the current browser session; it is never uploaded, saved in the project, or included in the public bundle."}</small>
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <input ref={blockMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importForkBlockMesh(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <small className="tool-mode-note">{toolMeshMessage}</small>
