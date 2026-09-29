@@ -225,6 +225,7 @@ export default function App() {
   const [showToolSettings, setShowToolSettings] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
   const [freeMode, setFreeMode] = useState(() => window.localStorage.getItem(FREE_MODE_KEY) === "true");
+  const [freeSelectedId, setFreeSelectedId] = useState<string | null>(null);
   const [uiLanguage, setUiLanguage] = useState<"zh-Hant" | "en">(() => window.localStorage.getItem(UI_LANGUAGE_KEY) === "en" ? "en" : "zh-Hant");
   const guidedSceneRef = useRef<ProjectDocument["scene"] | null>(null);
   const ui = uiLanguage === "zh-Hant" ? {
@@ -759,6 +760,7 @@ export default function App() {
     replaceProject((current) => {
       const index = current.scene.blocks.length + 1;
       const block = { id: `${kind === "puck" ? "puck" : "block"}-${index}`, kind, color: "neutral" as const, source: "pickup" as const, position: { x: 300 + (index % 5) * 45, y: -240 }, z: 0, r: 0 };
+      setFreeSelectedId(block.id);
       return { ...current, scene: { ...current.scene, blocks: [...current.scene.blocks, block], initialBlocks: [...current.scene.initialBlocks, block] } };
     });
   }
@@ -766,6 +768,7 @@ export default function App() {
   function removeCellBlock(id: string) {
     if (!freeMode && projectRef.current.scene.blocks.length <= 1) return;
     replaceProject((current) => ({ ...current, scene: { ...current.scene, blocks: current.scene.blocks.filter((block) => block.id !== id), initialBlocks: current.scene.initialBlocks.filter((block) => block.id !== id), feederOrder: current.scene.feederOrder.filter((blockId) => blockId !== id) } }));
+    if (freeSelectedId === id) setFreeSelectedId(null);
   }
 
   function toggleFreeMode() {
@@ -992,7 +995,7 @@ export default function App() {
           </section>
 
           <section className="panel console-panel">
-            <div className="console-heading"><div><span className="console-light" /><strong>Run log</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title="Clear run log" aria-label="Clear run log"><Trash2 size={14} /></button></div>
+            <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title="Clear run log" aria-label="Clear run log"><Trash2 size={14} /></button></div>
             <div className="console-entries" aria-live="polite">
               {logs.slice(0, 4).map((entry) => <div className={`console-entry log-${entry.level}`} key={entry.id}><span className="log-time">{entry.time}</span><span>{entry.message}</span></div>)}
               {logs.length === 0 && <span className="console-empty">Program messages will appear here.</span>}
@@ -1047,9 +1050,15 @@ export default function App() {
 
         <section className="right-workspace">
           <div className="viewport-header">
-            <div><div className="view-title"><Box size={17} /><h2>Simulation cell</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>Vendor URDF geometry · TCP X {tcpOffsetXLabel} from flange · {project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}</p></div>
+            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>Vendor URDF geometry · TCP X {tcpOffsetXLabel} from flange · {project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}</p></div>
           <div className="view-header-actions"><span className="accuracy-badge"><span /> KINEMATIC SIMULATION</span><button className="icon-button" aria-label="Reset camera view" title="Reset camera view" onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
           </div>
+          {freeMode && <section className="free-mode-panel" aria-label="自由模式工作格">
+            <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button></div></div>
+            <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
+            {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
+            <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
+          </section>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>Preparing 3D view</strong><span>Loading the interactive MG400 training cell…</span></div></div></div>}>
             <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} />
           </Suspense>
@@ -1099,7 +1108,7 @@ export default function App() {
                   tabIndex={selectedTab === "jog" ? 0 : -1}
                 ><Settings2 size={15} /> Jog</button>
               </div>
-              <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> Tool &amp; pickup <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
+              <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> {uiLanguage === "zh-Hant" ? "工具與取件" : "Tool & pickup"} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
             </div>
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
               <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>Teach from the current simulated pose</strong><span>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</span></div></div>
