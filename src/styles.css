@@ -569,6 +569,8 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 
 @media (min-width: 1600px) {
   .workspace-grid { grid-template-columns: minmax(390px, 440px) minmax(0, 1fr); }
+  .workspace-grid.guided-focus,
+  .workspace-grid.free-focus { grid-template-columns: minmax(0, 1fr); }
   .workspace-grid.has-coach { grid-template-columns: minmax(380px, .98fr) minmax(340px, .86fr) minmax(420px, 1.1fr); }
   .left-workspace { grid-template-rows: minmax(340px, 1.03fr) minmax(270px, .9fr) minmax(110px, .34fr); }
 }
