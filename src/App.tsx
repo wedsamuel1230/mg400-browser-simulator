@@ -256,6 +256,7 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toolMeshInputRef = useRef<HTMLInputElement>(null);
   const toolMeshKindRef = useRef<"magnet" | "fork">("magnet");
+  const blockMeshInputRef = useRef<HTMLInputElement>(null);
   projectRef.current = project;
   jointsRef.current = joints;
   blockRef.current = blockPosition;
@@ -275,6 +276,21 @@ export default function App() {
     }
     setLocalToolMeshes((current) => ({ ...current, [kind]: bytes }));
     setToolMeshMessage(`${kind === "magnet" ? "Magnet" : "Fork"} mesh loaded locally from ${file.name}; it is not uploaded or included in project export.`);
+  };
+
+  const importForkBlockMesh = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".stl")) {
+      setToolMeshMessage("Choose an STL file for the fork-task block. The file stays in this browser.");
+      return;
+    }
+    const bytes = await file.arrayBuffer();
+    if (!isLikelyStl(bytes)) {
+      setToolMeshMessage(`${file.name} is not a readable STL. The procedural 40 × 40 × 15 mm fallback remains active.`);
+      return;
+    }
+    setLocalToolMeshes((current) => ({ ...current, block: bytes }));
+    setToolMeshMessage(`Fork-task block model loaded locally from ${file.name}; it is not uploaded or included in project export.`);
   };
 
   const selectedPoint = project.points.find((point) => point.id === selectedId);
@@ -1266,8 +1282,10 @@ export default function App() {
                   <div className="tool-import-actions">
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "magnet"; toolMeshInputRef.current?.click(); }} disabled={busy}>Import local magnet STL</button>
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "fork"; toolMeshInputRef.current?.click(); }} disabled={busy}>Import local fork STL</button>
+                    <button className="secondary-button outlined-button" type="button" onClick={() => blockMeshInputRef.current?.click()} disabled={busy}>{uiLanguage === "zh-Hant" ? "匯入 Body1 方塊" : "Import fork-task block STL"}</button>
                   </div>
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
+                  <input ref={blockMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importForkBlockMesh(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <small className="tool-mode-note">{toolMeshMessage}</small>
                 </div>
                 <details className="advanced-tool-settings"><summary>{ui.advanced}<span>{ui.calibration}</span></summary>

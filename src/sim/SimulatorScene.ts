@@ -44,7 +44,7 @@ export type SceneState = {
 };
 
 export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string };
-export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer };
+export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer };
 
 export class SimulatorScene {
   private readonly scene = new Scene();
@@ -57,7 +57,9 @@ export class SimulatorScene {
   private readonly forkFixtures = new Group();
   private readonly pickupStand = new Group();
   private readonly dropStand = new Group();
-  private readonly block = createReferenceBlock();
+  private readonly block: Mesh<BufferGeometry, MeshStandardMaterial> = createReferenceBlock();
+  private readonly proceduralBlockGeometry = this.block.geometry.clone();
+  private localForkBlockGeometry?: BufferGeometry;
   private readonly additionalBlocks = new Map<string, Mesh>();
   private readonly target = new Group();
   private dropPad?: Mesh;
@@ -196,6 +198,7 @@ export class SimulatorScene {
       await modelMeshesLoaded;
       view.robot = robot;
       view.prepareToolMeshes(magnetGeometry, forkGeometry);
+      if (localMeshes.block) view.prepareLocalBlock(new STLLoader().parse(localMeshes.block));
       view.kinematics = MG400Kinematics.fromUrdf(await urdfResponse.text());
       view.prepareRobot(robot);
       onStatus({ kind: "ready" });
@@ -250,6 +253,17 @@ export class SimulatorScene {
     this.magnetMesh.castShadow = this.magnetMesh.receiveShadow = true;
     this.forkMesh.castShadow = this.forkMesh.receiveShadow = true;
     this.toolGroup.add(this.magnetMesh, this.forkMesh);
+  }
+
+  private prepareLocalBlock(geometry: BufferGeometry) {
+    geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    if (!bounds) return;
+    // STL has no scene origin: center its footprint and place its lowest surface
+    // on the simulator's support datum. Source coordinates are millimetres.
+    geometry.translate(-(bounds.min.x + bounds.max.x) / 2, -(bounds.min.y + bounds.max.y) / 2, -bounds.min.z);
+    geometry.computeVertexNormals();
+    this.localForkBlockGeometry = geometry;
   }
 
   private makeTargetMarker() {
@@ -314,6 +328,9 @@ export class SimulatorScene {
     const state = this.state;
     if (!state) return;
     const isFork = state.project.tool.mode === "fork";
+    const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
+    this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : this.proceduralBlockGeometry;
+    this.block.name = useLocalForkBlock ? "Locally imported fork-task workpiece" : "neutral 40 x 40 x 15 mm reference block";
     this.forkFixtures.visible = isFork;
     const cellBlocks = state.project.scene.blocks ?? [];
     const baseBlock = cellBlocks[0]?.kind === "puck" ? undefined : cellBlocks[0];
@@ -347,7 +364,8 @@ export class SimulatorScene {
       if (attachedMesh !== this.block && this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       if (attachedMesh.parent !== this.toolGroup) this.toolGroup.add(attachedMesh);
       const offset = activeTcpOffset(state.project.tool);
-      const centerDelta = isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2;
+      const localStl = isFork && Boolean(this.localForkBlockGeometry);
+      const centerDelta = localStl ? 0 : (isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2);
       attachedMesh.position.set(offset.x, offset.y, offset.z + centerDelta);
       attachedMesh.rotation.set(0, 0, 0);
       if (attachedMesh !== this.block && baseBlock) this.block.visible = true;
@@ -355,7 +373,7 @@ export class SimulatorScene {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       const position = baseBlock.position ?? state.blockPosition;
       const supportHeight = isFork ? FORK_SUPPORT_HEIGHT_MM : 0;
-      this.block.position.set(position.x, position.y, supportHeight + (baseBlock.stackLevel ?? 0) * BLOCK_SIZE_MM.z + BLOCK_SIZE_MM.z / 2);
+      this.block.position.set(position.x, position.y, supportHeight + (baseBlock.stackLevel ?? 0) * BLOCK_SIZE_MM.z + (useLocalForkBlock ? 0 : BLOCK_SIZE_MM.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     } else {
       this.block.visible = false;
@@ -415,6 +433,8 @@ export class SimulatorScene {
       if (Array.isArray(material)) material.forEach((item) => item.dispose());
       else if (material) material.dispose();
     });
+    if (this.block.geometry !== this.proceduralBlockGeometry) this.proceduralBlockGeometry.dispose();
+    if (this.localForkBlockGeometry && this.block.geometry !== this.localForkBlockGeometry) this.localForkBlockGeometry.dispose();
     this.renderer.dispose();
   }
 }
