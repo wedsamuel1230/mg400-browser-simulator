@@ -27,7 +27,7 @@ import { activeTcpOffset, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type
 import { BLOCK_SIZE_MM } from "../domain";
 import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE } from "./modelPalette";
-import { createReferenceBlock } from "./blockMarker";
+import { createMagnetPuck, createReferenceBlock } from "./blockMarker";
 import { prepareFlangeMountedToolGeometry } from "./toolMount";
 
 export type SceneState = {
@@ -300,14 +300,14 @@ export class SimulatorScene {
     for (const block of cellBlocks.slice(1)) {
       let mesh = this.additionalBlocks.get(block.id);
       if (!mesh) {
-        mesh = createReferenceBlock(block.color);
+        mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color);
         mesh.userData.cellBlockId = block.id;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.additionalBlocks.set(block.id, mesh);
         this.blockGroup.add(mesh);
       }
-      mesh.position.set(block.position.x, block.position.y, (isFork ? FORK_SUPPORT_HEIGHT_MM : 0) + (block.stackLevel ?? 0) * BLOCK_SIZE_MM.z + BLOCK_SIZE_MM.z / 2);
+      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0) + (block.stackLevel ?? 0) * BLOCK_SIZE_MM.z + (block.kind === "puck" ? 4 : BLOCK_SIZE_MM.z / 2));
       mesh.rotation.z = rad(block.r);
       if (!(state.attached && state.attachedCellBlockId === block.id) && mesh.parent !== this.blockGroup) this.blockGroup.add(mesh);
       mesh.visible = !state.attached || state.attachedCellBlockId === block.id;

@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  CylinderGeometry,
   DoubleSide,
   Mesh,
   MeshBasicMaterial,
@@ -60,4 +61,16 @@ export function createReferenceBlock(color: BlockColor = "neutral"): Mesh<BoxGeo
     color: MARKER_COLOR,
   };
   return block;
+}
+
+/** A visibly distinct magnetic workpiece for Free Mode; this is a logical puck, not a force model. */
+export function createMagnetPuck(color: BlockColor = "neutral"): Mesh<CylinderGeometry, MeshStandardMaterial> {
+  const puck = new Mesh(
+    new CylinderGeometry(14, 14, 8, 32),
+    new MeshStandardMaterial({ color: color === "black" ? "#323b3d" : color === "white" ? "#e7eee9" : "#e4a63f", roughness: 0.3, metalness: 0.55 }),
+  );
+  puck.name = "Free Mode magnet puck (logical contact only)";
+  puck.rotation.x = Math.PI / 2;
+  puck.userData.simulationOnly = true;
+  return puck;
 }

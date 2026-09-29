@@ -41,6 +41,7 @@ import {
   type JointAngles,
   type BlockColor,
   type BlockSource,
+  type CellObjectKind,
   type Pose,
   type ProjectDocument,
   type TeachPoint,
@@ -85,6 +86,10 @@ type NumericFieldProps = {
 };
 
 const initialProject = loadProject();
+const FREE_MODE_KEY = "mg400-free-mode-v1";
+const FREE_SCENE_KEY = "mg400-free-scene-v1";
+const GUIDED_SCENE_KEY = "mg400-guided-scene-v1";
+const UI_LANGUAGE_KEY = "mg400-ui-language-v1";
 const initialHome = initialProject.points.find((point) => point.name === "Home" && point.kind === "joint");
 const initialJoints: JointAngles = initialHome?.kind === "joint"
   ? [...initialHome.joints]
@@ -219,6 +224,13 @@ export default function App() {
   const [saved, setSaved] = useState(true);
   const [showToolSettings, setShowToolSettings] = useState(false);
   const [showTraining, setShowTraining] = useState(false);
+  const [freeMode, setFreeMode] = useState(() => window.localStorage.getItem(FREE_MODE_KEY) === "true");
+  const [uiLanguage, setUiLanguage] = useState<"zh-Hant" | "en">(() => window.localStorage.getItem(UI_LANGUAGE_KEY) === "en" ? "en" : "zh-Hant");
+  const guidedSceneRef = useRef<ProjectDocument["scene"] | null>(null);
+  const ui = uiLanguage === "zh-Hant" ? {
+    subtitle: "MG400 虛擬訓練工作格", title: "取放 · 訓練工作格 01", local: "僅限本機", training: "訓練中心", lesson: "開始第 1 課",
+    guided: "訓練模式", free: "自由模式", import: "匯入專案", export: "匯出專案",
+  } : { subtitle: "MG400 VIRTUAL TRAINING CELL", title: "Pick & place · Training cell 01", local: "LOCAL ONLY", training: "Training", lesson: "Start lesson 1", guided: "Training mode", free: "Free mode", import: "Import project", export: "Export project" };
   const [trainingLessonId, setTrainingLessonId] = useState<string | null>(null);
   const [localToolMeshes, setLocalToolMeshes] = useState<LocalToolMeshes>({});
   const [toolMeshMessage, setToolMeshMessage] = useState("Using freely distributable teaching placeholders; local meshes are optional and stay in this browser.");
@@ -285,11 +297,11 @@ export default function App() {
   const preflight = useMemo(() => {
     const source = programText.split("\n").map((line) => line.replace(/(?:--|#).*$/, "")).join("\n");
     const poweredAction = /\b(?:DO|Pick|Place)\s*\(/i.test(source);
-    if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
-    if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
-    if (!recommendation.ready) return { kind: "warning" as const, text: "Setup preflight: teach the highlighted Home, pick, or place points before running." };
-    return { kind: "pass" as const, text: `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
-  }, [project.tool.mode, programText, recommendation.ready]);
+    if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "被動叉臂不能使用 DO、Pick 或 Place；請改用滑入 → 抬高 → 放下流程。" : "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
+    if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "磁吸執行前檢查：找不到 DO1 吸附指令；純移動程式仍可執行，但不會預期完成取件。" : "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
+    if (!recommendation.ready) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "執行前檢查：請先示教標示的 Home、取件或放置點。" : "Setup preflight: teach the highlighted Home, pick, or place points before running." };
+    return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? `${project.tool.mode === "fork" ? "被動叉臂" : "磁吸工具"} 模式符合模擬器檢查。` : `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
+  }, [project.tool.mode, programText, recommendation.ready, uiLanguage]);
 
   useEffect(() => {
     let alive = true;
@@ -722,13 +734,14 @@ export default function App() {
     if (target === "block" && !attachedRef.current) setCurrentBlock(next);
   }
 
-  function updateCellBlock(id: string, update: Partial<{ color: BlockColor; source: BlockSource; x: number; y: number; r: number }>) {
+  function updateCellBlock(id: string, update: Partial<{ color: BlockColor; source: BlockSource; kind: CellObjectKind; x: number; y: number; z: number; r: number }>) {
     replaceProject((current) => {
       const updateBlocks = (blocks: typeof current.scene.blocks) => blocks.map((block) => block.id !== id ? block : {
         ...block,
         ...(update.color ? { color: update.color } : {}),
         ...(update.source ? { source: update.source } : {}),
-        ...(update.r === undefined && update.x === undefined && update.y === undefined ? {} : { position: { x: update.x ?? block.position.x, y: update.y ?? block.position.y }, r: update.r ?? block.r }),
+        ...(update.kind ? { kind: update.kind } : {}),
+        ...(update.r === undefined && update.x === undefined && update.y === undefined && update.z === undefined ? {} : { position: { x: update.x ?? block.position.x, y: update.y ?? block.position.y }, z: update.z ?? block.z ?? 0, r: update.r ?? block.r }),
       });
       const blocks = updateBlocks(current.scene.blocks);
       const initialBlocks = updateBlocks(current.scene.initialBlocks);
@@ -739,17 +752,67 @@ export default function App() {
   }
 
   function addCellBlock() {
+    addCellObject("block");
+  }
+
+  function addCellObject(kind: CellObjectKind) {
     replaceProject((current) => {
       const index = current.scene.blocks.length + 1;
-      const block = { id: `block-${index}`, color: "neutral" as const, source: "pickup" as const, position: { x: 300 + (index % 5) * 45, y: -240 }, r: 0 };
+      const block = { id: `${kind === "puck" ? "puck" : "block"}-${index}`, kind, color: "neutral" as const, source: "pickup" as const, position: { x: 300 + (index % 5) * 45, y: -240 }, z: 0, r: 0 };
       return { ...current, scene: { ...current.scene, blocks: [...current.scene.blocks, block], initialBlocks: [...current.scene.initialBlocks, block] } };
     });
   }
 
   function removeCellBlock(id: string) {
-    if (projectRef.current.scene.blocks.length <= 1) return;
+    if (!freeMode && projectRef.current.scene.blocks.length <= 1) return;
     replaceProject((current) => ({ ...current, scene: { ...current.scene, blocks: current.scene.blocks.filter((block) => block.id !== id), initialBlocks: current.scene.initialBlocks.filter((block) => block.id !== id), feederOrder: current.scene.feederOrder.filter((blockId) => blockId !== id) } }));
   }
+
+  function toggleFreeMode() {
+    if (freeMode) {
+      let guided = guidedSceneRef.current;
+      if (!guided) {
+        try {
+          const savedGuidedScene = window.localStorage.getItem(GUIDED_SCENE_KEY);
+          if (savedGuidedScene) guided = JSON.parse(savedGuidedScene) as ProjectDocument["scene"];
+        } catch { /* keep the current scene if no guided snapshot exists */ }
+      }
+      if (guided) replaceProject((current) => ({ ...current, scene: structuredClone(guided) }));
+      setFreeMode(false);
+      window.localStorage.setItem(FREE_MODE_KEY, "false");
+      addLog("已返回訓練模式；導引工作格已還原。", "info");
+      return;
+    }
+    guidedSceneRef.current = structuredClone(projectRef.current.scene);
+    try { window.localStorage.setItem(GUIDED_SCENE_KEY, JSON.stringify(guidedSceneRef.current)); } catch { /* local persistence is best effort */ }
+    let freeScene = projectRef.current.scene;
+    try {
+      const savedFreeScene = window.localStorage.getItem(FREE_SCENE_KEY);
+      if (savedFreeScene) freeScene = JSON.parse(savedFreeScene) as ProjectDocument["scene"];
+    } catch { /* use the current cell when no saved Free Mode cell exists */ }
+    replaceProject((current) => ({ ...current, scene: structuredClone(freeScene) }));
+    setFreeMode(true);
+    window.localStorage.setItem(FREE_MODE_KEY, "true");
+    addLog("已進入自由模式；物件只按模擬器邏輯接觸，不代表磁力或實體穩定性。", "info");
+  }
+
+  function resetFreeCell() {
+    if (!freeMode) return;
+    const reset = resetCell(projectRef.current);
+    replaceProject(() => reset);
+    addLog("自由工作格已重設到最近一次儲存的配置。", "info");
+  }
+
+  useEffect(() => {
+    if (freeMode) {
+      try { window.localStorage.setItem(FREE_SCENE_KEY, JSON.stringify(project.scene)); } catch { /* local persistence is best effort */ }
+    }
+  }, [freeMode, project.scene]);
+
+  useEffect(() => {
+    window.localStorage.setItem(UI_LANGUAGE_KEY, uiLanguage);
+    document.documentElement.lang = uiLanguage === "zh-Hant" ? "zh-Hant-HK" : "en";
+  }, [uiLanguage]);
 
   const targetPose = selectedPose;
   const runtimeLabel = {
@@ -766,18 +829,20 @@ export default function App() {
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-mark"><Activity size={21} strokeWidth={2.1} /></div>
-          <div><strong>MG400 <span>LAB</span></strong><small>VIRTUAL TRAINING CELL</small></div>
+          <div><strong>MG400 <span>LAB</span></strong><small>{ui.subtitle}</small></div>
         </div>
         <div className="topbar-center">
-        <h1 className="cell-title">Pick &amp; place · Training cell 01</h1>
-          <span className="local-badge"><span /> LOCAL ONLY</span>
+        <h1 className="cell-title">{ui.title}</h1>
+          <span className="local-badge"><span /> {ui.local}</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-button quiet-button" onClick={() => fileInputRef.current?.click()} title="Import project" aria-label="Import project" disabled={busy}><Upload size={17} /></button>
-          <button className="icon-button quiet-button" onClick={downloadProject} title="Export project" aria-label="Export project"><Download size={17} /></button>
+          <button className="icon-button quiet-button" onClick={() => fileInputRef.current?.click()} title={ui.import} aria-label={ui.import} disabled={busy}><Upload size={17} /></button>
+          <button className="icon-button quiet-button" onClick={downloadProject} title={ui.export} aria-label={ui.export}><Download size={17} /></button>
           <span className="top-divider" />
-          <button className="start-lesson-button" onClick={() => { setTrainingLessonId("foundation-first-program"); setShowTraining(true); }} title="Open lesson 1. This does not replace or run your program." aria-label="Start with training lesson 1"><BookOpenCheck size={16} /><span>Start lesson 1</span></button>
-          <button className="help-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }} title="Open or resume the training center" aria-label="Open or resume training"><CircleHelp size={16} /><span>Training</span></button>
+          <button className="start-lesson-button" onClick={() => { setTrainingLessonId("foundation-first-program"); setShowTraining(true); }} title={ui.lesson} aria-label={ui.lesson}><BookOpenCheck size={16} /><span>{ui.lesson}</span></button>
+          <button className="help-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }} title={ui.training} aria-label={ui.training}><CircleHelp size={16} /><span>{ui.training}</span></button>
+          <button className={`mode-toggle ${freeMode ? "active" : ""}`} onClick={toggleFreeMode} aria-pressed={freeMode}>{freeMode ? ui.free : ui.guided}</button>
+          <button className="language-switch" onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")} aria-label="Switch interface language">{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>
           <input ref={fileInputRef} name="project-file" type="file" accept="application/json,.json" className="visually-hidden" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
         </div>
       </header>
@@ -786,7 +851,7 @@ export default function App() {
         <div className="run-actions">
           <button className="run-button" onClick={startRun} disabled={!canRun || preflight.kind === "error"} title="Run the program currently shown in the editor in this local simulator.">
             {kinematics ? <Play size={16} fill="currentColor" /> : <LoaderCircle size={16} className="spin" />}
-            <span>Run editor code</span><kbd>⌘ ↵</kbd>
+            <span>{uiLanguage === "zh-Hant" ? "執行編輯器程式" : "Run editor code"}</span><kbd>⌘ ↵</kbd>
           </button>
           <button className="control-button" onClick={pauseOrResume} disabled={status !== "running" && status !== "paused"} aria-label={status === "paused" ? "Resume simulation" : "Pause simulation"} title={status === "paused" ? "Resume" : "Pause"}>
             {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
@@ -795,10 +860,10 @@ export default function App() {
           <button className="control-button" onClick={resetRobot} title="Reset robot pose and cell" aria-label="Reset robot"><RotateCcw size={16} /></button>
         </div>
         <div className={`status-pill status-${status.toLowerCase()}`}><span className="status-indicator" />{runtimeLabel}</div>
-        <div className={`run-preflight run-preflight-${preflight.kind}`} role="status" aria-live="polite"><span aria-hidden="true">{preflight.kind === "pass" ? "✓" : "!"}</span><strong>{preflight.kind === "pass" ? "Ready" : "Preflight"}</strong><span>{preflight.text}</span></div>
+        <div className={`run-preflight run-preflight-${preflight.kind}`} role="status" aria-live="polite"><span aria-hidden="true">{preflight.kind === "pass" ? "✓" : "!"}</span><strong>{preflight.kind === "pass" ? (uiLanguage === "zh-Hant" ? "可以執行" : "Ready") : (uiLanguage === "zh-Hant" ? "執行前檢查" : "Preflight")}</strong><span>{preflight.text}</span></div>
         <div className="commandbar-spacer" />
         <div className="speed-control">
-          <Gauge size={16} /><label htmlFor="simulation-speed">SIM SPEED</label>
+          <Gauge size={16} /><label htmlFor="simulation-speed">{uiLanguage === "zh-Hant" ? "模擬速度" : "SIM SPEED"}</label>
           <input id="simulation-speed" type="range" min="10" max="200" step="5" value={project.simulation.speed} disabled={busy} onChange={(event) => replaceProject((current) => ({ ...current, simulation: { speed: Number(event.target.value) } }))} />
           <output>{project.simulation.speed}%</output>
         </div>
@@ -811,7 +876,7 @@ export default function App() {
         <aside className="left-workspace">
           <section className="panel code-panel">
             <div className="panel-heading code-heading">
-              <div className="heading-title"><span className="heading-icon purple-icon"><Code2 size={17} /></span><div><h2>Program</h2><small>{project.programmingLanguage === "lua" ? "Lua · bounded MG400 training subset" : "Python · simulator-only, not controller code"}</small></div></div>
+                <div className="heading-title"><span className="heading-icon purple-icon"><Code2 size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "程式" : "Program"}</h2><small>{project.programmingLanguage === "lua" ? "Lua · MG400 訓練子集" : "Python · 僅供模擬器，不能控制實機"}</small></div></div>
               <div className="heading-tools">
                 <button
                   type="button"
@@ -858,7 +923,7 @@ export default function App() {
           </section>
 
           <section className="panel mission-panel" aria-labelledby="mission-heading">
-            <div className="panel-heading compact-heading"><div className="heading-title"><span className="heading-icon orange-icon"><Target size={17} /></span><div><h2 id="mission-heading">Mission cards</h2><small>Live progress from the current cell state</small></div></div></div>
+            <div className="panel-heading compact-heading"><div className="heading-title"><span className="heading-icon orange-icon"><Target size={17} /></span><div><h2 id="mission-heading">{uiLanguage === "zh-Hant" ? "任務卡" : "Mission cards"}</h2><small>{uiLanguage === "zh-Hant" ? "即時顯示目前工作格進度" : "Live progress from the current cell state"}</small></div></div></div>
             <div className="mission-cards">
               <article className={`mission-card ${towerBlocks.length >= 3 ? "mission-complete" : ""}`}>
                 <div className="mission-card-heading"><strong>Tower · 3 layers</strong><span>{towerBlocks.length >= 3 ? "COMPLETE" : "IN PROGRESS"}</span></div>
@@ -877,7 +942,7 @@ export default function App() {
 
           <section className="panel points-panel">
             <div className="panel-heading compact-heading">
-              <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>Teach points</h2><small>Saved targets for robot moves</small></div></div>
+              <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "示教點" : "Teach points"}</h2><small>{uiLanguage === "zh-Hant" ? "儲存機械臂移動目標" : "Saved targets for robot moves"}</small></div></div>
               <div className="point-actions">
                 <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> Teach current</button>
                 <button className="small-icon-button" onClick={addJointPoint} title="Teach current joint angles" aria-label="Teach a joint point" disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
@@ -1057,6 +1122,7 @@ export default function App() {
             </div>}
             {showToolSettings && <div className="tool-settings-content">
               <div className="tool-settings-copy">
+                <div className="mode-banner"><strong>{freeMode ? "自由模式 · 自訂工作格" : "訓練模式 · 導引工作格"}</strong><span>{freeMode ? "可加入、移動、刪除方塊或磁性圓件；位置以 mm 儲存。" : "課程任務使用固定教學供料；切換到自由模式可另存自訂工作格。"}</span></div>
                 <strong>Flange to TCP</strong>
                 <div className="tool-offset-diagram" aria-hidden="true">
                   <span className="tool-offset-node tool-wrist">Robot wrist</span>
@@ -1128,17 +1194,19 @@ export default function App() {
                 </div>
                 <div className="tool-setting-group cell-state-summary" aria-label="Multi-block cell state">
                   <strong className="tool-setting-group-title">Multi-block cell</strong>
-                  <p>{project.scene.blocks.length} blocks · one logical attachment at a time</p>
+                  <p>{freeMode ? "自由工作格" : "導引工作格"} · {project.scene.blocks.length} 件物件 · 一次只可邏輯接附一件</p>
                   <p>Feeder order: {project.scene.feederOrder.map((id) => project.scene.blocks.find((block) => block.id === id)?.color ?? id).join(" → ")}</p>
-                  <button className="secondary-button outlined-button" onClick={addCellBlock} disabled={busy}><Plus size={14} /> Add supply block</button>
+                  {freeMode ? <div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入 40×40×15 方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設自由工作格</button></div> : <button className="secondary-button outlined-button" onClick={addCellBlock} disabled={busy}><Plus size={14} /> Add supply block</button>}
                   <div className="cell-block-list">{project.scene.blocks.map((block) => <div key={block.id} className="cell-block-editor">
-                    <span className={`cell-block-chip cell-block-${block.color}`} title={`${block.id} · ${block.source}`}>{block.color} · {block.id}</span>
+                    <span className={`cell-block-chip cell-block-${block.color}`} title={`${block.id} · ${block.source}`}>{block.kind === "puck" ? "磁性圓件" : "方塊"} · {block.id}</span>
+                    {freeMode && <select aria-label={`${block.id} object type`} value={block.kind ?? "block"} disabled={busy} onChange={(event) => updateCellBlock(block.id, { kind: event.currentTarget.value as CellObjectKind })}><option value="block">方塊</option><option value="puck">磁性圓件</option></select>}
                     <select aria-label={`${block.id} color`} value={block.color} disabled={busy} onChange={(event) => updateCellBlock(block.id, { color: event.currentTarget.value as BlockColor })}><option value="neutral">neutral</option><option value="black">black</option><option value="white">white</option></select>
                     <select aria-label={`${block.id} source`} value={block.source} disabled={busy} onChange={(event) => updateCellBlock(block.id, { source: event.currentTarget.value as BlockSource })}><option value="pickup">pickup</option><option value="feeder">feeder</option><option value="output">output</option><option value="unloaded">unloaded</option></select>
                     <NumericField label="X" value={block.position.x} suffix="mm" step={1} min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(block.id, { x: value })} />
                     <NumericField label="Y" value={block.position.y} suffix="mm" step={1} min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(block.id, { y: value })} />
+                    {freeMode && <NumericField label="Z" value={block.z ?? 0} suffix="mm" step={1} min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(block.id, { z: value })} />}
                     <NumericField label="R" value={block.r} suffix="°" step={1} min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(block.id, { r: value })} />
-                    <button className="icon-button" aria-label={`Remove ${block.id}`} onClick={() => removeCellBlock(block.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={13} /></button>
+                    <button className="icon-button" aria-label={`Remove ${block.id}`} onClick={() => removeCellBlock(block.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={13} /></button>
                   </div>)}</div>
                   <p className="tool-mode-note">Colors and feeder order are configured simulation state; no camera, color sensor, or vision claim is made.</p>
                 </div>

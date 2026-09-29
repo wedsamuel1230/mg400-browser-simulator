@@ -14,6 +14,7 @@ describe("TrainingCenter example replacement", () => {
       value(this: HTMLDialogElement) { this.open = false; this.removeAttribute("open"); },
     });
     localStorage.clear();
+    localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.5", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
   });
 
   afterEach(() => {

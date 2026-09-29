@@ -6,12 +6,17 @@ export type ProgramLanguage = "lua" | "python";
 export type ToolMode = "magnet" | "fork";
 export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
+export type CellObjectKind = "block" | "puck";
 
 export type CellBlock = {
   id: string;
+  /** Free Mode may add a distinct magnet-compatible puck; guided blocks omit this and default to block. */
+  kind?: CellObjectKind;
   color: BlockColor;
   source: BlockSource;
   position: { x: number; y: number };
+  /** Optional Free Mode table height; guided objects default to the table plane. */
+  z?: number;
   r: number;
   /** Deterministic tower layer assigned on release; omitted for source blocks. */
   stackLevel?: number;

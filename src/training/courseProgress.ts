@@ -18,7 +18,7 @@ export function createEmptyCourseProgress(): CourseProgress {
   return {
     schemaVersion: 1,
     curriculumVersion: CURRICULUM_VERSION,
-    language: "en",
+    language: "zh-Hant",
     completedLessonIds: [],
     attemptsByLesson: {},
     lastLessonId: "foundation-first-program",

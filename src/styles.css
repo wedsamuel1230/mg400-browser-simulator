@@ -647,3 +647,61 @@ button:disabled { opacity: .42; cursor: not-allowed !important; }
 .cell-block-black { background: #202629; color: #fff; }
 .cell-block-white { background: #eef4ef; color: #152326; }
 .cell-block-neutral { background: #ffa63d; color: #152326; }
+.mode-toggle { min-height: 36px; border: 1px solid #3d5550; border-radius: 8px; padding: 0 11px; color: #b8d9d0; background: #162523; font-size: 13px; cursor: pointer; }
+.mode-toggle.active { border-color: #d5a35b; color: #ffe0a3; background: #302719; }
+.language-switch { min-height: 36px; border: 1px solid #3d5550; border-radius: 8px; padding: 0 10px; color: #b8d9d0; background: #14201f; font-size: 13px; cursor: pointer; }
+.mode-banner { display: grid; gap: 5px; margin-bottom: 16px; border-left: 3px solid var(--teal); padding: 11px 13px; background: #172a27; }
+.mode-banner strong { color: #e5f4ef; font-size: 16px; }
+.mode-banner span { color: #b6cbc6; font-size: 14px; line-height: 1.55; }
+.free-object-actions { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0; }
+.free-object-actions .secondary-button { min-height: 42px; font-size: 14px; }
+.cell-block-editor { gap: 8px; padding: 8px 0; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
+.cell-block-editor .cell-block-chip { min-width: 132px; font-size: 14px; padding: 7px 9px; }
+.cell-block-editor select { min-height: 38px; font-size: 14px; }
+
+/* Issue 27: the learning surface is a reading interface, not telemetry chrome. */
+.training-sidebar { padding: 20px 16px; }
+.training-progress { font-size: 15px; line-height: 1.5; }
+.training-progress strong { font-size: 17px; }
+.training-track { margin-top: 22px; }
+.training-track h3 { font-size: 14px; letter-spacing: .06em; }
+.training-track > p { color: #a2b7b2; font-size: 14px; line-height: 1.55; }
+.training-lesson-link { min-height: 48px; gap: 11px; padding: 10px 9px; color: #c5d5d1; font-size: 15px; line-height: 1.45; }
+.lesson-status { width: 19px; height: 19px; flex-basis: 19px; }
+.training-content { padding: 28px clamp(22px, 3.3vw, 48px) 32px; }
+.training-kicker { font-size: 13px; }
+.training-content > h3 { margin: 11px 0 18px; font-size: clamp(25px, 2.4vw, 34px); }
+.lesson-outcome { gap: 7px; padding: 14px 17px; font-size: 16px; line-height: 1.6; }
+.lesson-outcome strong, .lesson-practice strong { font-size: 13px; }
+.lesson-context { margin: 13px 0 24px; font-size: 14px; line-height: 1.6; }
+.lesson-section { margin: 22px 0; }
+.lesson-section h4, .lesson-section-title h4 { margin-bottom: 10px; font-size: 19px; }
+.lesson-section p, .lesson-section li { font-size: 16px; line-height: 1.7; }
+.lesson-section li { padding: 4px 0 4px 5px; }
+.lesson-practice { margin: 22px 0; padding: 15px 17px; }
+.lesson-practice p { font-size: 16px; line-height: 1.65; }
+.lesson-section-title span { font-size: 13px; }
+.training-copy-button, .training-submit-button, .training-use-button { min-height: 40px; padding: 0 13px; font-size: 14px; }
+.lesson-code { max-height: 310px; padding: 15px; font-size: 14px; line-height: 1.65; }
+.training-copy-hint, .training-example-confirmation { font-size: 14px; line-height: 1.6; }
+.training-example-cancel-button, .training-example-confirm-button { min-height: 40px; padding: 0 13px; font-size: 14px; }
+.assessment-question legend { font-size: 16px; line-height: 1.6; }
+.assessment-option { margin-top: 10px; font-size: 15px; line-height: 1.55; }
+.assessment-explanation { font-size: 14px; line-height: 1.55; }
+.assessment-actions, .pass-feedback, .try-feedback { font-size: 14px; }
+.training-navigation button { min-height: 42px; padding: 0 13px; font-size: 14px; }
+.training-heading-copy h2 { font-size: 20px; }
+.training-heading-copy p { font-size: 12px; }
+.training-language-toggle button { min-height: 34px; padding: 5px 11px; font-size: 13px; }
+.training-close { width: 40px; height: 40px; }
+
+@media (max-width: 760px) {
+  .training-track h3 { font-size: 13px; }
+  .training-track > p { font-size: 13px; }
+  .training-lesson-link { min-height: 46px; font-size: 15px; }
+  .training-content { padding: 20px 17px 26px; }
+  .training-content > h3 { font-size: 25px; }
+  .lesson-outcome, .lesson-section p, .lesson-section li, .lesson-practice p { font-size: 16px; }
+  .lesson-context { font-size: 14px; }
+  .lesson-code { font-size: 13px; }
+}
