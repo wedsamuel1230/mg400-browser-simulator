@@ -58,7 +58,11 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !placementArmed) return;
-    canvas.scrollIntoView({ behavior: "smooth", block: "center" });
+    canvas.scrollIntoView({ behavior: "auto", block: "start" });
+    window.setTimeout(() => {
+      const top = canvas.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, top - 68), behavior: "auto" });
+    }, 120);
     canvas.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); onTableCancel?.(); return; }
