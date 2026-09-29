@@ -25,10 +25,10 @@ describe("beginner curriculum entry", () => {
     expect(languageGuidance).toContain("separate editor programs");
     expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("程式不能在實體 Dobot 控制器執行");
     expect(first.explanation.map((copy) => copy.en).join(" ")).toContain("Run executes the program in the editor");
-    expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("Run 會執行編輯器內的程式");
+    expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("「執行編輯器程式」會執行編輯器內的程式");
     expect(first.guidedSteps[1].en).toContain("Until you load it, Run will execute the current editor program");
     expect(first.guidedSteps[2].en).toContain("After loading the example");
-    expect(first.guidedSteps[1]["zh-Hant"]).toContain("Run 會執行編輯器目前的程式");
+    expect(first.guidedSteps[1]["zh-Hant"]).toContain("「執行編輯器程式」會執行編輯器目前的程式");
     expect(first.practice.en).toContain("After loading the lesson example");
     expect(first.practice["zh-Hant"]).toContain("載入課堂範例後");
     expect(TRACKS.find((track) => track.id === "foundation")?.summary.en).toContain("a first simulated move");
