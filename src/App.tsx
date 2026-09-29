@@ -761,6 +761,25 @@ export default function App() {
     setPlacementMessage(uiLanguage === "zh-Hant" ? `已將 ${freeSelectedId} 放到 X ${position.x}、Y ${position.y} mm。` : `Placed ${freeSelectedId} at X ${position.x}, Y ${position.y} mm.`);
   }
 
+  function nudgeSelectedPlacement(dx: number, dy: number) {
+    const selected = projectRef.current.scene.blocks.find((block) => block.id === freeSelectedId);
+    if (!selected) return;
+    const x = Math.max(-500, Math.min(500, Number((selected.position.x + dx).toFixed(1))));
+    const y = Math.max(-500, Math.min(500, Number((selected.position.y + dy).toFixed(1))));
+    updateCellBlock(selected.id, { x, y, z: 0 });
+    setPlacementMessage(uiLanguage === "zh-Hant" ? `鍵盤位置：X ${x}、Y ${y} mm。按 Enter 確認，Escape 取消。` : `Keyboard position: X ${x}, Y ${y} mm. Press Enter to place or Escape to cancel.`);
+  }
+
+  function cancelTablePlacement() {
+    setPlacementArmed(false);
+    setPlacementMessage(uiLanguage === "zh-Hant" ? "已取消工作台擺放；可繼續使用數字欄位。" : "Table placement cancelled; numeric fields remain available.");
+  }
+
+  function confirmTablePlacement() {
+    const selected = projectRef.current.scene.blocks.find((block) => block.id === freeSelectedId);
+    if (selected) placeSelectedOnTable({ x: selected.position.x, y: selected.position.y });
+  }
+
   function armTablePlacement() {
     if (!freeSelectedId) {
       setPlacementMessage(uiLanguage === "zh-Hant" ? "請先選取一個物件，再點選工作台。" : "Select an object before choosing a table position.");
@@ -851,10 +870,10 @@ export default function App() {
   }[status];
 
   const freeModeTopPanel = freeMode ? <section className="free-mode-panel free-mode-top" aria-label="自由模式工作格">
-    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button><button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? setPlacementArmed(false) : armTablePlacement()} disabled={busy}>{placementArmed ? "取消點選" : "在工作台點選擺放"}</button></div></div>
+    <div className="free-mode-heading"><div><strong>自由模式 · 工作格設定</strong><span>加入物件、選取後編輯 X / Y / Z / R；位置超出支援範圍會被拒絕。</span></div><div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設</button><button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? "取消點選" : "在工作台點選擺放"}</button></div></div>
     <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}>{block.kind === "puck" ? "磁性圓件" : "40 mm 方塊"} · {block.id}</button>)}</div>
     {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>已選取：{selected.kind === "puck" ? "磁性圓件" : "40×40×15 mm 方塊"} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`刪除 ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || project.scene.blocks.length <= 1}><Trash2 size={15} /></button></div></div>; })()}
-    <small>{placementMessage || "只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。"}</small>
+    <small role="status" aria-live="polite">{placementMessage || "只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。"}</small>
   </section> : null;
 
   return (
@@ -1091,7 +1110,7 @@ export default function App() {
             <small>只按模擬器邏輯接觸；磁性圓件不是實體磁力模型。導引課程工作格會在返回訓練模式時還原。</small>
           </section>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>Preparing 3D view</strong><span>Loading the interactive MG400 training cell…</span></div></div></div>}>
-            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} />
+            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
 
           <section className="telemetry-strip" aria-label="Current robot position">
