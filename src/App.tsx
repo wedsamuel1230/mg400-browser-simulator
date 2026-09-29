@@ -1058,20 +1058,23 @@ export default function App() {
               </div>
             </div>
             <div className="editor-wrapper">
-              <Suspense fallback={<div className="editor-loading"><LoaderCircle className="spin" size={18} />Preparing {project.programmingLanguage === "lua" ? "Lua" : "Python"} editor…</div>}>
-                <Editor
-                  key={project.programmingLanguage}
-                  language={project.programmingLanguage}
-                  theme="mg400-dark"
-                  value={programText}
-                  beforeMount={editorBeforeMount}
-                  onChange={(value) => replaceProject((current) => current.programmingLanguage === "lua"
-                    ? { ...current, script: value ?? "" }
-                    : { ...current, pythonScript: value ?? "" })}
-                  options={{ ...editorOptions(project.programmingLanguage === "lua" ? "Lua program editor" : "Python program editor"), readOnly: busy }}
-                  loading={<div className="editor-loading"><LoaderCircle className="spin" size={18} />Preparing editor…</div>}
-                />
-              </Suspense>
+              {showWorkshop ? <Suspense fallback={<div className="editor-loading"><LoaderCircle className="spin" size={18} />{uiLanguage === "zh-Hant" ? "正在準備編輯器…" : `Preparing ${project.programmingLanguage === "lua" ? "Lua" : "Python"} editor…`}</div>}>
+                  <Editor
+                    key={project.programmingLanguage}
+                    language={project.programmingLanguage}
+                    theme="mg400-dark"
+                    value={programText}
+                    beforeMount={editorBeforeMount}
+                    onChange={(value) => replaceProject((current) => current.programmingLanguage === "lua"
+                      ? { ...current, script: value ?? "" }
+                      : { ...current, pythonScript: value ?? "" })}
+                    options={{ ...editorOptions(project.programmingLanguage === "lua" ? "Lua program editor" : "Python program editor"), readOnly: busy }}
+                    loading={<div className="editor-loading"><LoaderCircle className="spin" size={18} />{uiLanguage === "zh-Hant" ? "正在準備編輯器…" : "Preparing editor…"}</div>}
+                  />
+                </Suspense> : <div className="editor-preview">
+                  <pre aria-label={uiLanguage === "zh-Hant" ? "程式預覽" : "Program preview"}>{programText}</pre>
+                  <button type="button" onClick={() => setShowWorkshop(true)}>{uiLanguage === "zh-Hant" ? "打開編輯器及控制" : "Open editor and controls"}</button>
+                </div>}
             </div>
             <div className="editor-footnote"><span><span className="mini-dot" /> {uiLanguage === "zh-Hant" ? (project.programmingLanguage === "lua" ? "Lua 在本機 Web Worker 執行" : "Python 在本機 Pyodide Web Worker 執行") : (project.programmingLanguage === "lua" ? "Lua runs in a local Web Worker" : "Python runs in a local Pyodide Web Worker")}</span><span>{uiLanguage === "zh-Hant" ? "執行此編輯器內容 · 僅供模擬器" : "Run uses this editor · simulator only"}</span></div>
             <details className="syntax-snippets">

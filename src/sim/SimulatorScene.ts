@@ -32,7 +32,7 @@ import { BLOCK_SIZE_MM } from "../domain";
 import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE } from "./modelPalette";
 import { createMagnetPuck, createReferenceBlock } from "./blockMarker";
-import { prepareFlangeMountedToolGeometry } from "./toolMount";
+import { createFallbackForkGeometry, prepareFlangeMountedToolGeometry } from "./toolMount";
 
 export type SceneState = {
   joints: JointAngles;
@@ -43,8 +43,13 @@ export type SceneState = {
   target: Pose | null;
 };
 
-export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string };
+export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string; progress?: number };
 export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer };
+
+export function viewportVerticalFov(baseFov: number, aspect: number): number {
+  if (!Number.isFinite(aspect) || aspect >= 1 || aspect <= 0) return baseFov;
+  return Math.min(75, (2 * Math.atan(Math.tan((baseFov * Math.PI) / 360) / aspect) * 180) / Math.PI);
+}
 
 export class SimulatorScene {
   private readonly scene = new Scene();
@@ -52,6 +57,7 @@ export class SimulatorScene {
   private readonly renderer: WebGLRenderer;
   private readonly controls: OrbitControls;
   private readonly robotRoot = new Group();
+  private readonly loadingRobot = new Group();
   private readonly toolGroup = new Group();
   private readonly blockGroup = new Group();
   private readonly forkFixtures = new Group();
@@ -61,6 +67,7 @@ export class SimulatorScene {
   private readonly proceduralBlockGeometry = this.block.geometry.clone();
   private localForkBlockGeometry?: BufferGeometry;
   private readonly additionalBlocks = new Map<string, Mesh>();
+  private appliedLocalMeshes?: LocalToolMeshes;
   private readonly target = new Group();
   private dropPad?: Mesh;
   private dropRing?: Mesh;
@@ -85,7 +92,7 @@ export class SimulatorScene {
     // Some WebKit/Electron and browser automation compositors otherwise capture
     // only the cleared WebGL back buffer even while the scene itself is rendered.
     this.renderer = new WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
@@ -139,7 +146,10 @@ export class SimulatorScene {
     this.scene.add(dropRing);
 
     this.scene.add(this.robotRoot);
+    this.robotRoot.visible = false;
     this.scene.add(this.toolGroup);
+    this.toolGroup.visible = false;
+    this.createLoadingPlaceholder();
     this.scene.add(this.blockGroup);
     this.pickupStand.add(...this.makeForkStandPads());
     this.dropStand.add(...this.makeForkStandPads());
@@ -173,48 +183,72 @@ export class SimulatorScene {
     this.renderFrame();
   }
 
-  static async create(canvas: HTMLCanvasElement, onStatus: (status: SceneStatus) => void, localMeshes: LocalToolMeshes = {}) {
+  static async create(canvas: HTMLCanvasElement, onStatus: (status: SceneStatus) => void) {
     let view: SimulatorScene | undefined;
     try {
       view = new SimulatorScene(canvas);
-      onStatus({ kind: "loading", message: "Loading the Dobot MG400 model…" });
+      onStatus({ kind: "loading", message: "Loading the Dobot MG400 model…", progress: 0 });
       const path = "/models/mg400/mg400_description/";
       const loadingManager = new LoadingManager();
+      loadingManager.onProgress = (_url, loaded, total) => onStatus({
+        kind: "loading",
+        message: "Loading MG400 visual meshes…",
+        progress: total > 0 ? Math.round((loaded / total) * 100) : 0,
+      });
       const modelMeshesLoaded = new Promise<void>((resolve, reject) => {
         loadingManager.onLoad = () => resolve();
         loadingManager.onError = (url) => reject(new Error(`Could not load MG400 mesh: ${url}`));
       });
       const loader = new URDFLoader(loadingManager);
       loader.packages = { mg400_description: path };
-      const [robot, urdfResponse, magnetGeometry, forkGeometry] = await Promise.all([
+      const [robot, urdfResponse] = await Promise.all([
         loader.loadAsync(path + "urdf/mg400_description.urdf"),
         fetch(path + "urdf/mg400_description.urdf"),
-        localMeshes.magnet ? Promise.resolve(new STLLoader().parse(localMeshes.magnet)) : Promise.resolve(view.makeFallbackToolGeometry("magnet")),
-        localMeshes.fork ? Promise.resolve(new STLLoader().parse(localMeshes.fork)) : Promise.resolve(view.makeFallbackToolGeometry("fork")),
       ]);
       if (!urdfResponse.ok) throw new Error("Could not read the bundled MG400 URDF.");
       // URDFLoader returns the link tree before its nested STL requests have
       // necessarily attached their meshes. Color only after those callbacks.
       await modelMeshesLoaded;
       view.robot = robot;
-      view.prepareToolMeshes(magnetGeometry, forkGeometry);
-      if (localMeshes.block) view.prepareLocalBlock(new STLLoader().parse(localMeshes.block));
       view.kinematics = MG400Kinematics.fromUrdf(await urdfResponse.text());
       view.prepareRobot(robot);
       onStatus({ kind: "ready" });
       return view;
     } catch (error) {
-      view?.dispose();
       const message = error instanceof Error ? error.message : String(error);
       onStatus({ kind: "error", message });
+      // Keep the renderer and project-authored loading silhouette mounted so
+      // the workcell remains visible and usable when vendor assets fail.
+      if (view) return view;
       throw error;
     }
   }
 
-  private makeFallbackToolGeometry(kind: "magnet" | "fork"): BufferGeometry {
-    // Freely distributable teaching placeholder. It preserves the flange datum
-    // and TCP direction, but is deliberately not presented as the owner's mesh.
-    return kind === "magnet" ? new BoxGeometry(18, 18, 8) : new BoxGeometry(24, 52, 6);
+  private createLoadingPlaceholder() {
+    const material = new MeshStandardMaterial({ color: "#94aaa4", roughness: 0.52, metalness: 0.16 });
+    const addBox = (geometry: BoxGeometry, position: [number, number, number], rotationY = 0) => {
+      const mesh = new Mesh(geometry, material);
+      mesh.position.set(...position);
+      mesh.rotation.y = rotationY;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.loadingRobot.add(mesh);
+    };
+    const base = new Mesh(new CylinderGeometry(72, 82, 92, 24), material);
+    base.rotation.x = Math.PI / 2;
+    base.position.set(0, 0, 46);
+    this.loadingRobot.add(base);
+    addBox(new BoxGeometry(118, 92, 28), [0, 0, 106]);
+    addBox(new BoxGeometry(190, 64, 54), [91, 0, 168], -0.14);
+    addBox(new BoxGeometry(165, 48, 44), [253, 0, 175], 0.30);
+    addBox(new BoxGeometry(44, 58, 45), [337, 0, 128]);
+    const placeholderFork = createFallbackForkGeometry();
+    prepareFlangeMountedToolGeometry(placeholderFork);
+    const fork = new Mesh(placeholderFork, new MeshStandardMaterial({ color: MODEL_PALETTE.fork, roughness: 0.42, metalness: 0.42 }));
+    fork.position.set(358, 0, 103);
+    fork.castShadow = true;
+    this.loadingRobot.add(fork);
+    this.scene.add(this.loadingRobot);
   }
 
   private prepareRobot(robot: URDFRobot) {
@@ -234,6 +268,12 @@ export class SimulatorScene {
       object.receiveShadow = true;
     });
     this.robotRoot.add(robot);
+    this.robotRoot.visible = true;
+    this.loadingRobot.visible = false;
+    this.toolGroup.visible = true;
+    const fallbackMagnet = new CylinderGeometry(11, 11, 6, 24);
+    fallbackMagnet.rotateX(Math.PI / 2);
+    this.prepareToolMeshes(fallbackMagnet, createFallbackForkGeometry());
     const tcp = new Mesh(
       new SphereGeometry(5, 20, 14),
       new MeshStandardMaterial({ color: MODEL_PALETTE.tcp, emissive: "#392910", roughness: 0.3 }),
@@ -303,6 +343,29 @@ export class SimulatorScene {
     if (this.magnetMesh) this.magnetMesh.visible = state.project.tool.mode === "magnet";
     if (this.forkMesh) this.forkMesh.visible = state.project.tool.mode === "fork";
     this.updateBlockParent();
+  }
+
+  setLocalToolMeshes(localMeshes: LocalToolMeshes) {
+    if (this.appliedLocalMeshes === localMeshes) return;
+    this.appliedLocalMeshes = localMeshes;
+    const loader = new STLLoader();
+    const replacements: Array<[ArrayBuffer | undefined, Mesh | undefined]> = [
+      [localMeshes.magnet, this.magnetMesh],
+      [localMeshes.fork, this.forkMesh],
+    ];
+    replacements.forEach(([bytes, mesh]) => {
+      if (!bytes || !mesh) return;
+      const geometry = loader.parse(bytes);
+      prepareFlangeMountedToolGeometry(geometry);
+      const previous = mesh.geometry;
+      mesh.geometry = geometry;
+      previous.dispose();
+    });
+    if (localMeshes.block) {
+      const geometry = loader.parse(localMeshes.block);
+      this.prepareLocalBlock(geometry);
+      this.updateBlockParent();
+    }
   }
 
   resetCamera() {
@@ -416,6 +479,7 @@ export class SimulatorScene {
     const rect = this.canvas.parentElement?.getBoundingClientRect() ?? this.canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
     this.camera.aspect = rect.width / rect.height;
+    this.camera.fov = viewportVerticalFov(42, this.camera.aspect);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(rect.width, rect.height, false);
   }

@@ -6,7 +6,10 @@ import { MODEL_PALETTE, ROBOT_COLOR_GROUPS } from "./sim/modelPalette";
 
 vi.mock("./sim/SimulatorScene", () => ({
   SimulatorScene: {
-    create: async () => ({ setState() {}, dispose() {}, resetCamera() {} }),
+    create: async (_canvas: HTMLCanvasElement, onStatus: (status: { kind: "ready" }) => void) => {
+      onStatus({ kind: "ready" });
+      return { setState() {}, setLocalToolMeshes() {}, dispose() {}, resetCamera() {} };
+    },
   },
 }));
 

@@ -25,17 +25,17 @@ type Props = {
 export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, uiLanguage = "en", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
-  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target });
+  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes });
   const [status, setStatus] = useState<SceneStatus>({ kind: "loading", message: "Preparing viewport…" });
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
-  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target };
+  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let alive = true;
     let created: SimulatorScene | undefined;
-    void SimulatorScene.create(canvas, setStatus, localToolMeshes).then((scene) => {
+    void SimulatorScene.create(canvas, (nextStatus) => { if (alive) setStatus(nextStatus); }).then((scene) => {
       if (!alive) {
         scene.dispose();
         return;
@@ -43,13 +43,17 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       created = scene;
       sceneRef.current = scene;
       scene.setState(latest.current);
-      setStatus({ kind: "ready" });
+      if (latest.current.localToolMeshes) scene.setLocalToolMeshes(latest.current.localToolMeshes);
     }).catch(() => undefined);
     return () => {
       alive = false;
       sceneRef.current = undefined;
       created?.dispose();
     };
+  }, []);
+
+  useEffect(() => {
+    if (localToolMeshes) sceneRef.current?.setLocalToolMeshes(localToolMeshes);
   }, [localToolMeshes]);
 
   useEffect(() => {
@@ -119,7 +123,9 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       {status.kind !== "ready" && (
         <div className={`viewport-overlay ${status.kind === "error" ? "error-overlay" : ""}`} role="status">
           {status.kind === "loading" ? <LoaderCircle className="spin" size={23} /> : <AlertTriangle size={23} />}
-          <div><strong>{status.kind === "loading" ? (uiLanguage === "zh-Hant" ? "正在載入機械臂模型" : "Loading robot model") : (uiLanguage === "zh-Hant" ? "無法載入機械臂模型" : "Model could not load")}</strong><span>{status.kind === "loading" && uiLanguage === "zh-Hant" ? "正在準備三維工作格…" : localizeWorkspaceMessage(status.message ?? "", uiLanguage)}</span></div>
+          <div><strong>{status.kind === "loading" ? (uiLanguage === "zh-Hant" ? "正在載入機械臂模型" : "Loading robot model") : (uiLanguage === "zh-Hant" ? "無法載入機械臂模型" : "Model could not load")}</strong><span>{status.kind === "loading" && uiLanguage === "zh-Hant" ? `正在準備三維工作格…${status.progress === undefined ? "" : ` ${status.progress}%`}` : status.kind === "loading" ? `${status.message ?? "Preparing the 3D workcell…"}${status.progress === undefined ? "" : ` ${status.progress}%`}` : localizeWorkspaceMessage(status.message ?? "", uiLanguage)}</span>
+            {status.kind === "loading" && <div className="viewport-loading-progress" role="progressbar" aria-label={uiLanguage === "zh-Hant" ? "模型載入進度" : "Model loading progress"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={status.progress ?? 0}><span style={{ width: `${status.progress ?? 0}%` }} /></div>}
+          </div>
         </div>
       )}
     </div>
