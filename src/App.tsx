@@ -8,8 +8,8 @@ import {
   ArrowUp,
   Box,
   BookOpenCheck,
-  CircleHelp,
   ChevronDown,
+  Check,
   Code2,
   Crosshair,
   Download,
@@ -62,6 +62,8 @@ import { SimulationController, type RunStatus } from "./sim/SimulationController
 import type { LocalToolMeshes } from "./sim/SimulatorScene";
 import type { MG400Kinematics } from "./sim/mg400Kinematics";
 import { TrainingCenter } from "./training/TrainingCenter";
+import { LESSONS } from "./training/curriculum";
+import { DEFAULT_PROJECT } from "./data/defaultProject";
 import type { ProgramLanguage } from "./domain";
 import { recommendPickAndPlace, recommendedProgram } from "./sim/codeRecommendation";
 import { FORK_INSERTION_DISTANCE_MM, forkContactPose, forkEntryPose } from "./sim/forkTool";
@@ -141,8 +143,8 @@ function editorOptions(ariaLabel: string) {
     automaticLayout: true,
     ariaLabel,
     fontFamily: "'SFMono-Regular', 'Cascadia Code', 'Roboto Mono', monospace",
-    fontSize: 13,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 26,
     minimap: { enabled: false },
     padding: { top: 16, bottom: 18 },
     scrollBeyondLastLine: false,
@@ -231,6 +233,9 @@ export default function App() {
   const [saved, setSaved] = useState(true);
   const [showToolSettings, setShowToolSettings] = useState(false);
   const [showWorkshop, setShowWorkshop] = useState(false);
+  const [workbenchView, setWorkbenchView] = useState<"practice" | "program" | "points" | "objects" | "settings">("practice");
+  const [practiceLessonId, setPracticeLessonId] = useState<string | null>(null);
+  const [practicePrepared, setPracticePrepared] = useState(false);
   const [runLessonCue, setRunLessonCue] = useState(false);
   const runButtonRef = useRef<HTMLButtonElement>(null);
   const [showTraining, setShowTraining] = useState(false);
@@ -404,8 +409,6 @@ export default function App() {
     [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError, forkProfile],
   );
   const towerBlocks = project.scene.blocks.filter((block) => block.stackLevel !== undefined);
-  const feederIds = useMemo(() => new Set(project.scene.initialBlocks.filter((block) => block.source === "feeder").map((block) => block.id)), [project.scene.initialBlocks]);
-  const processedSortBlocks = project.scene.blocks.filter((block) => feederIds.has(block.id) && block.source !== "feeder");
   const sortUnloaded = project.scene.blocks.filter((block) => block.source === "unloaded").length;
   const preflight = useMemo(() => {
     const source = programText.split("\n").map((line) => line.replace(/(?:--|#).*$/, "")).join("\n");
@@ -475,14 +478,14 @@ export default function App() {
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canRun) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && canRun && preflight.kind !== "error" && !showTraining && (workbenchView !== "practice" || practicePrepared)) {
         event.preventDefault();
         startRun();
       }
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [canRun, kinematics, status]);
+  }, [canRun, kinematics, status, preflight.kind, showTraining, workbenchView, practicePrepared, project]);
 
   function addLog(message: string, level: LogEntry["level"] = "info") {
     const entry = { id: crypto.randomUUID(), time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }), message, level };
@@ -494,6 +497,12 @@ export default function App() {
   }
 
   function replaceProject(update: (current: ProjectDocument) => ProjectDocument) {
+    if (!busy) {
+      setLatestPrintOutput(null);
+      setLastRunContext(null);
+      setProgramRunLog([]);
+      setStatus("ready");
+    }
     setSaved(false);
     setProject((current) => update(structuredClone(current)));
   }
@@ -634,6 +643,9 @@ export default function App() {
     setCellBlocks(structuredClone(reset.scene.blocks));
     setOutputs({ 1: false });
     setStatus("ready");
+    setLatestPrintOutput(null);
+    setLastRunContext(null);
+    setProgramRunLog([]);
     addLog("Robot pose and reference cell reset.", "info");
   }
 
@@ -839,6 +851,19 @@ export default function App() {
       setCellBlocks(structuredClone(imported.scene.blocks));
       setSelectedId(imported.points[0]?.id ?? null);
       setSaved(false);
+      setPracticeLessonId(null);
+      setPracticePrepared(false);
+      setLatestPrintOutput(null);
+      setLastRunContext(null);
+      setProgramRunLog([]);
+      setStatus("ready");
+      setWorkbenchView("program");
+      setShowWorkshop(true);
+      setShowToolSettings(false);
+      setCoachOpen(false);
+      setFreeMode(false);
+      window.localStorage.setItem(FREE_MODE_KEY, "false");
+      guidedSceneRef.current = structuredClone(imported.scene);
       addLog(`Imported and validated ${file.name}.`, "info");
     } catch (error) {
       addLog(error instanceof Error ? error.message : "Import failed.", "error");
@@ -1015,6 +1040,119 @@ export default function App() {
     document.documentElement.lang = uiLanguage === "zh-Hant" ? "zh-Hant-HK" : "en";
   }, [uiLanguage]);
 
+  function openWorkbench(view: typeof workbenchView) {
+    if (busy && ((view === "practice" && freeMode) || view === "objects")) return;
+    if ((view === "objects" && !freeMode) || (view === "practice" && freeMode)) toggleFreeMode();
+    setPlacementArmed(false);
+    setWorkbenchView(view);
+    setShowWorkshop(view === "program");
+    setShowToolSettings(view === "settings");
+    if (view !== "program") setCoachOpen(false);
+  }
+
+  function restorePracticeProject() {
+    const backup = window.localStorage.getItem("mg400-before-practice-v1");
+    if (!backup || busy) return;
+    if (!window.confirm(uiLanguage === "zh-Hant" ? "還原會替換目前的程式、教點與工作格。如需保留目前內容，請先匯出。繼續還原嗎？" : "Restore replaces the current code, points and cell. Export any current work you want to keep. Continue?")) return;
+    try {
+      const snapshot = JSON.parse(backup) as { project?: unknown; freeMode?: boolean; guidedScene?: ProjectDocument["scene"] };
+      const previous = parseProjectFile(snapshot.project ? JSON.stringify(snapshot.project) : backup);
+      const previousFreeMode = Boolean(snapshot.project && snapshot.freeMode);
+      // Validate the optional guided cell through the same project schema before restoring it.
+      const guided = snapshot.guidedScene ? parseProjectFile(JSON.stringify({ ...previous, scene: snapshot.guidedScene })).scene : previous.scene;
+      controllerRef.current?.stop(false, true);
+      projectRef.current = previous;
+      setProject(previous);
+      resetRobot();
+      guidedSceneRef.current = structuredClone(previousFreeMode ? guided : previous.scene);
+      window.localStorage.setItem(GUIDED_SCENE_KEY, JSON.stringify(guidedSceneRef.current));
+      window.localStorage.setItem(FREE_MODE_KEY, String(previousFreeMode));
+      if (previousFreeMode) window.localStorage.setItem(FREE_SCENE_KEY, JSON.stringify(previous.scene));
+      setFreeMode(previousFreeMode);
+      setFreeSelectedId(previousFreeMode ? previous.scene.blocks[0]?.id ?? null : null);
+      setSelectedId(previous.points[0]?.id ?? null);
+      setPlacementArmed(false);
+      setPlacementMessage("");
+      setPracticeLessonId(null);
+      setPracticePrepared(false);
+      setWorkbenchView("program");
+      setShowWorkshop(true);
+      setShowToolSettings(false);
+      setCoachOpen(false);
+      setSaved(false);
+      window.localStorage.removeItem("mg400-before-practice-v1");
+      addLog(uiLanguage === "zh-Hant" ? "已還原開始練習前的專案。" : "Restored the project from before practice.", "info");
+    } catch {
+      addLog(uiLanguage === "zh-Hant" ? "無法讀取備份，原備份已保留。" : "Could not read the backup; it has been retained.", "error");
+    }
+  }
+
+  function preparePractice(id: string) {
+    if (busy) return;
+    const lesson = LESSONS.find((item) => item.id === id);
+    if (!lesson) return;
+    const current = projectRef.current;
+    const language = current.programmingLanguage;
+    const currentCode = language === "lua" ? current.script : current.pythonScript;
+    const canonicalPoints = ["reference", "body1"].map((profile) => DEFAULT_PROJECT.points.map((point) => {
+      if (point.kind !== "cartesian") return point;
+      const pick = forkContactPose(DEFAULT_PROJECT.scene.block, 0, profile as ForkContactProfile);
+      const place = forkContactPose(DEFAULT_PROJECT.scene.drop, 0, profile as ForkContactProfile, true);
+      const poses: Record<string, Pose> = { PickPoint: pick, PickApproach: forkEntryPose(pick), PlacePoint: place, PlaceApproach: { ...place, z: place.z + 80 } };
+      return poses[point.name] ? { ...point, pose: poses[point.name] } : point;
+    }));
+    const customSetup = ![DEFAULT_PROJECT.points, ...canonicalPoints].some((points) => JSON.stringify(points) === JSON.stringify(current.points))
+      || (!freeMode && JSON.stringify(current.scene.initialBlocks) !== JSON.stringify(DEFAULT_PROJECT.scene.initialBlocks))
+      || current.scene.drop.x !== DEFAULT_PROJECT.scene.drop.x || current.scene.drop.y !== DEFAULT_PROJECT.scene.drop.y;
+    const knownExamples = [getStarterProgram(language, "magnet"), getStarterProgram(language, "fork"), getStarterProgram(language, "fork", "body1"), recommendedProgram(language, current.tool.mode, forkProfile), ...LESSONS.map((item) => item.examples[language])];
+    if ((!knownExamples.includes(currentCode) || customSetup) && !window.confirm(uiLanguage === "zh-Hant" ? "開始這個練習會替換目前語言的程式，並準備範例工作格與教點。請先匯出要保留的專案。繼續嗎？" : "This practice replaces the selected language's code and prepares an example cell and points. Export any project you want to keep. Continue?")) return;
+    try {
+      if (!window.localStorage.getItem("mg400-before-practice-v1")) window.localStorage.setItem("mg400-before-practice-v1", JSON.stringify({ project: current, freeMode, guidedScene: guidedSceneRef.current ?? current.scene }));
+    } catch {
+      if (!window.confirm(uiLanguage === "zh-Hant" ? "無法備份目前專案。開始練習會替換程式、教點與工作格；請先匯出需要保留的內容。繼續嗎？" : "Could not back up this project. Practice replaces code, points and cell. Export anything you want to keep. Continue?")) return;
+    }
+    if (freeMode) {
+      try { window.localStorage.setItem(FREE_SCENE_KEY, JSON.stringify(current.scene)); } catch { /* keep current project on save failure */ }
+    }
+    const mode = id === "intermediate-passive-fork" ? "fork" : "magnet";
+    const profile = mode === "fork" ? selectedForkProfile : "reference";
+    const next = structuredClone(DEFAULT_PROJECT);
+    next.tool = { ...structuredClone(current.tool), mode };
+    next.simulation = { ...current.simulation };
+    next.programmingLanguage = language;
+    next.script = current.script;
+    next.pythonScript = current.pythonScript;
+    const code = mode === "fork" ? getStarterProgram(language, mode, profile) : lesson.examples[language];
+    if (language === "lua") next.script = code; else next.pythonScript = code;
+    if (mode === "fork") {
+      const pick = forkContactPose(next.scene.block, 0, profile);
+      const place = forkContactPose(next.scene.drop, 0, profile, true);
+      const poses: Record<string, Pose> = { PickPoint: pick, PickApproach: forkEntryPose(pick), PlacePoint: place, PlaceApproach: { ...place, z: place.z + 80 } };
+      next.points = next.points.map((point) => point.kind === "cartesian" && poses[point.name] ? { ...point, pose: poses[point.name] } : point);
+    }
+    controllerRef.current?.stop(false, true);
+    projectRef.current = next;
+    setProject(next);
+    setSaved(false);
+    setSelectedId(next.points[0]?.id ?? null);
+    setFreeMode(false);
+    window.localStorage.setItem(FREE_MODE_KEY, "false");
+    setPracticeLessonId(id);
+    setPracticePrepared(true);
+    setWorkbenchView("practice");
+    setShowWorkshop(false);
+    setCoachOpen(false);
+    setShowToolSettings(false);
+    setLatestPrintOutput(null);
+    setLastRunContext(null);
+    setProgramRunLog([]);
+    resetRobot();
+  }
+
+  const practiceLesson = LESSONS.find((item) => item.id === practiceLessonId);
+  const practiceIsPrint = practiceLessonId === "foundation-first-program";
+  const resultError = programRunLog.find((entry) => entry.level === "error");
+
   const targetPose = selectedPose;
   const runtimeLabel = {
     ready: uiLanguage === "zh-Hant" ? "待命" : "READY",
@@ -1031,76 +1169,64 @@ export default function App() {
       <button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入磁性圓件" : "Add magnet"}</button>
       {project.scene.blocks.length > 0 && <button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> {uiLanguage === "zh-Hant" ? "重設" : "Reset"}</button>}
       {project.scene.blocks.length > 0 && <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>}
-      <button className="workshop-toggle" onClick={() => setShowWorkshop((show) => !show)} aria-expanded={showWorkshop}>{showWorkshop ? (uiLanguage === "zh-Hant" ? "收起程式與控制" : "Hide code and controls") : (uiLanguage === "zh-Hant" ? "打開程式與控制" : "Open code and controls")} <ChevronDown size={15} className={showWorkshop ? "chevron-open" : ""} /></button>
+      <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "為工作格寫程式" : "Code for this cell"}<ArrowRight size={16} /></button>
     </div></div>
     {project.scene.blocks.length > 0 && <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${block.kind === "puck" ? "puck-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">{block.kind === "puck" ? "●" : "■"}</span> {block.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40 mm 方塊" : "40 mm block")} · {block.id}</button>)}</div>}
-    {showWorkshop && (() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{selected.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40×40×15 mm 方塊" : "40×40×15 mm block")} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
+    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{selected.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40×40×15 mm 方塊" : "40×40×15 mm block")} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
     <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "工作台目前是空的；先加入方塊或磁性圓件。" : "The table is empty. Add a block or magnet puck to begin.") : (uiLanguage === "zh-Hant" ? "只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Contact follows simulator rules; magnetic force, collisions and physical stability are not modeled."))}</small>
   </section> : null;
 
   return (
-    <main className="app-shell">
+    <main className="app-shell learning-studio">
       <header className="topbar">
-        <div className="brand-lockup">
-          <div className="brand-mark"><Activity size={21} strokeWidth={2.1} /></div>
-          <div><strong>MG400 <span>LAB</span></strong><small>{ui.subtitle}</small></div>
-        </div>
-        <div className="topbar-center">
-        <h1 className="cell-title">{ui.title}</h1>
-          <span className="local-badge"><span /> {ui.local}</span>
-        </div>
-        <div className="topbar-actions">
-          <button className="icon-button quiet-button" onClick={() => fileInputRef.current?.click()} title={ui.import} aria-label={ui.import} disabled={busy}><Upload size={17} /></button>
-          <button className="icon-button quiet-button" onClick={downloadProject} title={ui.export} aria-label={ui.export}><Download size={17} /></button>
-          <span className="top-divider" />
-          <button className="start-lesson-button" onClick={() => { setTrainingLessonId("foundation-first-program"); setShowTraining(true); }} title={ui.lesson} aria-label={ui.lesson}><BookOpenCheck size={16} /><span>{ui.lesson}</span></button>
-          <button className="help-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }} title={ui.training} aria-label={ui.training}><CircleHelp size={16} /><span>{ui.training}</span></button>
-          <div className="mode-segmented" role="group" aria-label={uiLanguage === "zh-Hant" ? "工作模式" : "Work mode"}>
-            <button className={`mode-toggle ${!freeMode ? "active" : ""}`} onClick={() => { if (freeMode) toggleFreeMode(); }} aria-pressed={!freeMode}>{ui.guided}</button>
-            <button className={`mode-toggle ${freeMode ? "active" : ""}`} onClick={() => { if (!freeMode) toggleFreeMode(); }} aria-pressed={freeMode}>{ui.free}</button>
-          </div>
-          <button className="language-switch" onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")} aria-label={ui.language}>{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>
+        <a className="brand-lockup" href="#" onClick={(event) => { event.preventDefault(); openWorkbench("practice"); if (!busy) { setPracticeLessonId(null); setPracticePrepared(false); } }} aria-label={uiLanguage === "zh-Hant" ? "返回練習首頁" : "Practice home"}>
+          <div className="brand-mark"><Activity size={24} /></div><div><strong>MG400 Lab</strong><small>{uiLanguage === "zh-Hant" ? "機械臂學習工作台" : "Robot learning studio"}</small></div>
+        </a>
+        <nav className="workbench-nav" aria-label={uiLanguage === "zh-Hant" ? "工作台導覽" : "Workspace navigation"}>
+          {(["practice", "program", "points", "objects"] as const).map((view) => <button key={view} type="button" aria-current={workbenchView === view ? "page" : undefined} onClick={() => openWorkbench(view)} disabled={busy && view === "objects"}>{uiLanguage === "zh-Hant" ? ({practice:"練習",program:"程式",points:"教點與移動",objects:"自由擺放"})[view] : ({practice:"Practice",program:"Code",points:"Teach & move",objects:"Free play"})[view]}</button>)}
+        </nav>
+        <div className="topbar-actions"><span className="saved-state" title={uiLanguage === "zh-Hant" ? "專案自動儲存於這個瀏覽器" : "Project autosaves in this browser"}><HardDrive size={16} />{saved ? (uiLanguage === "zh-Hant" ? "已儲存" : "Saved") : (uiLanguage === "zh-Hant" ? "儲存中" : "Saving")}</span>
+          <button className="help-button" disabled={busy} onClick={() => { setTrainingLessonId(null); setShowTraining(true); }}><BookOpenCheck size={18} />{uiLanguage === "zh-Hant" ? "課程" : "Lessons"}</button>
+          <details className="workspace-menu"><summary aria-label={uiLanguage === "zh-Hant" ? "專案與設定" : "Project and settings"}><Settings2 size={20} /><span>{uiLanguage === "zh-Hant" ? "更多" : "More"}</span></summary><div>
+            <button onClick={(event) => { openWorkbench("settings"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>{uiLanguage === "zh-Hant" ? "工具與進階設定" : "Tool & advanced settings"}</button>
+            <button onClick={restorePracticeProject} disabled={busy || !window.localStorage.getItem("mg400-before-practice-v1")}>{uiLanguage === "zh-Hant" ? "還原開始練習前的專案" : "Restore project before practice"}</button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={busy}>{ui.import}</button><button onClick={downloadProject}>{ui.export}</button>
+            <button onClick={() => setUiLanguage((current) => current === "zh-Hant" ? "en" : "zh-Hant")}>{uiLanguage === "zh-Hant" ? "Switch to English" : "切換至繁體中文"}</button>
+          </div></details>
           <input ref={fileInputRef} name="project-file" type="file" accept="application/json,.json" className="visually-hidden" hidden onChange={(event) => void importProject(event.target.files?.[0])} />
         </div>
       </header>
 
-      <section className={`commandbar${!showWorkshop ? " guided-quiet" : ""}`} aria-label={uiLanguage === "zh-Hant" ? "模擬控制" : "Simulation controls"}>
-        <div className="run-actions">
-          <button ref={runButtonRef} className="run-button" onClick={startRun} disabled={!canRun || preflight.kind === "error"} title={uiLanguage === "zh-Hant" ? "在本機模擬器執行編輯器目前顯示的程式。" : "Run the program currently shown in the editor in this local simulator."}>
-            {kinematics ? <Play size={16} fill="currentColor" /> : <LoaderCircle size={16} className="spin" />}
-            <span>{uiLanguage === "zh-Hant" ? "執行編輯器程式" : "Run editor code"}</span><kbd>⌘ ↵</kbd>
-          </button>
-          {runLessonCue && <span className="run-lesson-cue" role="status">{uiLanguage === "zh-Hant" ? "範例已載入，按此執行並查看結果。" : "Example loaded. Run it to see the result."}</span>}
-          {hasCurrentRun && latestPrintOutput !== null && <span className="run-result-output" role="status" aria-live="polite" title={latestPrintOutput}>{uiLanguage === "zh-Hant" ? "輸出：" : "Output: "}{latestPrintOutput}</span>}
-          <button className="control-button" onClick={pauseOrResume} disabled={status !== "running" && status !== "paused"} aria-label={status === "paused" ? ui.resume : ui.pause} title={status === "paused" ? ui.resume : ui.pause}>
-            {status === "paused" ? <Play size={16} /> : <Pause size={16} />}
-          </button>
-          <button className="control-button stop-control" onClick={stopRun} disabled={status !== "running" && status !== "paused"} aria-label={ui.stop} title={ui.stop}><Square size={15} fill="currentColor" /></button>
-          <button className="control-button" onClick={resetRobot} title={ui.resetRobot} aria-label={ui.resetRobot}><RotateCcw size={16} /></button>
-        </div>
-        <div className={`status-pill status-${status.toLowerCase()}`}><span className="status-indicator" />{runtimeLabel}</div>
-        <div className={`run-preflight run-preflight-${preflight.kind}`} role="status" aria-live="polite"><span aria-hidden="true">{preflight.kind === "pass" ? "✓" : "!"}</span><strong>{preflight.kind === "pass" ? (uiLanguage === "zh-Hant" ? "可以執行" : "Ready") : (uiLanguage === "zh-Hant" ? "執行前檢查" : "Preflight")}</strong><span>{preflight.text}</span></div>
-        <div className="commandbar-spacer" />
-        <div className="speed-control">
-          <Gauge size={16} /><label htmlFor="simulation-speed">{uiLanguage === "zh-Hant" ? "模擬速度" : "SIM SPEED"}</label>
-          <input id="simulation-speed" type="range" min="10" max="200" step="5" value={project.simulation.speed} disabled={busy} onChange={(event) => replaceProject((current) => ({ ...current, simulation: { speed: Number(event.target.value) } }))} />
-          <output>{project.simulation.speed}%</output>
-        </div>
-        <div className={`saved-state ${saved ? "is-saved" : "is-saving"}`}><HardDrive size={15} /><span>{uiLanguage === "zh-Hant" ? (saved ? "已儲存到本機裝置" : "儲存中…") : (saved ? "Saved on this device" : "Saving changes…")}</span></div>
-      </section>
-
-      {!freeMode && <section className="first-use-guide" aria-label={uiLanguage === "zh-Hant" ? "開始訓練" : "Start training"}>
-        <div className="first-use-copy"><span className="first-use-eyebrow">{uiLanguage === "zh-Hant" ? "MG400 虛擬訓練" : "MG400 VIRTUAL PRACTICE"}</span><strong>{uiLanguage === "zh-Hant" ? "從第一課開始，先看程式輸出，再探索機械臂動作" : "Start with lesson one: see program output, then explore robot motion"}</strong><span>{uiLanguage === "zh-Hant" ? "先看程式如何輸出文字，再逐步學習機械臂移動。" : "Begin with text output, then learn how programs move the robot."}</span></div>
-        <button className="first-use-action" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }}><BookOpenCheck size={16} /> {ui.chooseLesson}</button>
-        <button className="workshop-toggle" onClick={() => setShowWorkshop((show) => !show)} aria-expanded={showWorkshop}>{showWorkshop ? (uiLanguage === "zh-Hant" ? "收起程式與控制" : "Hide code and controls") : (uiLanguage === "zh-Hant" ? "打開程式與控制" : "Open code and controls")} <ChevronDown size={15} className={showWorkshop ? "chevron-open" : ""} /></button>
-      </section>}
-
       {modelError && <div className="model-warning" role="alert" aria-live="assertive"><AlertCircle size={16} /><strong>{ui.modelLoadHeading}</strong><span>{localizeWorkspaceMessage(modelError, uiLanguage)}</span></div>}
 
-        <div className={`workspace-grid${coachOpen ? " has-coach" : ""}${freeMode ? " free-active" : ""}${!freeMode && !showWorkshop ? " guided-focus" : ""}${freeMode && !showWorkshop ? " free-focus" : ""}`}>
-        {freeModeTopPanel}
-        <aside className="left-workspace">
-          <section className="panel code-panel">
+      <div className={`workspace-grid view-${workbenchView}`}>
+        <aside className="left-workspace" aria-label={uiLanguage === "zh-Hant" ? "目前工作" : "Current task"}>
+          <section className="practice-panel" hidden={workbenchView !== "practice"}>
+            {!practiceLesson ? <>
+              <h1>{uiLanguage === "zh-Hant" ? "由第一個小練習開始" : "Start with a small practice"}</h1>
+              <p className="practice-intro">{uiLanguage === "zh-Hant" ? "不用先學識寫程式。跟住步驟，親眼看看你的指令會做甚麼。" : "No coding experience needed. Follow a short practice and see what your instructions do."}</p>
+              <button className="practice-start primary-action" onClick={() => preparePractice("foundation-first-program")} disabled={busy || !kinematics}><Play size={20} />{uiLanguage === "zh-Hant" ? "開始第一個練習" : "Start your first practice"}</button>
+              <p className="practice-hint">{uiLanguage === "zh-Hant" ? "約 2 分鐘 · 讓程式顯示一句問候文字" : "About 2 minutes · Make your program say hello"}</p>
+              <h2>{uiLanguage === "zh-Hant" ? "想試試機械臂？" : "Ready to try the robot?"}</h2>
+              <div className="practice-choices">
+                {[["foundation-first-robot-move", "第一次移動", "讓機械臂平滑前往一個教點", "Your first move", "Move smoothly to a taught point"], ["intermediate-passive-fork", "叉臂取放積木", "使用你提供的叉具及 Body1 槽積木", "Fork pick & place", "Use the supplied fork and Body1 block"], ["intermediate-three-layer-tower", "旋轉並堆成三層塔", "先取件，再轉 90°，逐層放好", "Rotate and build a tower", "Pick, rotate 90°, then place three layers"], ["intermediate-black-white-sort", "分類黑白方塊", "用 if / else 分類，再取出方塊", "Sort black and white", "Use if / else to sort and unload"]].map(([id,zh,detail,en,enDetail]) => <button key={id} onClick={() => preparePractice(id)} disabled={busy || !kinematics || (id === "intermediate-passive-fork" && !localToolMeshes.bundledFork)}><span><strong>{uiLanguage === "zh-Hant" ? zh : en}</strong><small>{uiLanguage === "zh-Hant" ? detail : enDetail}</small></span><ArrowRight size={20} /></button>)}
+              </div>
+              <button className="text-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }}>{uiLanguage === "zh-Hant" ? "查看全部課程" : "Browse all lessons"}<ArrowRight size={17} /></button>
+            </> : <>
+              <button className="practice-back" onClick={() => { setPracticeLessonId(null); setPracticePrepared(false); }} disabled={busy}><ArrowLeft size={17} />{uiLanguage === "zh-Hant" ? "選另一個練習" : "Choose another practice"}</button>
+              <h1>{practiceLesson.title[uiLanguage]}</h1>
+              <p className="practice-intro">{practiceIsPrint ? (uiLanguage === "zh-Hant" ? "讓程式顯示一句文字。這個練習不會移動機械臂。" : "Display a message. This practice does not move the robot.") : practiceLesson.outcome[uiLanguage]}</p>
+              <ol className="practice-steps">
+                <li className={practicePrepared ? "step-done" : "step-current"}><span>{practicePrepared ? <Check size={18} /> : "1"}</span><div><strong>{uiLanguage === "zh-Hant" ? "準備練習" : "Prepare"}</strong><p>{practicePrepared ? (uiLanguage === "zh-Hant" ? (practiceIsPrint ? "三行程式已準備好。" : "工具、工作格及教點已準備好。") : "The example is ready.") : (uiLanguage === "zh-Hant" ? "先建立這課的範例工作格。" : "Prepare the example for this lesson.")}</p>{!practicePrepared && <button className="primary-action" onClick={() => preparePractice(practiceLesson.id)} disabled={busy}>{uiLanguage === "zh-Hant" ? "準備這個練習" : "Prepare this practice"}</button>}</div></li>
+                <li className={practicePrepared && status !== "complete" ? "step-current" : status === "complete" && practicePrepared ? "step-done" : ""}><span>2</span><div><strong>{uiLanguage === "zh-Hant" ? "執行並觀察" : "Run and watch"}</strong><p>{uiLanguage === "zh-Hant" ? "按工作台上方的「執行練習」。結果會顯示在下方。" : "Press Run practice above the worktable. See the result below it."}</p>{practicePrepared && <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "先看看程式" : "Read the code first"}<ArrowRight size={16} /></button>}</div></li>
+                <li className={status === "complete" && practicePrepared ? "step-current" : ""}><span>3</span><div><strong>{uiLanguage === "zh-Hant" ? "試改一小步" : "Make a small change"}</strong><p>{practiceIsPrint ? (uiLanguage === "zh-Hant" ? "打開「程式」，把 Hello 改成你的名字，再執行一次。" : "Open Code, change Hello to your name, and run again.") : (uiLanguage === "zh-Hant" ? "打開「教點與移動」或「程式」，探索指令如何改變動作。" : "Open Teach & move or Code to explore how instructions change motion.")}</p></div></li>
+              </ol>
+              <button className="text-button" onClick={() => { setTrainingLessonId(practiceLesson.id); setShowTraining(true); }}>{uiLanguage === "zh-Hant" ? "閱讀這課的說明與小測" : "Read this lesson and quiz"}<BookOpenCheck size={17} /></button>
+            </>}
+          </section>
+          <section className="free-workspace" hidden={workbenchView !== "objects"}><h1>{uiLanguage === "zh-Hant" ? "自由擺放" : "Free play"}</h1><p>{uiLanguage === "zh-Hant" ? "加入物件，選取它，再點工作台決定位置。" : "Add an object, select it, then click the worktable to place it."}</p>{freeModeTopPanel}</section>
+          <section className="settings-intro" hidden={workbenchView !== "settings"}><h1>{uiLanguage === "zh-Hant" ? "工具與設定" : "Tools & settings"}</h1><p>{uiLanguage === "zh-Hant" ? "日常練習已備好工具。只有使用不同模型或自訂工作格時，才需要調整以下設定。" : "Practices configure the tool for you. Adjust these settings for custom models or cells."}</p></section>
+          <section className="panel code-panel" hidden={workbenchView !== "program"}>
             <div className="panel-heading code-heading">
                 <div className="heading-title"><span className="heading-icon purple-icon"><Code2 size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "程式" : "Program"}</h2><small>{project.programmingLanguage === "lua" ? "Lua · MG400 訓練子集" : "Python · 僅供模擬器，不能控制實機"}</small></div></div>
               <div className="heading-tools">
@@ -1134,7 +1260,7 @@ export default function App() {
                   />
                 </Suspense> : <div className="editor-preview">
                   <pre aria-label={uiLanguage === "zh-Hant" ? "程式預覽" : "Program preview"}>{programText}</pre>
-                  <button type="button" onClick={() => setShowWorkshop(true)}>{uiLanguage === "zh-Hant" ? "打開編輯器及控制" : "Open editor and controls"}</button>
+                  <button type="button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "打開編輯器及控制" : "Open editor and controls"}</button>
                 </div>}
             </div>
             <div className="editor-footnote"><span><span className="mini-dot" /> {uiLanguage === "zh-Hant" ? (project.programmingLanguage === "lua" ? "Lua 在本機 Web Worker 執行" : "Python 在本機 Pyodide Web Worker 執行") : (project.programmingLanguage === "lua" ? "Lua runs in a local Web Worker" : "Python runs in a local Pyodide Web Worker")}</span><span>{uiLanguage === "zh-Hant" ? "執行此編輯器內容 · 僅供模擬器" : "Run uses this editor · simulator only"}</span></div>
@@ -1152,146 +1278,7 @@ export default function App() {
             </details>
           </section>
 
-          {!freeMode && project.tool.mode === "magnet" && <section className="panel mission-panel" aria-labelledby="mission-heading">
-            <div className="panel-heading compact-heading"><div className="heading-title"><span className="heading-icon orange-icon"><Target size={17} /></span><div><h2 id="mission-heading">{uiLanguage === "zh-Hant" ? "任務卡" : "Mission cards"}</h2><small>{uiLanguage === "zh-Hant" ? "即時顯示目前工作格進度" : "Live progress from the current cell state"}</small></div></div></div>
-            <div className="mission-cards">
-              <article className={`mission-card ${towerBlocks.length >= 3 ? "mission-complete" : ""}`}>
-                <div className="mission-card-heading"><strong>{uiLanguage === "zh-Hant" ? "塔 · 3 層" : "Tower · 3 layers"}</strong><span>{towerBlocks.length >= 3 ? (uiLanguage === "zh-Hant" ? "完成" : "COMPLETE") : (uiLanguage === "zh-Hant" ? "進行中" : "IN PROGRESS")}</span></div>
-                <p>{uiLanguage === "zh-Hant" ? "拾取、吸附、升起、旋轉 +90°，再把三個有方向標記的方塊放到 Z=15/30/45 mm。" : "Pick, attach, lift, rotate +90°, and place three marked blocks at Z=15/30/45 mm."}</p>
-                <div className="mission-metrics"><span><b>{towerBlocks.length}/3</b><small>{uiLanguage === "zh-Hant" ? "循環／層" : "cycles/layers"}</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>{uiLanguage === "zh-Hant" ? "已吸附" : "attached"}</small></span><span><b>{towerBlocks.length}</b><small>{uiLanguage === "zh-Hant" ? "已放置" : "placed"}</small></span></div>
-                <small className="mission-action">{uiLanguage === "zh-Hant" ? "在編輯器執行有限塔範例；觀察每個箭頭在釋放前旋轉。" : "Run the finite tower example in the editor; watch each arrow rotate before release."}</small>
-              </article>
-              <article className={`mission-card ${sortUnloaded >= 4 ? "mission-complete" : ""}`}>
-                <div className="mission-card-heading"><strong>{uiLanguage === "zh-Hant" ? "分類 · 黑／白" : "Sort · black / white"}</strong><span>{sortUnloaded >= 4 ? (uiLanguage === "zh-Hant" ? "完成" : "COMPLETE") : (uiLanguage === "zh-Hant" ? "進行中" : "IN PROGRESS")}</span></div>
-                <p>{uiLanguage === "zh-Hant" ? "按已知供料次序黑 → 白 → 黑 → 白；白色物件吸附時旋轉 +45°，最後全部卸下。" : "Use the known feeder order black → white → black → white; white rotates +45° while attached, then unload all."}</p>
-                <div className="mission-metrics"><span><b>{processedSortBlocks.length}/4</b><small>{uiLanguage === "zh-Hant" ? "供料循環" : "feed cycles"}</small></span><span><b>{attachedCellBlockId ? "1" : "0"}</b><small>{uiLanguage === "zh-Hant" ? "已吸附" : "attached"}</small></span><span><b>{sortUnloaded}/4</b><small>{uiLanguage === "zh-Hant" ? "已卸下" : "unloaded"}</small></span></div>
-                <small className="mission-action">{uiLanguage === "zh-Hant" ? "這是預先設定的次序，不是顏色感測。使用磁吸工具執行奇偶範例。" : "This is a configured order, not color sensing. Run the parity example with Magnet mode."}</small>
-              </article>
-            </div>
-          </section>}
-
-          <section className="panel points-panel">
-            <div className="panel-heading compact-heading">
-              <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "示教點" : "Teach points"}</h2><small>{uiLanguage === "zh-Hant" ? "儲存機械臂移動目標" : "Saved targets for robot moves"}</small></div></div>
-              <div className="point-actions">
-                <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current"}</button>
-              <button className="small-icon-button" onClick={addJointPoint} title={ui.jointPoint} aria-label={ui.jointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
-              </div>
-            </div>
-            <div className="point-list" role="listbox" aria-label={ui.teachPoints}>
-              {project.points.map((point) => {
-                const pointPosition = getPointPose(point, kinematics, project);
-                return (
-                  <button
-                    key={point.id}
-                    className={`point-row ${point.id === selectedId ? "selected-point" : ""}`}
-                    onClick={() => setSelectedId(point.id)}
-                    onKeyDown={(event) => {
-                      const options = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []);
-                      const nextIndex = getRovingFocusIndex(event.key, options.indexOf(event.currentTarget), options.length, "vertical");
-                      if (nextIndex === null) return;
-                      event.preventDefault();
-                      setSelectedId(project.points[nextIndex].id);
-                      options[nextIndex]?.focus();
-                    }}
-                    role="option"
-                    aria-selected={point.id === selectedId}
-                    tabIndex={point.id === selectedId ? 0 : -1}
-                  >
-                    <span className={`point-type ${point.kind === "joint" ? "joint-type" : ""}`}>{point.kind === "joint" ? "J" : "P"}</span>
-                    <span className="point-row-name">{point.name}<small>{point.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節" : "JOINT") : (uiLanguage === "zh-Hant" ? "笛卡兒" : "CARTESIAN")}</small></span>
-                    <span className="point-row-coordinates">{pointPosition ? `${format(pointPosition.x, 0)}, ${format(pointPosition.y, 0)}, ${format(pointPosition.z, 0)}` : "—"}</span>
-                    {point.id === selectedId && <span className="selected-point-dot" />}
-                  </button>
-                );
-              })}
-              {project.points.length === 0 && <div className="empty-state">{uiLanguage === "zh-Hant" ? "尚未儲存示教點。移動機械臂，再示教目前位置。" : "No saved points yet. Jog the robot, then teach its current position."}</div>}
-            </div>
-            {selectedPoint && <div className="point-editor">
-              <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節目標" : "Joint target") : (uiLanguage === "zh-Hant" ? "笛卡兒目標" : "Cartesian target")}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "前往" : "Go to"}</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`${ui.deletePoint} ${selectedPoint.name}`} title={ui.deletePoint}><Trash2 size={14} /></button></div></div>
-              {selectedPoint.kind === "cartesian" ? <div className="point-fields four-fields">
-                <NumericField label="X" value={selectedPoint.pose.x} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("x", value)} />
-                <NumericField label="Y" value={selectedPoint.pose.y} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("y", value)} />
-                <NumericField label="Z" value={selectedPoint.pose.z} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("z", value)} />
-                <NumericField label="R" value={selectedPoint.pose.r} suffix="°" step={1} disabled={busy} onChange={(value) => updateSelectedPose("r", value)} />
-              </div> : <div className="point-fields four-fields">
-                {selectedPoint.joints.map((value, index) => <NumericField key={index} label={`J${index + 1}`} value={deg(value)} suffix="°" step={1} min={JOINT_LIMITS_DEG[index].min} max={JOINT_LIMITS_DEG[index].max} disabled={busy} onChange={(next) => updateJointPoint(index, next)} />)}
-              </div>}
-            </div>}
-            <div className="points-footer"><span><Save size={13} /> {uiLanguage === "zh-Hant" ? "示教點會與專案一同儲存" : "Points are stored with this project"}</span><span>{project.points.length} / 100</span></div>
-          </section>
-
-          <section className="panel console-panel">
-            <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"} aria-label={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"}><Trash2 size={14} /></button></div>
-            <div className="console-entries" aria-live="polite">
-              {logs.slice(0, 4).map((entry) => <div className={`console-entry log-${entry.level}`} key={entry.id}><span className="log-time">{entry.time}</span><span>{localizeWorkspaceMessage(entry.message, uiLanguage)}</span></div>)}
-              {logs.length === 0 && <span className="console-empty">{uiLanguage === "zh-Hant" ? "程式訊息會顯示於此。" : "Program messages will appear here."}</span>}
-            </div>
-          </section>
-        </aside>
-
-        <aside id="coach-dock" className="panel coach-dock" aria-label="AI coach and setup checks" hidden={!coachOpen}>
-          <div className="coach-dock-heading">
-            <div className="heading-title"><span className="heading-icon purple-icon"><Sparkles size={16} /></span><div><h2>AI coding coach</h2><small>OpenAI-compatible Chat Completions</small></div></div>
-            <button type="button" className="small-icon-button" onClick={() => setCoachOpen(false)} aria-label="Close AI coach" title="Close AI coach">×</button>
-          </div>
-          <div className="coach-dock-content">
-            <CodeAssistant
-              code={programText}
-              savedPoints={project.points}
-              language={project.programmingLanguage}
-              toolMode={project.tool.mode}
-              setupReady={recommendation.ready}
-              setupChecks={recommendation.checks}
-              recentRunLog={recentRunLog}
-              hasCurrentRun={hasCurrentRun && recentRunLog.length > 0}
-              onOpenControlFlowLesson={(topic) => {
-                setTrainingLessonId(topic === "if-else" ? "foundation-if-else" : "foundation-loops");
-                setShowTraining(true);
-              }}
-            />
-            <details className="guided-example-section">
-              <summary>Setup review &amp; guided example · {project.tool.mode === "magnet" ? "Magnet" : "Passive fork"} · {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
-              <div className="guided-example-content">
-                    <p className="recommendation-intro">{recommendation.message}</p>
-                    <ul className="recommendation-checks">
-                      {recommendation.checks.map((check) => (
-                        <li className={`recommendation-check check-${check.status}`} key={check.id}>
-                          <span className="recommendation-check-mark" aria-hidden="true">{check.status === "pass" ? "✓" : check.status === "action" ? "!" : check.status === "waiting" ? "…" : "i"}</span>
-                          <div><strong>{check.title}</strong><span>{check.detail}</span>
-                            {check.action && <button className="recommendation-action" onClick={() => applyRecommendationAction(check.action!, check.pointName)} disabled={busy || ((check.action === "teach-pick" || check.action === "teach-place") && project.points.length > 98) || (check.action === "teach-home" && project.points.length >= 100 && !project.points.some((point) => point.name.toLowerCase() === "home"))}>
-                              {check.action === "teach-home" ? "Set current pose as Home" : check.action === "teach-pick" ? (project.points.some((point) => point.name === "PickPoint" || point.name === "PickApproach") ? "Reset pick pair to block" : "Create pick pair at block") : check.action === "teach-place" ? (project.points.some((point) => point.name === "PlacePoint" || point.name === "PlaceApproach") ? "Reset place pair to drop zone" : "Create place pair at drop zone") : `Select ${check.pointName}`}
-                            </button>}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="recommendation-lesson"><strong>Why this sequence?</strong><span>{project.tool.mode === "magnet" ? "Home → approach above → descend → DO1 attaches → lift clear → place → DO1 releases → return Home." : "Home → approach from outside at the raised support plane → slide under → lift to auto-pick → move above the drop zone → lower onto its support pads to release → return Home. The passive fork needs no DO."} The example stays in the editor for you to review and run.</span></div>
-                    <details className="recommendation-preview"><summary>Preview the full example</summary><pre>{recommendation.code}</pre></details>
-                    <button className="recommendation-load" onClick={loadRecommendedProgram} disabled={!recommendation.ready}>Replace current {project.programmingLanguage === "lua" ? "Lua" : "Python"} code with this example</button>
-                    <small>The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Endpoints are checked; path collision and tool physics are not simulated.</small>
-                  </div>
-            </details>
-          </div>
-        </aside>
-
-        <section className="right-workspace">
-          <div className="viewport-header">
-            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>{uiLanguage === "zh-Hant" ? `供應商 URDF 幾何 · TCP 從法蘭向 X ${tcpOffsetXLabel} · ${project.tool.mode === "fork" ? `${forkProfile === "body1" ? "Body1：插入 Z42.5／承托 Z45" : `被動叉支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · 不使用 DO` : "磁吸工具接觸方塊頂部"}` : `Vendor URDF geometry · TCP X ${tcpOffsetXLabel} from flange · ${project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}`}</p></div>
-          <div className="view-header-actions"><span className="accuracy-badge"><span /> {uiLanguage === "zh-Hant" ? "運動學模擬" : "KINEMATIC SIMULATION"}</span><button className="icon-button" aria-label={uiLanguage === "zh-Hant" ? "重設相機視角" : "Reset camera view"} title={uiLanguage === "zh-Hant" ? "重設視角" : "Reset camera view"} onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
-          </div>
-              <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>{uiLanguage === "zh-Hant" ? "正在準備三維工作格" : "Preparing 3D view"}</strong><span>{uiLanguage === "zh-Hant" ? "正在載入互動式 MG400 訓練工作格…" : "Loading the interactive MG400 training cell…"}</span></div></div></div>}>
-            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
-          </Suspense>
-
-          <section className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>
-            <div className="telemetry-title"><span className="telemetry-pulse" />{uiLanguage === "zh-Hant" ? "TCP 位置" : "TCP POSITION"}</div>
-            <div className="telemetry-values"><span>X <strong>{format(pose.x)}</strong><small>mm</small></span><span>Y <strong>{format(pose.y)}</strong><small>mm</small></span><span>Z <strong>{format(pose.z)}</strong><small>mm</small></span><span>R <strong>{format(pose.r)}</strong><small>°</small></span></div>
-            <div className="telemetry-separator" />
-            <div className="joint-values">{joints.map((joint, index) => <span key={index}>J{index + 1} <strong>{format(deg(joint))}°</strong></span>)}</div>
-          </section>
-
-          <section className="panel motion-panel">
+          <section className="panel motion-panel" hidden={workbenchView !== "points" && workbenchView !== "settings"}>
             <div className="motion-panel-header">
               <div className="segmented-tabs" role="tablist" aria-label={ui.jogControls}>
                 <button
@@ -1329,7 +1316,7 @@ export default function App() {
                   tabIndex={selectedTab === "jog" ? 0 : -1}
                 ><Settings2 size={15} /> {uiLanguage === "zh-Hant" ? "點動" : "Jog"}</button>
               </div>
-              <button className="tool-settings-toggle" onClick={() => setShowToolSettings((show) => !show)} aria-expanded={showToolSettings}><Wrench size={15} /> {ui.tool} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
+              <button className="tool-settings-toggle" onClick={() => openWorkbench("settings")} aria-expanded={showToolSettings}><Wrench size={15} /> {ui.tool} <ChevronDown size={15} className={showToolSettings ? "chevron-open" : ""} /></button>
             </div>
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
               <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>{uiLanguage === "zh-Hant" ? "從目前模擬姿勢示教" : "Teach from the current simulated pose"}</strong><span>{uiLanguage === "zh-Hant" ? <>示教點會以名稱儲存目標。示教目前位置會保存 TCP 座標；儲存關節點會保存 J1–J4 角度。程式可使用 <code>PickApproach</code>，毋須直接輸入數字。</> : <>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</>}</span></div></div>
@@ -1351,7 +1338,7 @@ export default function App() {
               </div>
             </div>}
             {showToolSettings && <div className="tool-settings-content">
-              <div className="tool-settings-copy">
+              <details className="tool-settings-copy"><summary>{uiLanguage === "zh-Hant" ? "TCP 與工具安裝說明" : "TCP and tool mounting"}</summary>
                 <div className="mode-banner"><strong>{freeMode ? ui.freeCellHeading : ui.guidedCellHeading}</strong><span>{freeMode ? ui.freeCellDescription : ui.guidedCellDescription}</span></div>
               <strong>{ui.flangeToTcp}</strong>
                 <div className="tool-offset-diagram" aria-hidden="true">
@@ -1363,8 +1350,8 @@ export default function App() {
                 </div>
                 <p className="tool-offset-explanation">{ui.flangeExplanation}</p>
                 <p className="tool-offset-explanation">{ui.toolBehavior}</p>
-              </div>
-              <div className="tool-setting-groups">
+              </details>
+              <div className="tool-setting-groups"><label className="speed-control"><Gauge size={18} />{uiLanguage === "zh-Hant" ? "模擬速度" : "Simulation speed"}<input type="range" min="10" max="200" step="10" value={project.simulation.speed} onChange={(event) => replaceProject((current) => ({ ...current, simulation: { ...current.simulation, speed: Number(event.target.value) } }))} /><output>{project.simulation.speed}%</output></label>
                 <div className="tool-setting-group">
                   <label className="tool-mode-field" htmlFor="tool-mode">{ui.activeTool}
                     <select id="tool-mode" value={project.tool.mode} disabled={busy} onChange={(event) => {
@@ -1463,7 +1450,143 @@ export default function App() {
             </div>}
           </section>
 
-          <footer className="workspace-footer"><div><span className="footer-dot" /> {ui.simulationOnly}</div><span>{ui.vendorModelLocalLua}</span><span>{ui.limitsSource}</span></footer>
+
+          <section className="panel points-panel" hidden={workbenchView !== "points"}>
+            <div className="panel-heading compact-heading">
+              <div className="heading-title"><span className="heading-icon teal-icon"><Target size={17} /></span><div><h2>{uiLanguage === "zh-Hant" ? "示教點" : "Teach points"}</h2><small>{uiLanguage === "zh-Hant" ? "儲存機械臂移動目標" : "Saved targets for robot moves"}</small></div></div>
+              <div className="point-actions">
+                <button className="text-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current"}</button>
+              <button className="small-icon-button" onClick={addJointPoint} title={ui.jointPoint} aria-label={ui.jointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /></button>
+              </div>
+            </div>
+            <div className="point-list" role="listbox" aria-label={ui.teachPoints}>
+              {project.points.map((point) => {
+                const pointPosition = getPointPose(point, kinematics, project);
+                return (
+                  <button
+                    key={point.id}
+                    className={`point-row ${point.id === selectedId ? "selected-point" : ""}`}
+                    onClick={() => setSelectedId(point.id)}
+                    onKeyDown={(event) => {
+                      const options = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []);
+                      const nextIndex = getRovingFocusIndex(event.key, options.indexOf(event.currentTarget), options.length, "vertical");
+                      if (nextIndex === null) return;
+                      event.preventDefault();
+                      setSelectedId(project.points[nextIndex].id);
+                      options[nextIndex]?.focus();
+                    }}
+                    role="option"
+                    aria-selected={point.id === selectedId}
+                    tabIndex={point.id === selectedId ? 0 : -1}
+                  >
+                    <span className={`point-type ${point.kind === "joint" ? "joint-type" : ""}`}>{point.kind === "joint" ? "J" : "P"}</span>
+                    <span className="point-row-name">{point.name}<small>{point.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節" : "JOINT") : (uiLanguage === "zh-Hant" ? "笛卡兒" : "CARTESIAN")}</small></span>
+                    <span className="point-row-coordinates">{pointPosition ? `${format(pointPosition.x, 0)}, ${format(pointPosition.y, 0)}, ${format(pointPosition.z, 0)}` : "—"}</span>
+                    {point.id === selectedId && <span className="selected-point-dot" />}
+                  </button>
+                );
+              })}
+              {project.points.length === 0 && <div className="empty-state">{uiLanguage === "zh-Hant" ? "尚未儲存示教點。移動機械臂，再示教目前位置。" : "No saved points yet. Jog the robot, then teach its current position."}</div>}
+            </div>
+            {selectedPoint && <div className="point-editor">
+              <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節目標" : "Joint target") : (uiLanguage === "zh-Hant" ? "笛卡兒目標" : "Cartesian target")}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "前往" : "Go to"}</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`${ui.deletePoint} ${selectedPoint.name}`} title={ui.deletePoint}><Trash2 size={14} /></button></div></div>
+              {selectedPoint.kind === "cartesian" ? <div className="point-fields four-fields">
+                <NumericField label="X" value={selectedPoint.pose.x} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("x", value)} />
+                <NumericField label="Y" value={selectedPoint.pose.y} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("y", value)} />
+                <NumericField label="Z" value={selectedPoint.pose.z} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("z", value)} />
+                <NumericField label="R" value={selectedPoint.pose.r} suffix="°" step={1} disabled={busy} onChange={(value) => updateSelectedPose("r", value)} />
+              </div> : <div className="point-fields four-fields">
+                {selectedPoint.joints.map((value, index) => <NumericField key={index} label={`J${index + 1}`} value={deg(value)} suffix="°" step={1} min={JOINT_LIMITS_DEG[index].min} max={JOINT_LIMITS_DEG[index].max} disabled={busy} onChange={(next) => updateJointPoint(index, next)} />)}
+              </div>}
+            </div>}
+            <div className="points-footer"><span><Save size={13} /> {uiLanguage === "zh-Hant" ? "示教點會與專案一同儲存" : "Points are stored with this project"}</span><span>{project.points.length} / 100</span></div>
+          </section>
+
+          <section className="panel console-panel" hidden={workbenchView !== "program"}>
+            <div className="console-heading"><div><span className="console-light" /><strong>{uiLanguage === "zh-Hant" ? "執行記錄" : "Run log"}</strong></div><button className="small-icon-button" onClick={() => { setLogs([]); setProgramRunLog([]); }} title={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"} aria-label={uiLanguage === "zh-Hant" ? "清除執行記錄" : "Clear run log"}><Trash2 size={14} /></button></div>
+            <div className="console-entries" aria-live="polite">
+              {logs.slice(0, 4).map((entry) => <div className={`console-entry log-${entry.level}`} key={entry.id}><span className="log-time">{entry.time}</span><span>{localizeWorkspaceMessage(entry.message, uiLanguage)}</span></div>)}
+              {logs.length === 0 && <span className="console-empty">{uiLanguage === "zh-Hant" ? "程式訊息會顯示於此。" : "Program messages will appear here."}</span>}
+            </div>
+          </section>
+        </aside>
+
+        <aside id="coach-dock" className="panel coach-dock" aria-label="AI coach and setup checks" hidden={!coachOpen || workbenchView !== "program"}>
+          <div className="coach-dock-heading">
+            <div className="heading-title"><span className="heading-icon purple-icon"><Sparkles size={16} /></span><div><h2>{uiLanguage === "zh-Hant" ? "AI 程式教練" : "AI coding coach"}</h2><small>{uiLanguage === "zh-Hant" ? "提供提示，協助你自己修改" : "Hints to help you make your own changes"}</small></div></div>
+            <button type="button" className="small-icon-button" onClick={() => setCoachOpen(false)} aria-label="Close AI coach" title="Close AI coach">×</button>
+          </div>
+          <div className="coach-dock-content">
+            <CodeAssistant
+              code={programText}
+              savedPoints={project.points}
+              language={project.programmingLanguage}
+              toolMode={project.tool.mode}
+              setupReady={recommendation.ready}
+              setupChecks={recommendation.checks}
+              recentRunLog={recentRunLog}
+              hasCurrentRun={hasCurrentRun && recentRunLog.length > 0}
+              onOpenControlFlowLesson={(topic) => {
+                setTrainingLessonId(topic === "if-else" ? "foundation-if-else" : "foundation-loops");
+                setShowTraining(true);
+              }}
+            />
+            <details className="guided-example-section">
+              <summary>Setup review &amp; guided example · {project.tool.mode === "magnet" ? "Magnet" : "Passive fork"} · {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
+              <div className="guided-example-content">
+                    <p className="recommendation-intro">{recommendation.message}</p>
+                    <ul className="recommendation-checks">
+                      {recommendation.checks.map((check) => (
+                        <li className={`recommendation-check check-${check.status}`} key={check.id}>
+                          <span className="recommendation-check-mark" aria-hidden="true">{check.status === "pass" ? "✓" : check.status === "action" ? "!" : check.status === "waiting" ? "…" : "i"}</span>
+                          <div><strong>{check.title}</strong><span>{check.detail}</span>
+                            {check.action && <button className="recommendation-action" onClick={() => applyRecommendationAction(check.action!, check.pointName)} disabled={busy || ((check.action === "teach-pick" || check.action === "teach-place") && project.points.length > 98) || (check.action === "teach-home" && project.points.length >= 100 && !project.points.some((point) => point.name.toLowerCase() === "home"))}>
+                              {check.action === "teach-home" ? "Set current pose as Home" : check.action === "teach-pick" ? (project.points.some((point) => point.name === "PickPoint" || point.name === "PickApproach") ? "Reset pick pair to block" : "Create pick pair at block") : check.action === "teach-place" ? (project.points.some((point) => point.name === "PlacePoint" || point.name === "PlaceApproach") ? "Reset place pair to drop zone" : "Create place pair at drop zone") : `Select ${check.pointName}`}
+                            </button>}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="recommendation-lesson"><strong>Why this sequence?</strong><span>{project.tool.mode === "magnet" ? "Home → approach above → descend → DO1 attaches → lift clear → place → DO1 releases → return Home." : "Home → approach from outside at the raised support plane → slide under → lift to auto-pick → move above the drop zone → lower onto its support pads to release → return Home. The passive fork needs no DO."} The example stays in the editor for you to review and run.</span></div>
+                    <details className="recommendation-preview"><summary>Preview the full example</summary><pre>{recommendation.code}</pre></details>
+                    <button className="recommendation-load" onClick={loadRecommendedProgram} disabled={!recommendation.ready}>Replace current {project.programmingLanguage === "lua" ? "Lua" : "Python"} code with this example</button>
+                    <small>The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Endpoints are checked; path collision and tool physics are not simulated.</small>
+                  </div>
+            </details>
+          </div>
+        </aside>
+
+        <section className="right-workspace">
+          <div className="viewport-header">
+            <div className="view-title"><Box size={20} /><h2>{uiLanguage === "zh-Hant" ? "3D 工作台" : "3D worktable"}</h2></div><span className="active-tool-label">{project.tool.mode === "fork" ? (uiLanguage === "zh-Hant" ? "被動叉臂 · 不用 DO" : "Passive fork · no DO") : (uiLanguage === "zh-Hant" ? "磁吸工具" : "Magnet tool")}</span>
+          </div>
+              <section className="simulation-actions" aria-label={uiLanguage === "zh-Hant" ? "模擬控制" : "Simulation controls"}>
+            <button ref={runButtonRef} className="run-button primary-action" onClick={startRun} disabled={!canRun || preflight.kind === "error" || (workbenchView === "practice" && !practicePrepared)}>{!kinematics ? <LoaderCircle size={20} className="spin" /> : <Play size={20} fill="currentColor" />}<span>{uiLanguage === "zh-Hant" ? (workbenchView === "practice" ? "執行練習" : "執行程式") : (workbenchView === "practice" ? "Run practice" : "Run code")}</span></button>
+            {busy && <button className="control-button" onClick={pauseOrResume}>{status === "paused" ? <Play size={18} /> : <Pause size={18} />}{status === "paused" ? ui.resume : ui.pause}</button>}
+            {busy && <button className="control-button stop-control" onClick={stopRun}><Square size={17} />{uiLanguage === "zh-Hant" ? "停止" : "Stop"}</button>}
+            <button className="control-button" onClick={resetRobot} disabled={busy}><RotateCcw size={18} />{uiLanguage === "zh-Hant" ? "重設" : "Reset"}</button>
+            <span className={`status-pill status-${status}`} role="status">{runtimeLabel}</span>
+            <button className="text-button camera-reset" onClick={() => setCameraResetToken((token) => token + 1)}><Maximize2 size={17} />{uiLanguage === "zh-Hant" ? "重設視角" : "Reset view"}</button>
+          </section>
+          {preflight.kind === "error" && <div className="run-preflight run-preflight-error" role="alert">{preflight.text}<button className="text-button" onClick={() => openWorkbench("points")}>{uiLanguage === "zh-Hant" ? "查看教點" : "Review points"}</button></div>}
+          <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>{uiLanguage === "zh-Hant" ? "正在準備三維工作格" : "Preparing 3D view"}</strong><span>{uiLanguage === "zh-Hant" ? "正在載入互動式 MG400 訓練工作格…" : "Loading the interactive MG400 training cell…"}</span></div></div></div>}>
+            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
+          </Suspense>
+
+          <section hidden={workbenchView !== "points" && workbenchView !== "settings"} className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>
+            <div className="telemetry-title"><span className="telemetry-pulse" />{uiLanguage === "zh-Hant" ? "TCP 位置" : "TCP POSITION"}</div>
+            <div className="telemetry-values"><span>X <strong>{format(pose.x)}</strong><small>mm</small></span><span>Y <strong>{format(pose.y)}</strong><small>mm</small></span><span>Z <strong>{format(pose.z)}</strong><small>mm</small></span><span>R <strong>{format(pose.r)}</strong><small>°</small></span></div>
+            <div className="telemetry-separator" />
+            <div className="joint-values">{joints.map((joint, index) => <span key={index}>J{index + 1} <strong>{format(deg(joint))}°</strong></span>)}</div>
+          </section>
+
+          <section className={`practice-result result-${status}`} aria-label={uiLanguage === "zh-Hant" ? "執行結果" : "Run result"} aria-live="polite">
+            <h2>{uiLanguage === "zh-Hant" ? "執行結果" : "Run result"}</h2>
+            {status === "running" || status === "paused" ? <p>{uiLanguage === "zh-Hant" ? (status === "paused" ? "已暫停；按「繼續模擬」完成練習。" : "程式執行中，觀察工作台上的動作。") : (status === "paused" ? "Paused. Resume to continue." : "Running. Watch the worktable.")}</p> : status === "error" ? <><p className="result-error">{resultError ? localizeWorkspaceMessage(resultError.message, uiLanguage) : (uiLanguage === "zh-Hant" ? "程式未完成，請查看執行記錄。" : "The program did not complete. Review the run log.")}</p><button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "打開程式與記錄" : "Open code and log"}<ArrowRight size={16} /></button></> : latestPrintOutput ? <><pre>{latestPrintOutput}</pre><p>{uiLanguage === "zh-Hant" ? "這是你的程式輸出的文字。" : "This is the message your program printed."}</p></> : <p>{status === "complete" ? (uiLanguage === "zh-Hant" ? "程式已完成。看看工件位置有甚麼改變。" : "Program finished. Check where the workpiece is now.") : (uiLanguage === "zh-Hant" ? "執行後，你會在這裡看到程式訊息及完成狀態。" : "Program messages and completion status appear here after you run.")}</p>}
+            {practiceLessonId === "intermediate-three-layer-tower" && <p>{uiLanguage === "zh-Hant" ? `已放置 ${towerBlocks.length} / 3 層` : `${towerBlocks.length} / 3 layers placed`}</p>}
+            {practiceLessonId === "intermediate-black-white-sort" && <p>{uiLanguage === "zh-Hant" ? `已取出 ${sortUnloaded} / 4 件方塊` : `${sortUnloaded} / 4 blocks unloaded`}</p>}
+          </section>
+          <footer className="workspace-footer"><div><span className="footer-dot" /> {ui.simulationOnly}</div></footer>
         </section>
       </div>
       <TrainingCenter
@@ -1472,11 +1595,18 @@ export default function App() {
         forkContactProfile={project.tool.mode === "fork" ? forkProfile : "reference"}
         initialLessonId={trainingLessonId}
         onClose={() => { setShowTraining(false); setTrainingLessonId(null); }}
-        onUseExample={(example, language) => {
+        onUseExample={(example, language, lessonId) => {
           replaceProject((current) => language === "lua"
             ? { ...current, script: example, programmingLanguage: language }
             : { ...current, pythonScript: example, programmingLanguage: language });
-          setShowWorkshop(true);
+          setLatestPrintOutput(null);
+          setLastRunContext(null);
+          setProgramRunLog([]);
+          setStatus("ready");
+          setPracticeLessonId(lessonId ?? null);
+          setPracticePrepared(lessonId === "foundation-first-program");
+          setWorkbenchView("practice");
+          setShowWorkshop(false);
           setRunLessonCue(true);
           addLog(`${language === "lua" ? "Lua" : "Python"} lesson example loaded into the program editor.`, "info");
         }}

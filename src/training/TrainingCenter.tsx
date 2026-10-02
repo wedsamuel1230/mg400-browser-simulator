@@ -10,7 +10,7 @@ type Props = {
   forkContactProfile?: ForkContactProfile;
   initialLessonId?: string | null;
   onClose: () => void;
-  onUseExample: (example: string, language: ProgramLanguage) => void;
+  onUseExample: (example: string, language: ProgramLanguage, lessonId?: string) => void;
 };
 
 export function TrainingCenter({ open, programLanguage, forkContactProfile = "reference", initialLessonId, onClose, onUseExample }: Props) {
@@ -20,6 +20,7 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [feedback, setFeedback] = useState("");
   const [copyError, setCopyError] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [confirmExampleReplacement, setConfirmExampleReplacement] = useState(false);
   const [courseLanguage, setCourseLanguage] = useState<CourseLanguage>(progress.language);
   const lesson = useMemo(() => {
@@ -29,7 +30,7 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
       outcome: { en: "Insert the measured Body1 grooves, lift, release and withdraw without digital output.", "zh-Hant": "沿已量度 Body1 槽插入、抬升、放下及水平退出，全程毋須數碼輸出。" },
       explanation: [{ en: "Body1 is 40×40×40 mm with local-Y grooves at Z15–25. Its bottom rests at Z20. A 5 mm fork plate enters with TCP Z42.5 and supports/releases at Z45. This calibrated contact sequence is not arbitrary STL physics.", "zh-Hant": "Body1 為 40×40×40 mm，槽沿本體 Y 方向、位於 Z15–25。底面放在 Z20；5 mm 叉板於 TCP Z42.5 插入，Z45 承托／釋放。這是指定模型的接觸校準，不是任意 STL 的物理模擬。" }],
       guidedSteps: [
-        { en: "Import Body1 and select its measured calibration. Re-teach both pairs: PickPoint Z42.5, PlacePoint Z45; fork R follows block R−90°.", "zh-Hant": "匯入 Body1 並選擇已量度校準，重新示教兩組教點：拾取 Z42.5、放置 Z45；叉臂 R 為方塊 R−90°。" },
+        { en: "Load the example, then choose Prepare this practice. The built-in Body1, measured calibration, and taught points will be prepared for you.", "zh-Hant": "載入範例後，按「準備這個練習」；系統會準備內置 Body1、已量度校準及教點。" },
         { en: "Slide 60 mm along tool +X into the grooves, then lift to carry.", "zh-Hant": "沿工具 +X 滑入 60 mm，再抬升承托工件。" },
         { en: "Lower to Z45 to release, lower the fork to Z42.5, withdraw 60 mm along tool −X, then lift clear.", "zh-Hant": "降至 Z45 釋放，再把叉臂降至 Z42.5，沿工具 −X 水平退出 60 mm，最後抬高離開。" },
       ], questions: [
@@ -48,6 +49,9 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
   const allCorrect = lesson.questions.every((question, index) => answers[index] === question.answer);
   const answerCount = Object.keys(answers).length;
   const displayText = (value: { en: string; "zh-Hant": string }) => value[courseLanguage];
+  const guidedSteps = lesson.id === "foundation-first-program"
+    ? strings.firstProgramSteps
+    : lesson.guidedSteps.map(displayText);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -64,6 +68,7 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
     setAnswers({});
     setFeedback("");
     setCopyError(false);
+    setCopied(false);
     setConfirmExampleReplacement(false);
   }, [open, initialLessonId]);
 
@@ -83,6 +88,7 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
     setAnswers({});
     setFeedback("");
     setCopyError(false);
+    setCopied(false);
     setConfirmExampleReplacement(false);
   }
 
@@ -104,10 +110,10 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
     try {
       await navigator.clipboard.writeText(lesson.examples[programLanguage]);
       setCopyError(false);
-      setFeedback(strings.copied);
+      setCopied(true);
     } catch {
       setCopyError(true);
-      setFeedback(strings.copyFallback);
+      setCopied(false);
     }
   }
 
@@ -117,23 +123,17 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
       return;
     }
     setConfirmExampleReplacement(false);
-    onUseExample(lesson.examples[programLanguage], programLanguage);
+    onUseExample(lesson.examples[programLanguage], programLanguage, lesson.id);
     onClose();
   }
 
   const exampleSection = (
     <section className="lesson-code-section">
       <div className="lesson-section-title"><div><h4>{strings.example}</h4><span>{programLanguage === "lua" ? strings.luaSubset : strings.pythonApi}</span></div><button className="training-copy-button" onClick={() => void copyExample()}><Clipboard size={14} />{strings.copy}</button></div>
-      <pre className="lesson-code" role="group" tabIndex={copyError ? 0 : undefined} aria-label={`${strings.example} ${programLanguage}`} onClick={(event) => { if (copyError) event.currentTarget.focus(); }}><code>{lesson.examples[programLanguage]}</code></pre>
-      {copyError && <p className="training-copy-hint">{strings.copyFallback}</p>}
-      <button className="training-use-button" onClick={useExample}>{strings.useExample}</button>
-      {confirmExampleReplacement && <div className="training-example-confirmation" role="alert">
-        <p>{strings.replaceWarning[programLanguage]}</p>
-        <div className="training-example-confirmation-actions">
-          <button className="training-example-cancel-button" onClick={() => setConfirmExampleReplacement(false)}>{strings.cancelReplace}</button>
-          <button className="training-example-confirm-button" onClick={useExample}>{strings.confirmReplace}</button>
-        </div>
-      </div>}
+      <p className="lesson-preview-note">{strings.previewNote}</p>
+      <pre className="lesson-code" role="group" tabIndex={0} aria-label={`${strings.example} ${programLanguage}`}><code>{lesson.examples[programLanguage]}</code></pre>
+      {copied && <p role="status" className="training-copy-hint">{strings.copied}</p>}
+      {copyError && <p role="status" className="training-copy-hint">{strings.copyFallback}</p>}
     </section>
   );
 
@@ -146,8 +146,13 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const tabbable = [...event.currentTarget.querySelectorAll<HTMLElement>(
-          'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-        )].filter((element) => !element.closest('[hidden], [aria-hidden="true"]'));
+          'a[href], button:not(:disabled), summary, input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+        )].filter((element) => {
+          if (element.closest('[hidden], [aria-hidden="true"]')) return false;
+          // Closed disclosures expose their summary, but none of their contents.
+          return ![...event.currentTarget.querySelectorAll('details:not([open])')]
+            .some((details) => details.contains(element) && details.querySelector(':scope > summary') !== element);
+        });
         if (tabbable.length === 0) {
           event.preventDefault();
           event.currentTarget.focus();
@@ -184,31 +189,49 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
             <div className="training-progress"><strong>{completed.size} / {LESSONS.length}</strong><span>{strings.completed}</span><div className="training-progress-track"><span style={{ width: `${(completed.size / LESSONS.length) * 100}%` }} /></div></div>
             {TRACKS.map((item) => {
               const lessons = LESSONS.filter((entry) => entry.track === item.id);
-              return <section className="training-track" key={item.id} aria-label={displayText(item.title)}>
-                <h3>{displayText(item.title)}</h3>
-                <p>{displayText(item.summary)}</p>
+              return <details className="training-track" key={`${item.id}-${lesson.track}`} open={item.id === lesson.track}>
+                <summary>{displayText(item.title)} <span>{lessons.filter((entry) => completed.has(entry.id)).length} / {lessons.length}</span></summary>
+                <div className="training-track-lessons">
                 {lessons.map((entry) => <button key={entry.id} className={`training-lesson-link ${entry.id === lesson.id ? "selected" : ""}`} onClick={() => selectLesson(entry)} aria-current={entry.id === lesson.id ? "page" : undefined}>
                   <span className={`lesson-status ${completed.has(entry.id) ? "done" : ""}`}>{completed.has(entry.id) ? <Check size={11} /> : null}</span>
                   <span>{displayText(entry.title)}</span>
                 </button>)}
-              </section>;
+                </div>
+              </details>;
             })}
           </nav>
 
-          <article className="training-content">
+          <article className="training-content" key={lesson.id}>
             <div className="training-kicker">{displayText(track.title)} <span>·</span> {lesson.durationMinutes} {strings.minutes}</div>
             <h3>{displayText(lesson.title)}</h3>
             <div className="lesson-outcome"><strong>{strings.outcome}</strong><span>{displayText(lesson.outcome)}</span></div>
-            {lesson.id === "foundation-first-program" && exampleSection}
-            <div className="lesson-context"><span><strong>{strings.prerequisite}</strong> {displayText(lesson.prerequisite)}</span><span><strong>{strings.source}</strong> {displayText(lesson.evidenceProfile)}</span></div>
-
-            <section className="lesson-section"><h4>{strings.explanation}</h4>{lesson.explanation.map((item, index) => <p key={index}>{displayText(item)}</p>)}</section>
-            <section className="lesson-section"><h4>{strings.guidedActivity}</h4><ol>{lesson.guidedSteps.map((item, index) => <li key={index}>{displayText(item)}</li>)}</ol></section>
-            <section className="lesson-practice"><strong>{strings.practice}</strong><p>{displayText(lesson.practice)}</p></section>
-
-            {lesson.id !== "foundation-first-program" && exampleSection}
-
-            <section className="lesson-assessment">
+            <section className="lesson-section"><h4>{strings.guidedActivity}</h4><ol>{guidedSteps.map((item, index) => <li key={index}>{item}</li>)}</ol></section>
+            <section className="lesson-launch" aria-label={strings.startPractice}>
+              <button className="training-use-button" onClick={useExample} aria-expanded={confirmExampleReplacement}>{strings.useExample}</button>
+              <p className="lesson-launch-hint">{lesson.id === "foundation-first-program" ? strings.firstProgramHint : strings.launchHint}</p>
+              {confirmExampleReplacement && <div className="training-example-confirmation" role="alert">
+                <p>{strings.replaceWarning[programLanguage]}</p>
+                <div className="training-example-confirmation-actions">
+                  <button className="training-example-cancel-button" onClick={() => setConfirmExampleReplacement(false)}>{strings.cancelReplace}</button>
+                  <button className="training-example-confirm-button" onClick={useExample}>{strings.confirmReplace}</button>
+                </div>
+              </div>}
+            </section>
+            <details className="lesson-disclosure lesson-preview">
+              <summary>{strings.previewExample} · {programLanguage === "lua" ? "Lua" : "Python"}</summary>
+              <div className="lesson-disclosure-body">{exampleSection}</div>
+            </details>
+            <details className="lesson-disclosure lesson-reference">
+              <summary>{strings.referenceDetails}</summary>
+              <div className="lesson-disclosure-body">
+                <div className="lesson-context"><span><strong>{strings.prerequisite}</strong> {displayText(lesson.prerequisite)}</span><span><strong>{strings.source}</strong> {displayText(lesson.evidenceProfile)}</span></div>
+                <section className="lesson-section"><h4>{strings.explanation}</h4>{lesson.explanation.map((item, index) => <p key={index}>{displayText(item)}</p>)}</section>
+                <section className="lesson-practice"><strong>{strings.practice}</strong><p>{displayText(lesson.practice)}</p></section>
+              </div>
+            </details>
+            <details className="lesson-disclosure lesson-assessment">
+              <summary className="lesson-assessment-summary">{strings.checkLearning} · {completed.has(lesson.id) ? strings.lessonComplete : `${lesson.questions.length} ${strings.questionCount}`}</summary>
+              <div className="lesson-disclosure-body">
               <div className="lesson-section-title"><div><h4>{strings.checkLearning}</h4><span>{answerCount} / {lesson.questions.length} {strings.answered}</span></div><span className="attempt-count">{strings.attempts}: {progress.attemptsByLesson[lesson.id] ?? 0}</span></div>
               {lesson.questions.map((question, index) => <fieldset className="assessment-question" key={index}>
                 <legend>{index + 1}. {displayText(question)}</legend>
@@ -219,7 +242,8 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
                 {answers[index] !== undefined && <p className={`assessment-explanation ${answers[index] === question.answer ? "correct" : "incorrect"}`}>{displayText(question.explanation)}</p>}
               </fieldset>)}
               <div className="assessment-actions"><button className="training-submit-button" onClick={submitAssessment} disabled={answerCount !== lesson.questions.length}>{strings.checkAnswers}</button>{feedback && <span role="status" className={allCorrect ? "pass-feedback" : "try-feedback"}>{feedback}</span>}</div>
-            </section>
+              </div>
+            </details>
 
             <div className="training-navigation">
               <button onClick={() => { const index = LESSONS.findIndex((item) => item.id === lesson.id); if (index > 0) selectLesson(LESSONS[index - 1]); }} disabled={LESSONS[0].id === lesson.id}><ChevronLeft size={15} />{strings.previous}</button>
@@ -238,7 +262,12 @@ const englishUi = {
   outcome: "Learning outcome", prerequisite: "Prerequisite:", source: "Reference:", explanation: "What you need to know",
   guidedActivity: "Try it in the simulator", practice: "Practice task", example: "Code example", luaSubset: "Lua · simulator subset",
   pythonApi: "Python · simulator-only", copy: "Copy", copied: "Example copied. Paste it into the program editor when you are ready.",
-  copyFallback: "Clipboard access is unavailable. Select the code below and copy it manually.", useExample: "Load this example…",
+  copyFallback: "Clipboard access is unavailable. Select the code below and copy it manually.", useExample: "Load and start practising",
+  startPractice: "Start practice", launchHint: "Loading returns you to the practice guide. Choose Prepare this practice, then follow the steps to run it.",
+  firstProgramHint: "Loading returns you to the practice guide. This text example is ready to run straight away.",
+  previewExample: "Preview code", previewNote: "Read-only course preview. Load it to follow the practice guide; open Program when you want to edit it.",
+  referenceDetails: "Concepts and further practice", lessonComplete: "Completed", questionCount: "questions",
+  firstProgramSteps: ["Load the example below and confirm replacing the editor program.", "Back in the practice guide, run the program and read the message. The robot stays still.", "Open Program, change the message inside the quotes, then run it again."],
   replaceWarning: { lua: "This replaces your current Lua program. Copy or export it first if you need to keep it.", python: "This replaces your current Python program. Copy or export it first if you need to keep it." },
   cancelReplace: "Keep current code", confirmReplace: "Replace current program",
   checkLearning: "Check your learning", answered: "answered", attempts: "Attempts", checkAnswers: "Check answers",
@@ -251,7 +280,12 @@ const chineseUi = {
   outcome: "學習目標", prerequisite: "先修：", source: "參考：", explanation: "需要掌握的概念",
   guidedActivity: "在模擬器試做", practice: "練習任務", example: "程式範例", luaSubset: "Lua · 模擬器子集",
   pythonApi: "Python · 僅供模擬器", copy: "複製", copied: "範例已複製。準備好後可貼到程式編輯器。",
-  copyFallback: "無法使用剪貼簿，請選取下方程式碼再手動複製。", useExample: "載入此範例…",
+  copyFallback: "無法使用剪貼簿，請選取下方程式碼再手動複製。", useExample: "載入並開始練習",
+  startPractice: "開始練習", launchHint: "載入後會返回練習指引。先按「準備這個練習」，再跟著步驟執行。",
+  firstProgramHint: "載入後會返回練習指引。這個文字範例已準備好，可直接執行。",
+  previewExample: "查看程式範例", previewNote: "這裡是唯讀課程預覽。載入後跟著練習指引執行；想修改時再開啟「程式」。",
+  referenceDetails: "概念解說與延伸練習", lessonComplete: "已完成", questionCount: "題",
+  firstProgramSteps: ["按下方按鈕載入範例，並確認替換編輯器程式。", "返回練習指引後執行程式，查看問候訊息；機械臂會保持不動。", "開啟「程式」，修改引號內的文字，再執行一次。"],
   replaceWarning: { lua: "這會替換目前的 Lua 程式。如需保留，請先複製或匯出。", python: "這會替換目前的 Python 程式。如需保留，請先複製或匯出。" },
   cancelReplace: "保留目前程式", confirmReplace: "確認替換程式",
   checkLearning: "自我檢查", answered: "題已作答", attempts: "嘗試次數", checkAnswers: "檢查答案",

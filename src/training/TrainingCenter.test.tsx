@@ -31,17 +31,20 @@ describe("TrainingCenter example replacement", () => {
     expect(screen.getByRole("dialog", { name: "Training center" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Training center", level: 2 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Your first program: show a message", level: 3 })).toBeInTheDocument();
+    expect(screen.getByText(/This text example is ready to run straight away/)).toBeInTheDocument();
+    expect(document.querySelector(".lesson-preview")).not.toHaveAttribute("open");
+    expect(document.querySelector(".lesson-reference")).not.toHaveAttribute("open");
+    expect(document.querySelector(".lesson-assessment")).not.toHaveAttribute("open");
+    await user.click(screen.getByText("Preview code · Lua"));
     expect(screen.getByRole("heading", { name: "Code example", level: 4 })).toBeInTheDocument();
+    expect(screen.getByText(/Read-only course preview/)).toBeInTheDocument();
+    expect(onUseExample).not.toHaveBeenCalled();
+    await user.click(screen.getByText("Concepts and further practice"));
     expect(screen.getByRole("heading", { name: "What you need to know", level: 4 })).toBeInTheDocument();
-    const exampleSection = document.querySelector(".lesson-code-section");
-    const explanationSection = document.querySelector(".training-content > .lesson-section");
-    expect(exampleSection).not.toBeNull();
-    expect(explanationSection).not.toBeNull();
-    expect(exampleSection!.compareDocumentPosition(explanationSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText(/Lua is the MG400 training language/)).toBeInTheDocument();
     expect(screen.getByText(/Python is for this simulator only/)).toBeInTheDocument();
     expect(screen.getByText(/Lua · simulator subset/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Load this example…" }));
+    await user.click(screen.getByRole("button", { name: "Load and start practising" }));
     expect(onUseExample).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent("This replaces your current Lua program");
 
@@ -49,11 +52,12 @@ describe("TrainingCenter example replacement", () => {
     expect(onUseExample).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Load this example…" }));
+    await user.click(screen.getByRole("button", { name: "Load and start practising" }));
     await user.click(screen.getByRole("button", { name: "Replace current program" }));
     expect(onUseExample).toHaveBeenCalledWith(
       "-- A comment is a note for people\nlocal greeting = \"Hello, robot!\"\nprint(greeting)",
       "lua",
+      "foundation-first-program",
     );
     expect(onClose).toHaveBeenCalledOnce();
   }, 10_000);
@@ -69,7 +73,7 @@ describe("TrainingCenter example replacement", () => {
     expect(screen.getByRole("heading", { name: "第一個程式：顯示文字" })).toBeInTheDocument();
     expect(screen.getByText(/程式不能在實體 Dobot 控制器執行/)).toBeInTheDocument();
     expect(screen.getByText("Python · 僅供模擬器")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "載入此範例…" }));
+    await user.click(screen.getByRole("button", { name: "載入並開始練習" }));
     expect(screen.getByRole("alert")).toHaveTextContent("這會替換目前的 Python 程式");
     expect(onUseExample).not.toHaveBeenCalled();
 
@@ -77,6 +81,7 @@ describe("TrainingCenter example replacement", () => {
     expect(onUseExample).toHaveBeenCalledWith(
       "# A comment is a note for people\ngreeting = \"Hello, robot!\"\nprint(greeting)",
       "python",
+      "foundation-first-program",
     );
   });
 
@@ -87,6 +92,7 @@ describe("TrainingCenter example replacement", () => {
     expect(screen.getByRole("heading", { name: "Your first program: show a message" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "First robot move: go to the approach point" }));
     expect(screen.getByRole("heading", { name: "First robot move: go to the approach point" })).toBeInTheDocument();
+    expect(screen.getByText(/Choose Prepare this practice, then follow the steps/)).toBeInTheDocument();
     expect(document.querySelector(".lesson-code")?.textContent).toContain("MovJ(PickApproach, {CP=0})");
     expect(document.querySelector(".lesson-code")?.textContent).not.toContain("DO(");
     expect(document.querySelector(".lesson-code")?.textContent).not.toContain("MovL(");
@@ -112,8 +118,9 @@ describe("TrainingCenter example replacement", () => {
     const { container } = render(<TrainingCenter open programLanguage="lua" onClose={vi.fn()} onUseExample={vi.fn()} />);
     const dialog = screen.getByRole("dialog", { name: "Training center" });
     const tabbable = [...dialog.querySelectorAll<HTMLElement>(
-      'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    )].filter((element) => !element.closest('[hidden], [aria-hidden="true"]'));
+      'a[href], button:not(:disabled), summary, input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    )].filter((element) => !element.closest('[hidden], [aria-hidden="true"]') &&
+      ![...dialog.querySelectorAll('details:not([open])')].some((details) => details.contains(element) && details.querySelector(':scope > summary') !== element));
     const first = tabbable[0];
     const last = tabbable[tabbable.length - 1];
 
@@ -135,6 +142,8 @@ it("shows and loads the calibrated Body1 no-output withdrawal example", async ()
   await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
   expect(document.querySelector(".lesson-code")?.textContent).toContain("z=42.5");
   expect(document.querySelector(".lesson-code")?.textContent).not.toMatch(/\b(?:DO|Pick|Place)\s*\(/);
+  expect(screen.getByText(/The built-in Body1, measured calibration, and taught points/)).toBeInTheDocument();
+  expect(screen.queryByText(/Import Body1 and select/)).not.toBeInTheDocument();
 });
 
 it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
@@ -142,9 +151,39 @@ it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
  await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
  const user=userEvent.setup();
  await user.click(screen.getByRole("button",{name:"EN"}));
+ await user.click(screen.getByText("Check your learning · 2 questions"));
  await user.click(screen.getByRole("radio",{name:"Slide at Z42.5, then lift to Z45"}));
  expect(screen.getByText(/Z42.5 centres the 5 mm plate/)).toBeInTheDocument();
  expect(screen.queryByText("Slide beneath it at Z=20 mm, then lift")).not.toBeInTheDocument();
+});
+
+it("keeps completion progress and next-lesson navigation available after the folded quiz", async () => {
+  const user = userEvent.setup();
+  render(<TrainingCenter open programLanguage="lua" onClose={vi.fn()} onUseExample={vi.fn()} />);
+  await user.click(screen.getByText("Check your learning · 1 questions"));
+  expect(screen.getByRole("button", { name: "Check answers" })).toBeDisabled();
+  await user.click(screen.getByRole("radio", { name: "Display the greeting in Run output" }));
+  await user.click(screen.getByRole("button", { name: "Check answers" }));
+  expect(screen.getByRole("status")).toHaveTextContent("All correct. Lesson complete.");
+  expect(screen.getByText("Check your learning · Completed")).toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem("mg400-course-progress-v1")!).completedLessonIds).toContain("foundation-first-program");
+  await user.click(screen.getByRole("button", { name: "Next lesson" }));
+  expect(screen.getByRole("heading", { name: "First robot move: go to the approach point" })).toBeInTheDocument();
+  expect(document.querySelector(".lesson-assessment")).not.toHaveAttribute("open");
+});
+
+it("opens an advanced track on demand and resets pending replacement on lesson change", async () => {
+  const user = userEvent.setup();
+  const onUseExample = vi.fn();
+  render(<TrainingCenter open programLanguage="lua" onClose={vi.fn()} onUseExample={onUseExample} />);
+  const advanced = [...document.querySelectorAll(".training-track")].find((element) => element.querySelector("summary")?.textContent?.startsWith("Advanced"))!;
+  expect(advanced).not.toHaveAttribute("open");
+  await user.click(advanced.querySelector("summary")!);
+  expect(advanced).toHaveAttribute("open");
+  await user.click(screen.getByRole("button", { name: "Load and start practising" }));
+  await user.click(screen.getByRole("button", { name: "Next lesson" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(onUseExample).not.toHaveBeenCalled();
 });
 
 });

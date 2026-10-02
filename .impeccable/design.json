@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T16:17:15.627441+00:00",
+  "title": "Design System: MG400 Lab",
+  "extensions": {
+    "shadows": [
+      {
+        "name": "project-menu",
+        "value": "0 8px 30px #172b4522",
+        "purpose": "Project menu above the workbench."
+      },
+      {
+        "name": "coach-drawer",
+        "value": "0 16px 60px #172b4533",
+        "purpose": "Optional AI assistance."
+      }
+    ],
+    "motion": [
+      {
+        "name": "loading",
+        "value": "spin 1s linear infinite",
+        "purpose": "Loading indication; removed for reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "header-wrap",
+        "value": "1180px"
+      },
+      {
+        "name": "single-column",
+        "value": "900px"
+      },
+      {
+        "name": "phone",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "description": "Primary action as implemented in the learning workspace.",
+      "html": "<button class=\"ds-primary-action\">開始練習</button>",
+      "css": ".ds-primary-action { display: inline-flex; gap: 10px; align-items: center; justify-content: center; border: 1px solid #235dcc; background: #235dcc; color: #fff; font-weight: 650; min-height: 48px; padding: 12px 18px; } .ds-primary-action:focus-visible { outline:3px solid #235dcc; outline-offset:3px; } .ds-primary-action:hover { background:#edf3ff; color:#172b45; }"
+    },
+    {
+      "name": "Secondary action",
+      "kind": "button",
+      "description": "Secondary action as implemented in the learning workspace.",
+      "html": "<button>重設</button>",
+      "css": "button { min-height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 13px; background: #fff; color: var(--text); cursor: pointer; font-size: 16px; line-height: 1.45; } button:focus-visible { outline:3px solid #235dcc; outline-offset:3px; } button:hover { background:#edf3ff; color:#172b45; }"
+    },
+    {
+      "name": "Text action",
+      "kind": "button",
+      "description": "Text action as implemented in the learning workspace.",
+      "html": "<button class=\"ds-text-button\">閱讀程式 →</button>",
+      "css": ".ds-text-button { margin-left: 10px; } .ds-text-button:focus-visible { outline:3px solid #235dcc; outline-offset:3px; } .ds-text-button:hover { background:#edf3ff; color:#172b45; }"
+    },
+    {
+      "name": "Number input",
+      "kind": "input",
+      "description": "Number input as implemented in the learning workspace.",
+      "html": "<label>X<input type=\"number\" value=\"300\" /></label>",
+      "css": "input { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 6px; background: #fff; } input:focus-visible { outline:3px solid #235dcc; outline-offset:3px; } input:hover { background:#edf3ff; color:#172b45; }"
+    },
+    {
+      "name": "Practice row",
+      "kind": "custom",
+      "description": "Practice row as implemented in the learning workspace.",
+      "html": "<button>第一次移動</button>",
+      "css": "button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 0; width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; } button:focus-visible { outline:3px solid #235dcc; outline-offset:3px; } button:hover { background:#edf3ff; color:#172b45; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A classroom workbench with a visible next step",
+    "overview": "The interface makes practice, code and results easy to distinguish. It uses clear reading surfaces around a live, dark 3D worktable. Traditional Chinese is the first-use language. Native controls and system text keep the application familiar and responsive.",
+    "keyCharacteristics": [
+      "Generous reading text and labelled actions.",
+      "Blue indicates actions and selected navigation.",
+      "One workspace destination at a time.",
+      "Technical details unfold when needed."
+    ],
+    "rules": [
+      {
+        "name": "The Action Color Rule",
+        "body": "Use primary blue for the principal action, selected navigation and keyboard focus.",
+        "section": "colors"
+      },
+      {
+        "name": "The Reading Rule",
+        "body": "Do not shrink lesson paragraphs to fit more controls into the viewport.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Destination Rule",
+        "body": "Show practice, code, taught-point controls, free objects or settings as separate destinations; never display every editor simultaneously.",
+        "section": "layout"
+      }
+    ],
+    "dos": [
+      "Do keep the next action labelled and near the object it affects.",
+      "Do keep lesson paragraphs at 18px.",
+      "Do show progress, errors and results in plain language.",
+      "Do retain focus indicators and keyboard placement."
+    ],
+    "donts": [
+      "Don't expose calibration and object tables on the novice home screen.",
+      "Don't rely on tiny text or unlabeled icons for essential actions.",
+      "Don't imply physical collision or magnetic-force simulation."
+    ]
+  }
+}
