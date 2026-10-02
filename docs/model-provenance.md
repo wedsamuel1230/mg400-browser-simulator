@@ -1,5 +1,7 @@
 # MG400 model provenance
 
+**Current packaging (2026-10-02):** the supplied Body1 and passive fork load by default. See the final section and `public/models/tools/README.md`. Earlier local-only tool decisions below are historical; the unapproved magnet mesh and proprietary CAD remain local.
+
 ## Browser-ready model
 
 - Source repository: https://github.com/Dobot-Arm/MG400_ROS
@@ -50,7 +52,7 @@ The two tool meshes are owner-supplied files found in the local Downloads folder
 
 The vendor model is a separate releasable asset set: its pinned revision, URDF hash (`d8ab4d690d0eef6232dd5d34f5a3a54bf0f2ead94aad6540ddbe06fb3628084b`), and preserved MIT notice are recorded above. `public/favicon.svg` is a small project-authored generic mark; no Dobot logo file is bundled. Product names such as “Dobot MG400” are descriptive references to the simulator target and do not grant trademark rights.
 
-**Current release decision:** the current public-safe build excludes the unknown meshes and defaults to generic placeholders. The learner-supplied local import path is client-only and does not upload the files. A future release may use the exact meshes only after written redistribution permission from the actual rights holder is recorded with the exact hashes. Educational intent alone is not permission; every production artifact must continue to prove that the unknown meshes are absent unless that permission gate changes.
+**Earlier release decision (superseded for Body1 and fork on 2026-10-02):** the current public-safe build excludes the unknown meshes and defaults to generic placeholders. The learner-supplied local import path is client-only and does not upload the files. A future release may use the exact meshes only after written redistribution permission from the actual rights holder is recorded with the exact hashes. Educational intent alone is not permission; every production artifact must continue to prove that the unknown meshes are absent unless that permission gate changes.
 
 The project contains no `.env` file. A source scan excluding dependencies, generated build output, scratch evidence, and local runtime bundles found only runtime key-handling code, documentation, and test placeholders; no embedded production credential was found. `OPENROUTER_API_KEY` is read from the server environment only when configured and is not bundled by Vite. The root `.gitignore` excludes local `.env` files while allowing a future `.env.example`.
 
@@ -61,3 +63,11 @@ The browser offers an explicit **Body1 槽積木** calibration after importing a
 Auto-teaching aligns the fork at workpiece R−90°. The Lua and Python examples release at Z45, lower to Z42.5, withdraw 60 mm along tool −X, then lift. Attachment requires aligned forward insertion and lift; release stays unarmed until withdrawal. Cell identity, position and world yaw are retained across attachment and release. The generic reference profile retains Z20 and uses pickup R−90° / placement R+90° at the default cell; magnetic mode retains the 15 mm reference block and top contact.
 
 Calibration and mesh bytes are page-session data. Replacing either the fork or workpiece import resets the profile. Calibration applies only to the first non-puck cell workpiece; other cells retain generic contact. Project import resets calibration; reopening requires reimporting the local meshes, reselecting the profile and re-teaching the points. Raw owner meshes remain excluded from repository assets and production output. This measured contact sequence does not implement general STL collision physics or physical robot calibration.
+
+## Default Body1 and fork assets (2026-10-02)
+
+The project maintainer explicitly requested “just 匯入 by the app by default” after the local-only release. This authorizes bundling the supplied `Body1.stl` and `Block.stl` for this project and replaces their earlier packaging exclusion. The exact source hashes and supplied-asset notice are retained in `public/models/tools/README.md`; this records the maintainer's request, not an upstream Dobot license or independently established authorship. The magnet mesh and proprietary CAD remain excluded.
+
+Both meshes load from same-origin static assets automatically; the Body1 profile is selected without a file chooser. Fork mode renders the supplied Body1 workpiece and flange-mounted passive fork. The first non-puck calibration boundary remains; magnetic workpieces retain the existing geometry. Custom imports take precedence, reset the measured calibration and remain browser-session-only. Project import retains Body1 calibration when the bundled pair is active. Existing custom scripts and teach points are not overwritten: re-teach a pick/place pair after changing tools. A saved stock generic fork program upgrades to the matching Body1 template on startup.
+
+This measured sequence remains a logical contact simulation, not general STL collision physics or physical calibration.

@@ -43,7 +43,7 @@ export type SceneState = {
 };
 
 export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string; progress?: number };
-export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer; blockProfile?: ForkContactProfile };
+export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer; blockProfile?: ForkContactProfile; bundledFork?: boolean };
 
 export function viewportVerticalFov(baseFov: number, aspect: number): number {
   if (!Number.isFinite(aspect) || aspect >= 1 || aspect <= 0) return baseFov;
@@ -399,7 +399,7 @@ export class SimulatorScene {
     const isFork = state.project.tool.mode === "fork";
     const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
     this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : this.proceduralBlockGeometry;
-    this.block.name = useLocalForkBlock ? "Locally imported fork-task workpiece" : "neutral 40 x 40 x 15 mm reference block";
+    this.block.name = useLocalForkBlock ? "Body1 / imported fork-task workpiece" : "neutral 40 x 40 x 15 mm reference block";
     this.forkFixtures.visible = isFork;
     const cellBlocks = state.project.scene.blocks ?? [];
     const baseBlock = cellBlocks.find((block) => block.kind !== "puck");

@@ -248,7 +248,7 @@ export default function App() {
     teachPoints: "示教點", jointPoint: "儲存關節點", deletePoint: "刪除示教點", jogControls: "點動及示教點控制",
     cartesianStep: "笛卡兒點動步距（毫米）", jointStep: "關節點動步距（度）",
     programmingLanguage: "程式語言", exportProject: "匯出專案", toolMeshTitle: "工具外觀模型",
-    toolMeshDescription: "預設使用可公開發佈的通用教學模型。可在本機載入自己的 STL，檢視法蘭下方安裝位置及 TCP 偏移；檔案不會離開此瀏覽器，也不會加入專案匯出。",
+    toolMeshDescription: "已內置 Body1 槽積木及無動力叉臂，切換叉臂模式即可使用。你亦可匯入其他 STL；自訂檔案只留在此瀏覽器，不會加入專案匯出。",
     importMagnet: "匯入磁吸工具 STL", importFork: "匯入叉臂工具 STL", activeTool: "目前工具",
     flangeToTcp: "法蘭至 TCP", robotWrist: "機械臂腕部", flange: "法蘭", toolLocalX: "工具局部 +X",
     flangeExplanation: "法蘭：安裝工具的機械臂端面。TCP：移動指令所到達的工具參考點。圖示沿工具自身 X 軸，不代表螢幕方向。",
@@ -269,7 +269,7 @@ export default function App() {
     teachPoints: "Teach points", jointPoint: "Save a joint point", deletePoint: "Delete teach point", jogControls: "Jog and point controls",
     cartesianStep: "Cartesian jog step in millimetres", jointStep: "Joint jog step in degrees",
     programmingLanguage: "Programming language", exportProject: "Export project", toolMeshTitle: "Tool visual mesh",
-    toolMeshDescription: "The public-safe default is a clearly labeled generic teaching placeholder. You may load your own STL locally to inspect its flange-under mount and TCP offset; the file never leaves this browser and is not saved in project export.",
+    toolMeshDescription: "Body1 and the passive fork are bundled and load automatically. You can also import another STL; custom files stay in this browser and are not saved in project export.",
     importMagnet: "Import local magnet STL", importFork: "Import local fork STL", activeTool: "Active tool",
     flangeToTcp: "Flange to TCP", robotWrist: "Robot wrist", flange: "Flange", toolLocalX: "tool-local +X",
     flangeExplanation: "Flange: the robot face where the tool mounts. TCP: the tool reference point that motion commands target. This diagram is along the tool's own X axis, not the screen.",
@@ -291,7 +291,7 @@ export default function App() {
   const forkProfile = effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
   const localMeshesRef = useRef(localToolMeshes);
   localMeshesRef.current = localToolMeshes;
-  const [toolMeshMessage, setToolMeshMessage] = useState(uiLanguage === "zh-Hant" ? "預設使用可公開發佈的通用教學模型；本機匯入模型只會保留在此瀏覽器。" : "Using freely distributable teaching placeholders; local meshes are optional and stay in this browser.");
+  const [toolMeshMessage, setToolMeshMessage] = useState(uiLanguage === "zh-Hant" ? "正在載入內置 Body1 積木及叉臂…" : "Loading bundled Body1 and fork…");
   const [coachOpen, setCoachOpen] = useState(false);
   const [jogStep, setJogStep] = useState(10);
   const [jointStep, setJointStep] = useState(5);
@@ -324,7 +324,7 @@ export default function App() {
       setToolMeshMessage(uiLanguage === "zh-Hant" ? `${file.name} 不是可讀取的 STL（ASCII facet／vertex 或二進位三角面資料）；沒有載入任何內容。` : `${file.name} is not a readable STL (ASCII facet/vertex or binary triangle data). Nothing was loaded.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", kind) }));
+    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes, bundledFork: kind === "fork" ? false : current.bundledFork, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", kind) }));
     if (kind === "fork") replaceProject((current) => ({ ...current,
       script: current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
       pythonScript: current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
@@ -343,11 +343,11 @@ export default function App() {
     const bytes = await file.arrayBuffer();
     if (!isLikelyStl(bytes)) {
       setToolMeshMessage(uiLanguage === "zh-Hant"
-        ? `${file.name} 不是可讀取的 STL。會繼續使用程式產生的 40 × 40 × 15 mm 方塊；檔案不會上傳或加入程式包。`
-        : `${file.name} is not a readable STL. The procedural 40 × 40 × 15 mm block remains active; the file is not uploaded or bundled.`);
+        ? `${file.name} 不是可讀取的 STL；保留目前模型，檔案不會上傳。`
+        : `${file.name} is not a readable STL. The current model remains active; the file is not uploaded.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, block: bytes, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", "block") }));
+    setLocalToolMeshes((current) => ({ ...current, block: bytes, bundledFork: false, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", "block") }));
     replaceProject((current) => ({ ...current,
       script: current.tool.mode === "fork" && current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
       pythonScript: current.tool.mode === "fork" && current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
@@ -356,6 +356,31 @@ export default function App() {
       ? `已在目前瀏覽器工作階段載入 ${file.name}；不會上傳、儲存至專案或加入程式包。`
       : `Loaded ${file.name} for this browser session only; it is not uploaded, saved in the project, or bundled.`);
   };
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void Promise.all(["Block.stl", "Body1.stl"].map(async (name) => {
+      const response = await fetch(`${import.meta.env.BASE_URL}models/tools/${name}`, { signal: abort.signal });
+      if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      if (!isLikelyStl(bytes)) throw new Error(`${name}: invalid STL`);
+      return bytes;
+    })).then(([fork, block]) => {
+      if (abort.signal.aborted) return;
+      // A learner import made during loading must win over the bundled defaults.
+      const custom = Boolean(localMeshesRef.current.fork || localMeshesRef.current.block);
+      setLocalToolMeshes((current) => ({ ...current, fork: current.fork ?? fork, block: current.block ?? block,
+        blockProfile: custom ? current.blockProfile : "body1", bundledFork: !custom }));
+      if (!custom) setProject((current) => ({ ...current,
+        script: current.tool.mode === "fork" && [getStarterProgram("lua", "fork"), recommendedProgram("lua", "fork")].includes(current.script) ? getStarterProgram("lua", "fork", "body1") : current.script,
+        pythonScript: current.tool.mode === "fork" && [getStarterProgram("python", "fork"), recommendedProgram("python", "fork")].includes(current.pythonScript) ? getStarterProgram("python", "fork", "body1") : current.pythonScript,
+      }));
+      setToolMeshMessage(uiLanguage === "zh-Hant" ? (custom ? "已保留你匯入的自訂模型；請選擇合適校準。" : "內置 Body1 積木及叉臂已載入；叉臂模式會自動使用 Body1 校準。") : (custom ? "Your custom model takes precedence; choose its calibration." : "Bundled Body1 and fork loaded; fork mode uses Body1 calibration automatically."));
+    }).catch((error: unknown) => {
+      if (!abort.signal.aborted) setToolMeshMessage(`${uiLanguage === "zh-Hant" ? "內置工具載入失敗，請重新整理：" : "Bundled tool loading failed; refresh: "}${error instanceof Error ? error.message : String(error)}`);
+    });
+    return () => abort.abort();
+  }, []);
 
   const selectedPoint = project.points.find((point) => point.id === selectedId);
   const pose = useMemo(
@@ -804,7 +829,7 @@ export default function App() {
       controllerRef.current?.stop(false, true);
       attachedRef.current = false;
       setAttached(false);
-      setLocalToolMeshes((current) => ({ ...current, blockProfile: "reference" }));
+      setLocalToolMeshes((current) => ({ ...current, blockProfile: current.bundledFork ? "body1" : "reference" }));
       setProject(imported);
       projectRef.current = imported;
       setCurrentBlock({ ...imported.scene.block });
@@ -1309,7 +1334,7 @@ export default function App() {
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
               <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>{uiLanguage === "zh-Hant" ? "從目前模擬姿勢示教" : "Teach from the current simulated pose"}</strong><span>{uiLanguage === "zh-Hant" ? <>示教點會以名稱儲存目標。示教目前位置會保存 TCP 座標；儲存關節點會保存 J1–J4 角度。程式可使用 <code>PickApproach</code>，毋須直接輸入數字。</> : <>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</>}</span></div></div>
               <div className="teach-controls"><button className="secondary-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current pose"}</button><button className="secondary-button outlined-button" onClick={addJointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "儲存關節點" : "Save joint point"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("pick")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教拾取點組" : "Teach pick pair"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("place")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教放置點組" : "Teach place pair"}</button>{selectedPoint && <button className="secondary-button outlined-button" onClick={moveToSelected} disabled={busy}><Crosshair size={15} /> {uiLanguage === "zh-Hant" ? "前往所選" : "Go to selected"}</button>}</div>
-              <div className="reference-note"><span className="block-swatch" /><span className="block-size">{uiLanguage === "zh-Hant" ? "方塊" : "Block"} {format(BLOCK_SIZE_MM.x, 0)} × {format(BLOCK_SIZE_MM.y, 0)} × {format(BLOCK_SIZE_MM.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> {uiLanguage === "zh-Hant" ? "工件局部 +X" : "block-local +X"}</span><span className="note-divider" /><span className="reference-tool-guidance">{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? `TCP 從法蘭沿 X ${tcpOffsetXLabel} · 磁吸接觸方塊頂面 · DO1 只在模擬器生效` : `TCP 從法蘭沿 X ${tcpOffsetXLabel} · 叉臂支撐高度 Z=${FORK_SUPPORT_HEIGHT_MM} mm · 不使用 DO`) : (project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO`)}</span></div>
+              <div className="reference-note"><span className="block-swatch" /><span className="block-size">{uiLanguage === "zh-Hant" ? "方塊" : "Block"} {format(BLOCK_SIZE_MM.x, 0)} × {format(BLOCK_SIZE_MM.y, 0)} × {format(project.tool.mode === "fork" && forkProfile === "body1" ? 40 : BLOCK_SIZE_MM.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> {uiLanguage === "zh-Hant" ? "工件局部 +X" : "block-local +X"}</span><span className="note-divider" /><span className="reference-tool-guidance">{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? `TCP 從法蘭沿 X ${tcpOffsetXLabel} · 磁吸接觸方塊頂面 · DO1 只在模擬器生效` : `TCP 從法蘭沿 X ${tcpOffsetXLabel} · ${forkProfile === "body1" ? "Body1 插入 Z42.5／承托 Z45" : `叉臂支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · 不使用 DO`) : (project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · ${forkProfile === "body1" ? "Body1 insertion Z42.5 / support Z45" : `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · no DO`)}</span></div>
             </div> : <div className="motion-content jog-content" id="jog-motion-panel" role="tabpanel" aria-labelledby="jog-motion-tab">
               <div className="jog-group cartesian-jog">
                 <div className="jog-group-title"><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "笛卡兒座標" : "CARTESIAN"} <label>{uiLanguage === "zh-Hant" ? "步距" : "step"} <input aria-label={ui.cartesianStep} type="number" min="1" max="100" value={jogStep} disabled={busy} onChange={(event) => setJogStep(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /> mm</label></div>
@@ -1380,9 +1405,9 @@ export default function App() {
                         pythonScript: current.tool.mode === "fork" && [getStarterProgram("python", "fork", forkProfile), recommendedProgram("python", "fork", forkProfile)].includes(current.pythonScript) ? getStarterProgram("python", "fork", activeProfile) : current.pythonScript,
                       }));
                     }}><option value="reference">{uiLanguage === "zh-Hant" ? "通用：底面承托 Z20" : "Generic: bottom support Z20"}</option><option value="body1" disabled={!localToolMeshes.fork}>{uiLanguage === "zh-Hant" ? "首個非圓件 Body1：40×40×40，槽 Z15–25，叉板 5 mm" : "First non-puck Body1: 40×40×40, grooves Z15–25, fork plate 5 mm"}</option></select>
-                    <small>{uiLanguage === "zh-Hant" ? "只套用工作格首個非圓件；其他方塊維持通用校準。只在本次匯入使用；重開／匯入專案後須重新匯入模型及選擇校準。先匯入已量度叉臂，再選校準及重新示教兩組教點。" : "Only the first non-puck cell workpiece; other blocks retain generic contact. Session only; re-import meshes and select calibration after reopening/importing a project. Re-teach both point pairs."}</small>
+                    <small>{uiLanguage === "zh-Hant" ? "內置 Body1 校準會自動載入，只套用首個非圓件。自訂模型請選擇適合的校準，再重新示教兩組教點。" : "Bundled Body1 calibration loads automatically for the first non-puck workpiece. For custom meshes, choose the appropriate calibration and re-teach both point pairs."}</small>
                   </label>}
-                  <small className="tool-mode-note">{uiLanguage === "zh-Hant" ? "Body1 只會在目前瀏覽器工作階段載入；不會上傳、儲存至專案或加入公開程式包。" : "Body1 is loaded only for the current browser session; it is never uploaded, saved in the project, or included in the public bundle."}</small>
+                  <small className="tool-mode-note">{uiLanguage === "zh-Hant" ? "內置模型毋須手動匯入；自行匯入的 STL 只保留在目前瀏覽器工作階段。" : "Bundled models need no manual import; custom STL files stay in the current browser session."}</small>
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <input ref={blockMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importForkBlockMesh(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <small className="tool-mode-note">{toolMeshMessage}</small>

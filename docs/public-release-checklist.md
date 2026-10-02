@@ -16,7 +16,7 @@ Before publishing, verify the vendor MG400 ROS `LICENSE` remains beside its nine
 
 The candidate includes `vercel.json` for the static SPA fallback and `.github/workflows/release-smoke.yml` for `npm ci`, full tests, typecheck, build, and the public asset gate. These prepare release automation; they do not publish or deploy.
 
-Current asset decision: **safe to proceed to a separate publication review**; exact owner meshes remain prohibited from bundling.
+Historical asset decision: exact owner meshes were excluded until the maintainer requested default bundling on 2026-10-02.
 
 ## 2026-09-29 publication execution
 
@@ -26,3 +26,7 @@ Current asset decision: **safe to proceed to a separate publication review**; ex
 - `npm run release:check` passed before the commit. The repository contains the MIT root license, the pinned vendor model license, SPA `vercel.json`, and the release smoke workflow.
 - Current production URL: https://mg400-browser-simulator.vercel.app. The release evidence supplied for this status records deployment `dpl_Gc538GnCC4gYGGGrSzeWW8BH44mm` as `READY` for commit `0a6b815` (reconciled 2026-09-29). This hardening pass did not query Vercel or create a deployment. The earlier CLI-login failure describes an earlier execution attempt, not the current release state.
 - Hardening commit `f658caf` was pushed to `origin/main`, but a post-push Vercel listing still showed `0a6b815` as the latest READY production build. No Vercel CLI is installed, and the deploy connector returned `Tool deploy_to_vercel not found`; this commit is not confirmed deployed.
+
+## 2026-10-02 default asset authorization
+
+The maintainer requested automatic default loading of the supplied Body1 workpiece and passive fork. `public/models/tools/README.md` records this request and the exact SHA256 hashes. The current release check verifies the two approved files in source and build output, retains the vendor license checks and rejects the unapproved magnetic mesh and embedded key patterns. Earlier local-only restrictions above are historical for these two files; proprietary CAD and magnet remain excluded. Custom STL imports still stay in browser memory.
