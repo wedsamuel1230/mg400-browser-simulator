@@ -6,7 +6,7 @@ import { MODEL_PALETTE, ROBOT_COLOR_GROUPS } from "./sim/modelPalette";
 
 vi.mock("./sim/SimulatorScene", () => ({
   SimulatorScene: {
-    create: async (_canvas: HTMLCanvasElement, onStatus: (status: { kind: "ready" }) => void) => {
+    create: async (_canvas: HTMLCanvasElement, _urdfXml: string, onStatus: (status: { kind: "ready" }) => void) => {
       onStatus({ kind: "ready" });
       return { setState() {}, setLocalToolMeshes() {}, dispose() {}, resetCamera() {} };
     },
@@ -26,6 +26,15 @@ function getSwatchColors(label: string) {
 describe("RobotViewport color guide", () => {
   afterEach(cleanup);
 
+  it("reports URDF fetch failure instead of leaving the viewport loading", async () => {
+    render(<RobotViewport joints={[0, 0, 0, 0]} project={DEFAULT_PROJECT}
+      blockPosition={{ x: 360, y: -80 }} attached={false} target={null}
+      cameraResetToken={0} urdfXml={null} modelError="Could not load the bundled MG400 kinematic model." />);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Model could not load"));
+    expect(screen.getByRole("status")).toHaveTextContent("Could not load the bundled MG400 kinematic model.");
+    expect(screen.queryByText("Loading robot model")).toBeNull();
+  });
+
   it("localizes the canvas and simulation region for Traditional Chinese", async () => {
     render(<RobotViewport
       joints={[0, 0, 0, 0]}
@@ -34,6 +43,7 @@ describe("RobotViewport color guide", () => {
       attached={false}
       target={null}
       cameraResetToken={0}
+      urdfXml="<robot />"
       uiLanguage="zh-Hant"
     />);
 
@@ -50,6 +60,7 @@ describe("RobotViewport color guide", () => {
       attached={false}
       target={null}
       cameraResetToken={0}
+      urdfXml="<robot />"
     />);
     await waitFor(() => expect(document.querySelector(".viewport-overlay")).toBeNull());
 

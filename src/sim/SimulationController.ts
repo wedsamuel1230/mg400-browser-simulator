@@ -1,4 +1,4 @@
-import { activeTcpOffset, deg, FORK_SUPPORT_HEIGHT_MM, rad, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { activeTcpOffset, effectiveForkContactProfile, deg, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
@@ -18,6 +18,7 @@ export type ControllerEvents = {
   getJoints: () => JointAngles;
   isAttached: () => boolean;
   getBlock: () => { x: number; y: number };
+  getForkContactProfile?: () => ForkContactProfile;
   getCellBlocks?: () => CellBlock[];
   setCellBlocks?: (blocks: CellBlock[]) => void;
   setJoints: (joints: JointAngles) => void;
@@ -42,6 +43,7 @@ export class SimulationController {
   private executionProject?: ProjectDocument;
   private passiveForkState: PassiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
   private attachedCellBlockId: string | null = null;
+  private attachedForkYaw = 0;
   private generation = 0;
   private readonly pendingFrames = new Map<number, (timestamp: number) => void>();
   private idleWaiters: (() => void)[] = [];
@@ -70,9 +72,7 @@ export class SimulationController {
   }
 
   async goToPoint(point: TeachPoint): Promise<void> {
-    const forkState = this.passiveForkState;
     this.stop(false);
-    this.passiveForkState = forkState;
     const generation = this.generation;
     this.executionProject = structuredClone(this.events.getProject());
     this.stopped = false;
@@ -125,7 +125,7 @@ export class SimulationController {
     for (const resolve of this.resumeWaiters.splice(0)) resolve();
   }
 
-  stop(report = true) {
+  stop(report = true, resetContact = false) {
     this.generation += 1;
     for (const [frameId, resolve] of this.pendingFrames) {
       cancelAnimationFrame(frameId);
@@ -138,9 +138,13 @@ export class SimulationController {
     this.paused = false;
     this.scriptEnded = false;
     this.executionProject = undefined;
-    this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
-    this.attachedCellBlockId = null;
-    this.events.setAttachedCellBlockId?.(null);
+    if (resetContact) {
+      this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
+      this.attachedCellBlockId = null;
+      this.attachedForkYaw = 0;
+      this.events.setAttached(false);
+      this.events.setAttachedCellBlockId?.(null);
+    }
     this.queue.length = 0;
     this.processing = false;
     for (const resolve of this.resumeWaiters.splice(0)) resolve();
@@ -336,22 +340,29 @@ export class SimulationController {
       this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
       return;
     }
+    const candidates = this.events.getCellBlocks?.() ?? [];
+    const location = this.events.getBlock();
+    const candidate = candidates.find((block) => Math.hypot(block.position.x - location.x, block.position.y - location.y) <= 1);
     const result = advancePassiveFork(
-      this.passiveForkState,
-      previous,
-      current,
-      this.events.isAttached(),
-      this.events.getBlock(),
-      project.scene.drop,
-      project.tool.pickupTolerance,
+      this.passiveForkState, previous, current, this.events.isAttached(),
+      { ...location, r: candidate?.r ?? 0 }, project.scene.drop, project.tool.pickupTolerance,
+      effectiveForkContactProfile(this.events.getForkContactProfile?.() ?? "reference", candidates, candidate?.id),
     );
     this.passiveForkState = result.state;
     if (result.action === "pick") {
+      this.attachedCellBlockId = candidate?.id ?? null;
+      this.attachedForkYaw = (candidate?.r ?? 0) - current.r;
+      this.events.setAttachedCellBlockId?.(this.attachedCellBlockId);
       this.events.setAttached(true);
-      this.events.addLog("Fork slid beneath the 40 × 40 × 15 mm block; lifting attached it to the passive tool.", "info");
+      this.events.addLog("叉臂已插入並承托工件；抬升後接附。", "info");
     } else if (result.action === "place") {
+      this.events.setCellBlocks?.(candidates.map((block) => block.id === this.attachedCellBlockId
+        ? { ...block, position: { x: current.x, y: current.y }, r: current.r + this.attachedForkYaw, source: "output", stackLevel: undefined }
+        : block));
       this.events.setAttached(false);
       this.events.setBlock({ x: current.x, y: current.y });
+      this.attachedCellBlockId = null;
+      this.events.setAttachedCellBlockId?.(null);
       this.events.addLog(`Fork lowered the block onto the support pads at X ${current.x.toFixed(1)} mm, Y ${current.y.toFixed(1)} mm.`, "info");
     }
   }

@@ -469,7 +469,7 @@ export const LESSONS: Lesson[] = [
       { en: "Lowering the supported block back onto the three pads at the drop zone releases it. DO1 is an ordinary virtual output and does not control the fork or the block.", "zh-Hant": "在放置區把方塊降回三個承托墊便會釋放。DO1 只是一般虛擬輸出，不會控制叉臂或方塊。" },
     ],
     guidedSteps: [
-      { en: `Select Fork pickup. Teach PickPoint at the block centre on the ${FORK_SUPPORT_HEIGHT_MM} mm support plane, then teach PickApproach 60 mm before it along tool -X at the same height.`, "zh-Hant": `選擇 「叉臂拾取」。在方塊承托面 Z=${FORK_SUPPORT_HEIGHT_MM} mm 教 PickPoint，再沿工具 -X 方向、同一高度、於其前方 60 mm 教 PickApproach。` },
+      { en: `Select Fork pickup. Teach PickPoint at the block centre on the ${FORK_SUPPORT_HEIGHT_MM} mm support plane, use block R−90° for pickup and R+90° for placement, then teach PickApproach 60 mm before it along tool -X at the same height.`, "zh-Hant": `選擇 「叉臂拾取」。在方塊承托面 Z=${FORK_SUPPORT_HEIGHT_MM} mm 教 PickPoint，通用拾取方向用方塊 R−90°、放置用 R+90°，再沿工具 -X、同一高度、於其前方 60 mm 教 PickApproach。` },
       { en: "Use MovL from PickApproach to PickPoint to slide beneath the block. Then lift in +Z; the fork picks the block automatically.", "zh-Hant": "用 MovL 從 PickApproach 水平滑至 PickPoint，再沿 +Z 抬起；叉臂會自動拾起方塊。" },
       { en: "Move to PlaceApproach, lower with MovL until the block rests on the support pads, then lift clear. Watch it release without any DO command.", "zh-Hant": "移至 PlaceApproach，再用 MovL 降至方塊放回承托墊的位置，然後向上離開；觀察方塊在沒有任何 DO 指令下釋放。" },
     ],

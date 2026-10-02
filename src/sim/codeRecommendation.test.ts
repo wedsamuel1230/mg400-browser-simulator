@@ -3,7 +3,7 @@ import { FORK_SUPPORT_HEIGHT_MM } from "../domain";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { recommendPickAndPlace } from "./codeRecommendation";
-import { forkEntryPose } from "./forkTool";
+import { forkContactPose, forkEntryPose } from "./forkTool";
 
 const reachableKinematics = {
   solve: () => ({ ok: true, joints: [0, 0, 0, 0], positionErrorMm: 0, angleErrorDeg: 0 }),
@@ -112,4 +112,29 @@ describe("context-aware pick-and-place recommendations", () => {
     const failed = recommendPickAndPlace(project, "python", undefined, "URDF unavailable");
     expect(failed.checks.find((check) => check.id === "reachability")?.detail).toContain("URDF unavailable");
   });
+});
+
+
+it("requires calibrated Body1 heights and groove yaw before offering the no-output path", () => {
+  const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";
+  for(const point of project.points)if(point.kind==="cartesian"){
+    const placing=point.name.startsWith("Place");
+    const contact=forkContactPose(placing?project.scene.drop:project.scene.block,0,"body1",placing);
+    point.pose=point.name.endsWith("Approach")?(placing?{...contact,z:contact.z+80}:forkEntryPose(contact)):contact;
+  }
+  const result=recommendPickAndPlace(project,"lua",reachableKinematics,"","body1");
+  expect(result.ready).toBe(true);expect(result.code).toContain("MovL(PlaceClear");expect(result.code).not.toMatch(/\b(?:DO|Pick|Place)\s*\(/);
+  const pick=project.points.find(p=>p.name==="PickPoint")!;if(pick.kind!=="cartesian")throw Error("fixture");pick.pose.r=0;
+  expect(recommendPickAndPlace(project,"lua",reachableKinematics,"","body1").ready).toBe(false);
+  pick.pose.r=-90;pick.pose.z=20;
+  expect(recommendPickAndPlace(project,"lua",reachableKinematics,"","body1").ready).toBe(false);
+});
+
+it("uses generic contact for other cells while first workpiece has Body1 calibration",()=>{
+ const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";
+ project.scene.block={x:360,y:80};project.scene.blocks.push({id:"other",source:"pickup",color:"neutral",position:{x:360,y:80},r:0});
+ project.points=project.points.filter(p=>p.name==="Home");
+ const result=recommendPickAndPlace(project,"lua",undefined,"","body1");
+ expect(result.checks.find(c=>c.id==="pick")?.detail).toContain("Z=20 mm");
+ expect(result.code).not.toContain("PlaceClear");
 });

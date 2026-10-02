@@ -14,6 +14,8 @@ type Props = {
   target: Pose | null;
   cameraResetToken: number;
   localToolMeshes?: LocalToolMeshes;
+  urdfXml: string | null;
+  modelError?: string | null;
   uiLanguage?: "zh-Hant" | "en";
   placementArmed?: boolean;
   onTablePlace?: (position: { x: number; y: number }) => void;
@@ -22,7 +24,8 @@ type Props = {
   onTableConfirm?: () => void;
 };
 
-export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, uiLanguage = "en", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
+export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
+  const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
   const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes });
@@ -32,10 +35,14 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (modelError) {
+      setStatus({ kind: "error", message: modelError });
+      return;
+    }
+    if (!canvas || !urdfXml) return;
     let alive = true;
     let created: SimulatorScene | undefined;
-    void SimulatorScene.create(canvas, (nextStatus) => { if (alive) setStatus(nextStatus); }).then((scene) => {
+    void SimulatorScene.create(canvas, urdfXml, (nextStatus) => { if (alive) setStatus(nextStatus); }).then((scene) => {
       if (!alive) {
         scene.dispose();
         return;
@@ -50,7 +57,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       sceneRef.current = undefined;
       created?.dispose();
     };
-  }, []);
+  }, [urdfXml, modelError]);
 
   useEffect(() => {
     if (localToolMeshes) sceneRef.current?.setLocalToolMeshes(localToolMeshes);
@@ -112,12 +119,12 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>{uiLanguage === "zh-Hant" ? "目前工具：" : "Active tool: "}{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸" : "Magnet") : (uiLanguage === "zh-Hant" ? "叉" : "Fork")}</li>
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.tcp }} /></span>{uiLanguage === "zh-Hant" ? "TCP 參考" : "TCP reference"}</li>
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.target }} /><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.targetCenter }} /></span>{uiLanguage === "zh-Hant" ? "所選示教點" : "Selected point"}</li>
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>40 × 40 × 15 mm {uiLanguage === "zh-Hant" ? "工件" : "workpiece"}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>{body1 ? "40 × 40 × 40 mm Body1" : "40 × 40 × 15 mm"} {uiLanguage === "zh-Hant" ? "工件" : "workpiece"}</li>
         </ul>
         <p>{uiLanguage === "zh-Hant" ? "訓練色彩會覆蓋供應商幾何以便示教，不代表出廠塗裝。" : "Training palette overlays the vendor geometry for teaching; it does not represent factory paint."}</p>
       </details>
       <div className="viewport-hud viewport-hud-bottom">
-        <div className="scene-caption"><Crosshair size={15} /><span>{uiLanguage === "zh-Hant" ? "參考工作格 · 40 × 40 × 15 mm 工件" : "Reference cell · 40 × 40 × 15 mm workpiece"}</span></div>
+        <div className="scene-caption"><Crosshair size={15} /><span>{uiLanguage === "zh-Hant" ? (body1 ? "參考工作格 · 40 × 40 × 40 mm Body1 槽積木" : "參考工作格 · 40 × 40 × 15 mm 工件") : (body1 ? "Reference cell · 40 × 40 × 40 mm Body1 groove block" : "Reference cell · 40 × 40 × 15 mm workpiece")}</span></div>
         <span className="scene-controls">{uiLanguage === "zh-Hant" ? "拖曳旋轉 · 滾動縮放" : "Drag to orbit · scroll to zoom"}</span>
       </div>
       {status.kind !== "ready" && (

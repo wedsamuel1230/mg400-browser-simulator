@@ -3,6 +3,8 @@ export const PROJECT_SCHEMA_VERSION = 9;
 export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
 export type ProgramLanguage = "lua" | "python";
+export type ForkContactProfile = "reference" | "body1";
+export const BODY1_FORK_CONTACT = { insertionZ: 42.5, loadZ: 45, bottomOffset: 25 } as const;
 export type ToolMode = "magnet" | "fork";
 export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
@@ -21,6 +23,14 @@ export type CellBlock = {
   /** Deterministic tower layer assigned on release; omitted for source blocks. */
   stackLevel?: number;
 };
+
+// Calibration is local to the imported first non-puck cell workpiece.
+export function effectiveForkContactProfile(profile: ForkContactProfile, blocks: CellBlock[], blockId?: string): ForkContactProfile {
+  return profile === "body1" && blockId !== undefined && blockId === blocks.find((block) => block.kind !== "puck")?.id ? "body1" : "reference";
+}
+export function forkProfileAfterImport(profile: ForkContactProfile, kind: "magnet" | "fork" | "block"): ForkContactProfile {
+  return kind === "block" || kind === "fork" ? "reference" : profile;
+}
 
 export type Pose = { x: number; y: number; z: number; r: number };
 export type JointAngles = [number, number, number, number]; // radians
@@ -182,7 +192,29 @@ export const DEFAULT_FORK_PYTHON_SCRIPT = [
   "",
 ].join("\n");
 
-export function getStarterProgram(language: ProgramLanguage, mode: ToolMode): string {
+export function body1ForkProgram(language: ProgramLanguage): string {
+  if (language === "python") return [
+    "import math", "# 已量度 Body1 槽：插入 42.5 mm；承托／釋放 45 mm；不使用 DO。",
+    `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": 42.5}}`,
+    `PlaceExit = {"coordinate": {**PlaceClear["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60 * math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60 * math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}`,
+    "await joint_mov_j(Home, cp=0)", "await mov_j(PickApproach, cp=0)", "await mov_l(PickPoint, cp=0)",
+    "await rel_mov_l([0, 0, 80, 0], cp=0)", "await mov_j(PlaceApproach, cp=0)", "await mov_l(PlacePoint, cp=0)",
+    "await mov_l(PlaceClear, cp=0)", "await mov_l(PlaceExit, cp=0)", "await rel_mov_l([0, 0, 80, 0], cp=0)",
+    "await joint_mov_j(Home, cp=0)", "await sync()", "print('Body1 fork pick and place complete')", "",
+  ].join("\n");
+  return [
+    "-- 已量度 Body1 槽：插入 42.5 mm；承托／釋放 45 mm；不使用 DO。",
+    "local PlaceClear = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=42.5, r=PlacePoint.coordinate.r } }",
+    "local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=42.5, r=PlacePoint.coordinate.r } }",
+    "JointMovJ(Home, {CP=0})", "MovJ(PickApproach, {CP=0})", "MovL(PickPoint, {CP=0})",
+    "RelMovL({0, 0, 80, 0}, {CP=0})", "MovJ(PlaceApproach, {CP=0})", "MovL(PlacePoint, {CP=0})",
+    "MovL(PlaceClear, {CP=0})", "MovL(PlaceExit, {CP=0})", "RelMovL({0, 0, 80, 0}, {CP=0})",
+    "JointMovJ(Home, {CP=0})", "Sync()", 'print("Body1 fork pick and place complete")', "",
+  ].join("\n");
+}
+
+export function getStarterProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference"): string {
+  if (mode === "fork" && profile === "body1") return body1ForkProgram(language);
   if (mode === "fork") return language === "lua" ? DEFAULT_FORK_SCRIPT : DEFAULT_FORK_PYTHON_SCRIPT;
   return language === "lua" ? DEFAULT_SCRIPT : DEFAULT_PYTHON_SCRIPT;
 }

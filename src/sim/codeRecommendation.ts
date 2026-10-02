@@ -1,4 +1,4 @@
-import { activeTcpOffset, FORK_SUPPORT_HEIGHT_MM, rad, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
+import { activeTcpOffset, effectiveForkContactProfile, BODY1_FORK_CONTACT, body1ForkProgram, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { FORK_INSERTION_DISTANCE_MM, forkEntryPose } from "./forkTool";
 
@@ -30,12 +30,14 @@ export function recommendPickAndPlace(
   language: ProgramLanguage,
   kinematics?: Pick<MG400Kinematics, "solve">,
   modelError = "",
+  profile: ForkContactProfile = "reference",
 ): ProgramRecommendation {
+  profile = effectiveForkContactProfile(profile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
   const byName = new Map(project.points.map((point) => [point.name, point]));
   const home = byName.get("Home");
   const homeReady = home?.kind === "joint";
   const toolLabel = project.tool.mode === "magnet" ? "Magnet" : "Fork";
-  const contactZ = project.tool.mode === "magnet" ? 15 : FORK_SUPPORT_HEIGHT_MM;
+  const contactZ = project.tool.mode === "magnet" ? 15 : profile === "body1" ? BODY1_FORK_CONTACT.insertionZ : FORK_SUPPORT_HEIGHT_MM;
   const pickTarget = project.scene.block;
   const placeTarget = project.scene.drop;
 
@@ -49,8 +51,8 @@ export function recommendPickAndPlace(
           detail: "Save the current robot pose as a joint point named Home. The example uses this name to start and finish predictably.",
           action: "teach-home",
         },
-    checkPair(project, byName, "pick", pickTarget, contactZ),
-    checkPair(project, byName, "place", placeTarget, contactZ),
+    checkPair(project, byName, "pick", pickTarget, contactZ, profile),
+    checkPair(project, byName, "place", placeTarget, profile === "body1" && project.tool.mode === "fork" ? BODY1_FORK_CONTACT.loadZ : contactZ, profile),
     checkReachability(project, byName, home, kinematics, modelError),
     language === "lua"
       ? {
@@ -74,7 +76,7 @@ export function recommendPickAndPlace(
       ? blocking.detail
       : `The saved ${toolLabel.toLowerCase()} points pass the simulator's setup checks. Review each motion step before running the example.`,
     checks,
-    code: recommendedProgram(language, project.tool.mode),
+    code: recommendedProgram(language, project.tool.mode, profile),
   };
 }
 
@@ -84,6 +86,7 @@ function checkPair(
   kind: "pick" | "place",
   target: { x: number; y: number },
   contactZ: number,
+  profile: ForkContactProfile,
 ): RecommendationCheck {
   const isPick = kind === "pick";
   const contactName = isPick ? "PickPoint" : "PlacePoint";
@@ -102,7 +105,7 @@ function checkPair(
       status: "action",
       title: isPick ? "Pick points" : "Place points",
       detail: forkEntry
-        ? `Create the passive fork entry pair at the ${targetLabel}: ${contactName} at Z=${FORK_SUPPORT_HEIGHT_MM} mm and ${approachName} 60 mm before it along tool -X at the support height.`
+        ? `Create the passive fork entry pair at the ${targetLabel}: ${contactName} at Z=${expectedZ} mm and ${approachName} 60 mm before it along tool -X at the support height.`
         : `Create the ${mode.toLowerCase()} ${kind} pair at the ${targetLabel}: ${contactName} at Z=${expectedZ} mm and ${approachName} 80 mm above it.`,
       action,
     };
@@ -117,8 +120,11 @@ function checkPair(
   const approachPositionError = Math.hypot(approach.pose.x - expectedApproach.x, approach.pose.y - expectedApproach.y);
   const approachHeightError = Math.abs(approach.pose.z - expectedApproach.z);
   const approachRotationError = Math.abs(approach.pose.r - contact.pose.r);
-  const contactHeightTolerance = forkEntry ? POINT_TOLERANCE_MM : project.tool.pickupTolerance.z;
-  const valid = targetError <= project.tool.pickupTolerance.xy &&
+  const contactHeightTolerance = profile === "body1" && project.tool.mode === "fork" || forkEntry ? POINT_TOLERANCE_MM : project.tool.pickupTolerance.z;
+  const blockR = project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.r ?? 0;
+  const yawError = Math.abs((((contact.pose.r - blockR + 90) % 180) + 270) % 180 - 90);
+  const grooveAligned = profile !== "body1" || project.tool.mode !== "fork" || yawError <= 1;
+  const valid = grooveAligned && targetError <= project.tool.pickupTolerance.xy &&
     contactZError <= contactHeightTolerance &&
     approachPositionError <= POINT_TOLERANCE_MM &&
     approachHeightError <= POINT_TOLERANCE_MM &&
@@ -130,12 +136,13 @@ function checkPair(
       status: "pass",
       title: isPick ? "Pick points" : "Place points",
       detail: forkEntry
-        ? `${contactName} targets the ${targetLabel}; ${approachName} starts 60 mm before it so the fork can slide underneath at Z=${FORK_SUPPORT_HEIGHT_MM} mm.`
+        ? `${contactName} targets the ${targetLabel}; ${approachName} starts 60 mm before it so the fork can slide underneath at Z=${expectedZ} mm.`
         : `${contactName} targets the ${targetLabel}; ${approachName} is directly above it by 80 mm.`,
     };
   }
 
   const reasons: string[] = [];
+  if (!grooveAligned) reasons.push("Body1 叉臂方向須配合工件槽方向（方塊 R−90°）");
   if (targetError > project.tool.pickupTolerance.xy) {
     reasons.push(`${contactName} is ${targetError.toFixed(1)} mm from the ${targetLabel} centre (allowed ${project.tool.pickupTolerance.xy} mm)`);
   }
@@ -225,7 +232,8 @@ function checkReachability(
   };
 }
 
-export function recommendedProgram(language: ProgramLanguage, mode: ToolMode): string {
+export function recommendedProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference"): string {
+  if (mode === "fork" && profile === "body1") return body1ForkProgram(language);
   const tool = mode === "magnet" ? "Magnet" : "Fork";
   const contact = mode === "magnet" ? "top face (Z=15 mm)" : `fork support plane (Z=${FORK_SUPPORT_HEIGHT_MM} mm)`;
   if (mode === "fork") {

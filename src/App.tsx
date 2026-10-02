@@ -33,6 +33,10 @@ import {
 import {
   BLOCK_SIZE_MM,
   FORK_SUPPORT_HEIGHT_MM,
+  BODY1_FORK_CONTACT,
+  effectiveForkContactProfile,
+  forkProfileAfterImport,
+  type ForkContactProfile,
   activeTcpOffset,
   getStarterProgram,
   JOINT_LIMITS_DEG,
@@ -60,7 +64,7 @@ import type { MG400Kinematics } from "./sim/mg400Kinematics";
 import { TrainingCenter } from "./training/TrainingCenter";
 import type { ProgramLanguage } from "./domain";
 import { recommendPickAndPlace, recommendedProgram } from "./sim/codeRecommendation";
-import { FORK_INSERTION_DISTANCE_MM, forkEntryPose } from "./sim/forkTool";
+import { FORK_INSERTION_DISTANCE_MM, forkContactPose, forkEntryPose } from "./sim/forkTool";
 import { DEFAULT_CELL_BLOCKS, resetCell } from "./sim/multiBlockCell";
 import { CodeAssistant } from "./CodeAssistant";
 import { getRovingFocusIndex } from "./accessibility/rovingFocus";
@@ -213,6 +217,7 @@ export default function App() {
   const [cellBlocks, setCellBlocks] = useState(() => structuredClone(initialProject.scene.blocks));
   const [selectedId, setSelectedId] = useState<string | null>(initialProject.points[0]?.id ?? null);
   const [kinematics, setKinematics] = useState<MG400Kinematics | null>(null);
+  const [kinematicsUrdf, setKinematicsUrdf] = useState<string | null>(null);
   const [modelError, setModelError] = useState("");
   const [status, setStatus] = useState<RunStatus>("ready");
   const [lastRunContext, setLastRunContext] = useState<string | null>(null);
@@ -282,6 +287,10 @@ export default function App() {
   };
   const [trainingLessonId, setTrainingLessonId] = useState<string | null>(null);
   const [localToolMeshes, setLocalToolMeshes] = useState<LocalToolMeshes>({});
+  const selectedForkProfile = localToolMeshes.blockProfile ?? "reference";
+  const forkProfile = effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
+  const localMeshesRef = useRef(localToolMeshes);
+  localMeshesRef.current = localToolMeshes;
   const [toolMeshMessage, setToolMeshMessage] = useState(uiLanguage === "zh-Hant" ? "預設使用可公開發佈的通用教學模型；本機匯入模型只會保留在此瀏覽器。" : "Using freely distributable teaching placeholders; local meshes are optional and stay in this browser.");
   const [coachOpen, setCoachOpen] = useState(false);
   const [jogStep, setJogStep] = useState(10);
@@ -315,7 +324,11 @@ export default function App() {
       setToolMeshMessage(uiLanguage === "zh-Hant" ? `${file.name} 不是可讀取的 STL（ASCII facet／vertex 或二進位三角面資料）；沒有載入任何內容。` : `${file.name} is not a readable STL (ASCII facet/vertex or binary triangle data). Nothing was loaded.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes }));
+    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", kind) }));
+    if (kind === "fork") replaceProject((current) => ({ ...current,
+      script: current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
+      pythonScript: current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
+    }));
     setToolMeshMessage(uiLanguage === "zh-Hant" ? `已在本機載入${kind === "magnet" ? "磁吸工具" : "叉臂工具"}模型 ${file.name}；不會上傳或加入專案匯出。` : `${kind === "magnet" ? "Magnet" : "Fork"} mesh loaded locally from ${file.name}; it is not uploaded or included in project export.`);
   };
 
@@ -334,7 +347,11 @@ export default function App() {
         : `${file.name} is not a readable STL. The procedural 40 × 40 × 15 mm block remains active; the file is not uploaded or bundled.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, block: bytes }));
+    setLocalToolMeshes((current) => ({ ...current, block: bytes, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", "block") }));
+    replaceProject((current) => ({ ...current,
+      script: current.tool.mode === "fork" && current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
+      pythonScript: current.tool.mode === "fork" && current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
+    }));
     setToolMeshMessage(uiLanguage === "zh-Hant"
       ? `已在目前瀏覽器工作階段載入 ${file.name}；不會上傳、儲存至專案或加入程式包。`
       : `Loaded ${file.name} for this browser session only; it is not uploaded, saved in the project, or bundled.`);
@@ -358,8 +375,8 @@ export default function App() {
     [hasCurrentRun, programRunLog],
   );
   const recommendation = useMemo(
-    () => recommendPickAndPlace(project, project.programmingLanguage, kinematics ?? undefined, modelError),
-    [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError],
+    () => recommendPickAndPlace(project, project.programmingLanguage, kinematics ?? undefined, modelError, forkProfile),
+    [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError, forkProfile],
   );
   const towerBlocks = project.scene.blocks.filter((block) => block.stackLevel !== undefined);
   const feederIds = useMemo(() => new Set(project.scene.initialBlocks.filter((block) => block.source === "feeder").map((block) => block.id)), [project.scene.initialBlocks]);
@@ -372,9 +389,10 @@ export default function App() {
     if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "被動叉臂不能使用 DO、Pick 或 Place；請改用滑入 → 抬高 → 放下流程。" : "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
     if (!motionAction && !poweredAction) return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? "這段程式只輸出文字，不需要工具或教點；可直接執行。" : "This program only prints text; no tool or teach points are needed." };
     if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "磁吸執行前檢查：找不到 DO1 吸附指令；純移動程式仍可執行，但不會預期完成取件。" : "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
+    if (project.tool.mode === "fork" && forkProfile === "body1" && !recommendation.ready) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "Body1 校準未完成：請重新示教槽方向、插入 Z42.5 及承托／釋放 Z45，再執行。" : "Body1 calibration is incomplete: re-teach groove direction, insertion Z42.5 and load/release Z45 before running." };
     if (!recommendation.ready) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "執行前檢查：請先示教標示的 Home、取件或放置點。" : "Setup preflight: teach the highlighted Home, pick, or place points before running." };
     return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? `${project.tool.mode === "fork" ? "被動叉臂" : "磁吸工具"} 模式符合模擬器檢查。` : `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
-  }, [project.tool.mode, programText, recommendation.ready, uiLanguage]);
+  }, [project.tool.mode, forkProfile, programText, recommendation.ready, uiLanguage]);
 
   useEffect(() => {
     let alive = true;
@@ -386,7 +404,10 @@ export default function App() {
       import("./sim/mg400Kinematics"),
     ])
       .then(([xml, { MG400Kinematics: Kinematics }]) => {
-        if (alive) setKinematics(Kinematics.fromUrdf(xml));
+        if (alive) {
+          setKinematicsUrdf(xml);
+          setKinematics(Kinematics.fromUrdf(xml));
+        }
       })
       .catch((error: unknown) => {
         if (alive) setModelError(error instanceof Error ? error.message : String(error));
@@ -470,6 +491,7 @@ export default function App() {
         getJoints: () => jointsRef.current,
         isAttached: () => attachedRef.current,
         getBlock: () => blockRef.current,
+        getForkContactProfile: () => localMeshesRef.current.blockProfile ?? "reference",
         getCellBlocks: () => projectRef.current.scene.blocks.map((block) => ({ ...block, position: { ...block.position } })),
         setCellBlocks: (next) => {
           cellBlocksRef.current = next;
@@ -487,7 +509,13 @@ export default function App() {
           attachedCellBlockIdRef.current = next;
           setAttachedCellBlockId(next);
         },
-        setBlock: setCurrentBlock,
+        setBlock: (next) => {
+          setCurrentBlock(next);
+          if (projectRef.current.tool.mode === "fork") {
+            projectRef.current = { ...projectRef.current, scene: { ...projectRef.current.scene, block: next } };
+            setProject((current) => ({ ...current, scene: { ...current.scene, block: next } }));
+          }
+        },
         setDigitalOutput: (index, value) => setOutputs((current) => ({ ...current, [index]: value })),
         setStatus: (next) => {
           setStatus(next);
@@ -511,14 +539,16 @@ export default function App() {
     activeProgramRunRef.current = true;
     setLatestPrintOutput(null);
     setProgramRunLog([]);
-    attachedRef.current = false;
-    setAttached(false);
-    attachedCellBlockIdRef.current = null;
-    setAttachedCellBlockId(null);
-    setCurrentBlock({ ...projectRef.current.scene.block });
-    cellBlocksRef.current = structuredClone(projectRef.current.scene.blocks);
-    setCellBlocks(structuredClone(projectRef.current.scene.blocks));
-    setOutputs({ 1: false });
+    if (!attachedRef.current) {
+      attachedRef.current = false;
+      setAttached(false);
+      attachedCellBlockIdRef.current = null;
+      setAttachedCellBlockId(null);
+      setCurrentBlock({ ...projectRef.current.scene.block });
+      cellBlocksRef.current = structuredClone(projectRef.current.scene.blocks);
+      setCellBlocks(structuredClone(projectRef.current.scene.blocks));
+      setOutputs({ 1: false });
+    }
     const document = projectRef.current;
     const source = document.programmingLanguage === "lua" ? document.script : document.pythonScript;
     setLastRunContext(JSON.stringify(document));
@@ -564,7 +594,7 @@ export default function App() {
 
   function resetRobot() {
     activeProgramRunRef.current = false;
-    controllerRef.current?.stop(false);
+    controllerRef.current?.stop(false, true);
     const home = projectRef.current.points.find((point) => point.name === "Home" && point.kind === "joint");
     setRobotJoints(home?.kind === "joint" ? [...home.joints] : initialJoints);
     attachedRef.current = false;
@@ -635,7 +665,8 @@ export default function App() {
       return `${prefix}${Date.now()}`;
     };
     const location = kind === "pick" ? current.scene.block : current.scene.drop;
-    const contactHeight = current.tool.mode === "magnet" ? 15 : FORK_SUPPORT_HEIGHT_MM;
+    const blockR = current.scene.blocks.find((block) => Math.hypot(block.position.x - current.scene.block.x, block.position.y - current.scene.block.y) <= 1)?.r ?? 0;
+    const contactHeight = current.tool.mode === "magnet" ? 15 : forkProfile === "body1" ? (kind === "pick" ? BODY1_FORK_CONTACT.insertionZ : BODY1_FORK_CONTACT.loadZ) : FORK_SUPPORT_HEIGHT_MM;
     const surfaceName = name(preferred[0], kind === "pick" ? "Pick" : "Place");
     const approachName = name(preferred[1], kind === "pick" ? "PickApproach" : "PlaceApproach");
     const existingSurface = current.points.find((point) => point.name === surfaceName);
@@ -644,7 +675,7 @@ export default function App() {
       addLog("A point pair needs two free slots; the project limit is 100 points.", "warning");
       return;
     }
-    const surfacePose = { x: location.x, y: location.y, z: contactHeight, r: 0 };
+    const surfacePose = current.tool.mode === "fork" ? forkContactPose(location, blockR, forkProfile, kind === "place") : { x: location.x, y: location.y, z: contactHeight, r: 0 };
     const passiveForkEntry = current.tool.mode === "fork" && kind === "pick";
     const approachPose = passiveForkEntry
       ? forkEntryPose(surfacePose)
@@ -655,7 +686,7 @@ export default function App() {
     replaceProject((document) => ({ ...document, points: [...document.points.filter((point) => !replacedIds.has(point.id)), surface, approach] }));
     setSelectedId(surface.id);
     addLog(passiveForkEntry
-      ? `Taught the fork entry point ${FORK_INSERTION_DISTANCE_MM} mm before the block and the insertion point at its ${FORK_SUPPORT_HEIGHT_MM} mm support plane.`
+      ? `Taught the fork entry point ${FORK_INSERTION_DISTANCE_MM} mm before the block and the insertion point at its ${contactHeight} mm contact plane.`
       : `Taught ${kind} and approach points above the reference cell ${kind === "pick" ? "block" : "drop zone"}.`, "info");
   }
 
@@ -770,6 +801,10 @@ export default function App() {
     if (!file) return;
     try {
       const imported = parseProjectFile(await file.text());
+      controllerRef.current?.stop(false, true);
+      attachedRef.current = false;
+      setAttached(false);
+      setLocalToolMeshes((current) => ({ ...current, blockProfile: "reference" }));
       setProject(imported);
       projectRef.current = imported;
       setCurrentBlock({ ...imported.scene.block });
@@ -938,6 +973,7 @@ export default function App() {
 
   function resetFreeCell() {
     if (!freeMode) return;
+    controllerRef.current?.stop(false, true);
     const reset = resetCell(projectRef.current);
     replaceProject(() => reset);
     addLog("自由工作格已重設到最近一次儲存的配置。", "info");
@@ -1091,7 +1127,7 @@ export default function App() {
             </details>
           </section>
 
-          {!freeMode && <section className="panel mission-panel" aria-labelledby="mission-heading">
+          {!freeMode && project.tool.mode === "magnet" && <section className="panel mission-panel" aria-labelledby="mission-heading">
             <div className="panel-heading compact-heading"><div className="heading-title"><span className="heading-icon orange-icon"><Target size={17} /></span><div><h2 id="mission-heading">{uiLanguage === "zh-Hant" ? "任務卡" : "Mission cards"}</h2><small>{uiLanguage === "zh-Hant" ? "即時顯示目前工作格進度" : "Live progress from the current cell state"}</small></div></div></div>
             <div className="mission-cards">
               <article className={`mission-card ${towerBlocks.length >= 3 ? "mission-complete" : ""}`}>
@@ -1216,11 +1252,11 @@ export default function App() {
 
         <section className="right-workspace">
           <div className="viewport-header">
-            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>{uiLanguage === "zh-Hant" ? `供應商 URDF 幾何 · TCP 從法蘭向 X ${tcpOffsetXLabel} · ${project.tool.mode === "fork" ? `被動叉支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm · 不使用 DO` : "磁吸工具接觸方塊頂部"}` : `Vendor URDF geometry · TCP X ${tcpOffsetXLabel} from flange · ${project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}`}</p></div>
+            <div><div className="view-title"><Box size={17} /><h2>{uiLanguage === "zh-Hant" ? "模擬工作格" : "Simulation cell"}</h2><span className="view-divider" /><span className="model-name">Dobot MG400</span></div><p>{uiLanguage === "zh-Hant" ? `供應商 URDF 幾何 · TCP 從法蘭向 X ${tcpOffsetXLabel} · ${project.tool.mode === "fork" ? `${forkProfile === "body1" ? "Body1：插入 Z42.5／承托 Z45" : `被動叉支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · 不使用 DO` : "磁吸工具接觸方塊頂部"}` : `Vendor URDF geometry · TCP X ${tcpOffsetXLabel} from flange · ${project.tool.mode === "fork" ? `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm · no DO` : "magnet targets block top"}`}</p></div>
           <div className="view-header-actions"><span className="accuracy-badge"><span /> {uiLanguage === "zh-Hant" ? "運動學模擬" : "KINEMATIC SIMULATION"}</span><button className="icon-button" aria-label={uiLanguage === "zh-Hant" ? "重設相機視角" : "Reset camera view"} title={uiLanguage === "zh-Hant" ? "重設視角" : "Reset camera view"} onClick={() => setCameraResetToken((value) => value + 1)}><Maximize2 size={16} /></button></div>
           </div>
               <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>{uiLanguage === "zh-Hant" ? "正在準備三維工作格" : "Preparing 3D view"}</strong><span>{uiLanguage === "zh-Hant" ? "正在載入互動式 MG400 訓練工作格…" : "Loading the interactive MG400 training cell…"}</span></div></div></div>}>
-            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
+            <RobotViewport joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
 
           <section className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>
@@ -1310,12 +1346,12 @@ export default function App() {
                       const mode = event.currentTarget.value as ProjectDocument["tool"]["mode"];
                       replaceProject((current) => {
                         const previousMode = current.tool.mode;
-                        const luaTemplate = [getStarterProgram("lua", previousMode), recommendedProgram("lua", previousMode)];
-                        const pythonTemplate = [getStarterProgram("python", previousMode), recommendedProgram("python", previousMode)];
+                        const luaTemplate = [getStarterProgram("lua", previousMode, forkProfile), recommendedProgram("lua", previousMode, forkProfile)];
+                        const pythonTemplate = [getStarterProgram("python", previousMode, forkProfile), recommendedProgram("python", previousMode, forkProfile)];
                         return {
                           ...current,
-                          script: luaTemplate.includes(current.script) ? getStarterProgram("lua", mode) : current.script,
-                          pythonScript: pythonTemplate.includes(current.pythonScript) ? getStarterProgram("python", mode) : current.pythonScript,
+                          script: luaTemplate.includes(current.script) ? getStarterProgram("lua", mode, forkProfile) : current.script,
+                          pythonScript: pythonTemplate.includes(current.pythonScript) ? getStarterProgram("python", mode, forkProfile) : current.pythonScript,
                           tool: { ...current.tool, mode },
                         };
                       });
@@ -1334,6 +1370,18 @@ export default function App() {
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "fork"; toolMeshInputRef.current?.click(); }} disabled={busy}>{ui.importFork}</button>
                     <button className="secondary-button outlined-button" type="button" onClick={() => blockMeshInputRef.current?.click()} disabled={busy}>{uiLanguage === "zh-Hant" ? "本機匯入 Body1 方塊 STL" : "Import Body1 block STL locally"}</button>
                   </div>
+                  {localToolMeshes.block && <label className="tool-mode-field" htmlFor="fork-contact-profile">{uiLanguage === "zh-Hant" ? "首個非圓件的接觸校準" : "First non-puck workpiece calibration"}
+                    <select id="fork-contact-profile" disabled={busy} value={selectedForkProfile} onChange={(event) => {
+                      const profile = event.currentTarget.value as ForkContactProfile;
+                      const activeProfile = effectiveForkContactProfile(profile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
+                      setLocalToolMeshes((current) => ({ ...current, blockProfile: profile }));
+                      replaceProject((current) => ({ ...current,
+                        script: current.tool.mode === "fork" && [getStarterProgram("lua", "fork", forkProfile), recommendedProgram("lua", "fork", forkProfile)].includes(current.script) ? getStarterProgram("lua", "fork", activeProfile) : current.script,
+                        pythonScript: current.tool.mode === "fork" && [getStarterProgram("python", "fork", forkProfile), recommendedProgram("python", "fork", forkProfile)].includes(current.pythonScript) ? getStarterProgram("python", "fork", activeProfile) : current.pythonScript,
+                      }));
+                    }}><option value="reference">{uiLanguage === "zh-Hant" ? "通用：底面承托 Z20" : "Generic: bottom support Z20"}</option><option value="body1" disabled={!localToolMeshes.fork}>{uiLanguage === "zh-Hant" ? "首個非圓件 Body1：40×40×40，槽 Z15–25，叉板 5 mm" : "First non-puck Body1: 40×40×40, grooves Z15–25, fork plate 5 mm"}</option></select>
+                    <small>{uiLanguage === "zh-Hant" ? "只套用工作格首個非圓件；其他方塊維持通用校準。只在本次匯入使用；重開／匯入專案後須重新匯入模型及選擇校準。先匯入已量度叉臂，再選校準及重新示教兩組教點。" : "Only the first non-puck cell workpiece; other blocks retain generic contact. Session only; re-import meshes and select calibration after reopening/importing a project. Re-teach both point pairs."}</small>
+                  </label>}
                   <small className="tool-mode-note">{uiLanguage === "zh-Hant" ? "Body1 只會在目前瀏覽器工作階段載入；不會上傳、儲存至專案或加入公開程式包。" : "Body1 is loaded only for the current browser session; it is never uploaded, saved in the project, or included in the public bundle."}</small>
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <input ref={blockMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importForkBlockMesh(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
@@ -1386,7 +1434,7 @@ export default function App() {
                 </details>
               </div>
               <div className="io-state"><span className={`io-led ${outputs[1] ? "io-on" : ""}`} /> DO1 <strong>{project.tool.mode === "magnet" ? (outputs[1] ? (uiLanguage === "zh-Hant" ? "啟用 · 方塊已吸附" : "ON · BLOCK ATTACHED") : (uiLanguage === "zh-Hant" ? "停用 · 工具未接觸" : "OFF · TOOL CLEAR")) : (outputs[1] ? (uiLanguage === "zh-Hant" ? "啟用 · 僅輸出狀態" : "ON · OUTPUT ONLY") : (uiLanguage === "zh-Hant" ? "停用 · 僅輸出狀態" : "OFF · OUTPUT ONLY"))}</strong><span className="io-note">{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "模擬磁吸輸出" : "virtual magnet output") : (uiLanguage === "zh-Hant" ? "被動叉臂不使用此輸出" : "not used by the passive fork")}</span></div>
-              <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? `目前 TCP 相對法蘭的 X 偏移為 ${tcpOffsetXLabel}；磁吸工具接觸方塊頂部，叉臂則在支撐高度 Z=${FORK_SUPPORT_HEIGHT_MM} mm、距方塊 60 mm 處進入。切換工具後請重新示教拾取及放置點。這些是模擬設定，並非實體校準。` : `The active TCP offset is X = ${tcpOffsetXLabel} from the flange; the magnet targets the block top, while the passive fork enters 60 mm before the block at support Z=${FORK_SUPPORT_HEIGHT_MM} mm. Re-teach pick/place points after changing tool mode. These are simulator settings, not physical calibration.`}</p>
+              <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? `目前 TCP 相對法蘭 X 為 ${tcpOffsetXLabel}。${project.tool.mode === "fork" && forkProfile === "body1" ? "Body1：槽方向為方塊 R−90°；插入 Z42.5、承托／釋放 Z45；釋放後降回42.5並水平退出60 mm，再抬高。" : "磁吸接觸頂面；通用叉臂在 Z20 插入60 mm，拾取 R−90°、放置 R+90°。"} 更改工具或校準後須重新示教。僅供模擬，非實體校準。` : `TCP X ${tcpOffsetXLabel}. ${project.tool.mode === "fork" && forkProfile === "body1" ? "Body1: block R−90°, insert Z42.5, load/release Z45; lower to42.5 and withdraw60 mm before lifting." : "Magnet contacts the top; generic fork inserts at Z20 with pick R−90°/place R+90°."} Re-teach after tool/calibration changes; simulation only.`}</p>
             </div>}
           </section>
 
@@ -1396,6 +1444,7 @@ export default function App() {
       <TrainingCenter
         open={showTraining}
         programLanguage={project.programmingLanguage}
+        forkContactProfile={project.tool.mode === "fork" ? forkProfile : "reference"}
         initialLessonId={trainingLessonId}
         onClose={() => { setShowTraining(false); setTrainingLessonId(null); }}
         onUseExample={(example, language) => {

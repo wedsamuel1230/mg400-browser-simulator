@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TrainingCenter } from "./TrainingCenter";
 
@@ -127,4 +127,24 @@ describe("TrainingCenter example replacement", () => {
     expect(document.activeElement).toBe(last);
     expect(container.querySelector("dialog")?.open).toBe(true);
   });
+
+
+it("shows and loads the calibrated Body1 no-output withdrawal example", async () => {
+  const onUseExample=vi.fn();
+  render(<TrainingCenter open programLanguage="lua" forkContactProfile="body1" initialLessonId="intermediate-passive-fork" onClose={vi.fn()} onUseExample={onUseExample} />);
+  await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
+  expect(document.querySelector(".lesson-code")?.textContent).toContain("z=42.5");
+  expect(document.querySelector(".lesson-code")?.textContent).not.toMatch(/\b(?:DO|Pick|Place)\s*\(/);
+});
+
+it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
+ render(<TrainingCenter open programLanguage="lua" forkContactProfile="body1" initialLessonId="intermediate-passive-fork" onClose={vi.fn()} onUseExample={vi.fn()} />);
+ await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
+ const user=userEvent.setup();
+ await user.click(screen.getByRole("button",{name:"EN"}));
+ await user.click(screen.getByRole("radio",{name:"Slide at Z42.5, then lift to Z45"}));
+ expect(screen.getByText(/Z42.5 centres the 5 mm plate/)).toBeInTheDocument();
+ expect(screen.queryByText("Slide beneath it at Z=20 mm, then lift")).not.toBeInTheDocument();
+});
+
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FORK_SUPPORT_HEIGHT_MM } from "../domain";
+import { BODY1_FORK_CONTACT, FORK_SUPPORT_HEIGHT_MM } from "../domain";
 import { advancePassiveFork, EMPTY_PASSIVE_FORK_STATE, forkEntryPose } from "./forkTool";
 
 const block = { x: 360, y: -80 };
@@ -102,4 +102,60 @@ describe("passive fork contact sequence", () => {
     expect(entry.z).toBe(FORK_SUPPORT_HEIGHT_MM);
     expect(entry.r).toBe(90);
   });
+});
+
+
+describe("measured Body1 groove contact", () => {
+  const block = { x: 300, y: -80, r: 0 }, drop = { x: 300, y: 80 };
+  const step = (state: typeof EMPTY_PASSIVE_FORK_STATE, a: ReturnType<typeof pose>, b: ReturnType<typeof pose>, attached = false) => advancePassiveFork(state, a, b, attached, block, drop, tolerance, "body1");
+  const entry = pose(300, -20, BODY1_FORK_CONTACT.insertionZ, -90);
+  const contact = pose(300, -80, BODY1_FORK_CONTACT.insertionZ, -90);
+  it("requires aligned forward insertion and the measured 2.5 mm load rise", () => {
+    const approached = step(EMPTY_PASSIVE_FORK_STATE, entry, entry);
+    const inserted = step(approached.state, entry, contact);
+    expect(inserted.state.inserted).toBe(true);
+    const partial = step(inserted.state, contact, { ...contact, z: 44 });
+    expect(partial.action).toBeNull();
+    expect(step(partial.state, { ...contact, z: 44 }, { ...contact, z: 45 }).action).toBe("pick");
+    const wrongEntry = { ...entry, r: 0 }, wrongContact = { ...contact, r: 0 };
+    const wrong = step(EMPTY_PASSIVE_FORK_STATE, wrongEntry, wrongContact);
+    expect(step(wrong.state, wrongContact, { ...wrongContact, z: 45 }).action).toBeNull();
+    const side = step(EMPTY_PASSIVE_FORK_STATE, { ...contact, x: 360 }, contact);
+    expect(step(side.state, contact, { ...contact, z: 45 }).action).toBeNull();
+    expect(step(EMPTY_PASSIVE_FORK_STATE, { ...contact, z: 45 }, contact).state.inserted).toBe(false);
+  });
+  it("releases at TCP45 and stays unarmed through lowering/re-lift until horizontal exit", () => {
+    const placed = pose(300, 80, 45, -90);
+    const release = step(EMPTY_PASSIVE_FORK_STATE, { ...placed, z: 46 }, placed, true);
+    expect(release.action).toBe("place");
+    const clear = { ...placed, z: 42.5 };
+    const lowered = step(release.state, placed, clear);
+    expect(step(lowered.state, clear, placed).action).toBeNull();
+    const exited = step(lowered.state, clear, { ...clear, y: 140 });
+    expect(exited.state.releasePose).toBeUndefined();
+  });
+});
+
+it("revokes Body1 insertion after retreat before any high return",()=>{
+ let state={...EMPTY_PASSIVE_FORK_STATE};const b={x:300,y:-80,r:0};
+ const step=(a:ReturnType<typeof pose>,c:ReturnType<typeof pose>)=>{const t=advancePassiveFork(state,a,c,false,b,drop,tolerance,"body1");state=t.state;return t.action};
+ const entry=pose(300,-20,42.5,-90),center=pose(300,-80,42.5,-90),high=pose(300,-80,60,-90);
+ step(entry,entry);step(entry,center);step(center,entry);step(entry,{...entry,z:60});step({...entry,z:60},high);
+ expect(step(high,{...high,z:61})).toBeNull();expect(state.inserted).toBe(false);
+});
+it("does not rearm Body1 after lifting through slot or sideways withdrawal",()=>{
+ const release=pose(360,80,45,-90);
+ for(const bad of [pose(360,140,80,-90),pose(390,140,42.5,-90)]){
+  const state={...EMPTY_PASSIVE_FORK_STATE,releasePose:release};
+  const t=advancePassiveFork(state,release,bad,false,block,drop,tolerance,"body1");
+  expect(t.state.releasePose).toEqual(release);
+ }
+});
+
+it("requires an uninterrupted aligned clearance withdrawal after release",()=>{
+ const release=pose(360,80,45,-90),clear=pose(360,80,42.5,-90),high=pose(360,80,80,-90);
+ let state={...EMPTY_PASSIVE_FORK_STATE,releasePose:release};
+ const step=(a:ReturnType<typeof pose>,b:ReturnType<typeof pose>)=>{const t=advancePassiveFork(state,a,b,false,block,drop,tolerance,"body1");state=t.state as typeof state;};
+ step(release,clear);step(clear,high);step(high,pose(360,140,80,-90));expect(state.releasePose).toEqual(release);
+ step(pose(360,140,80,-90),clear);step(clear,pose(360,140,42.5,-90));expect(state.releasePose).toBeUndefined();
 });

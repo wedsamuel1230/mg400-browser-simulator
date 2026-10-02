@@ -72,6 +72,7 @@ describe("curriculum example verification", () => {
       { label: "magnet recommendation", source: recommendedProgram("lua", "magnet"), mode: "magnet" as const },
       { label: "fork starter", source: DEFAULT_FORK_SCRIPT, mode: "fork" as const },
       { label: "fork recommendation", source: recommendedProgram("lua", "fork"), mode: "fork" as const },
+      { label: "Body1 calibrated fork", source: recommendedProgram("lua", "fork", "body1"), mode: "fork" as const },
     ];
     for (const example of luaExamples) {
       expect(() => lua.global.loadString(example.source, example.label), `${example.label} syntax`).not.toThrow();
@@ -84,6 +85,7 @@ describe("curriculum example verification", () => {
       { label: "magnet recommendation", source: recommendedProgram("python", "magnet"), mode: "magnet" as const },
       { label: "fork starter", source: DEFAULT_FORK_PYTHON_SCRIPT, mode: "fork" as const },
       { label: "fork recommendation", source: recommendedProgram("python", "fork"), mode: "fork" as const },
+      { label: "Body1 calibrated fork", source: recommendedProgram("python", "fork", "body1"), mode: "fork" as const },
     ];
     for (const example of pythonExamples) {
       python.globals.set("__ai_source", example.source);

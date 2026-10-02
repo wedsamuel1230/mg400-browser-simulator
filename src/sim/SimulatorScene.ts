@@ -8,7 +8,6 @@ import {
   DirectionalLight,
   GridHelper,
   Group,
-  LoadingManager,
   Mesh,
   MeshStandardMaterial,
   Object3D,
@@ -27,7 +26,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
-import { activeTcpOffset, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type Pose, type ProjectDocument, type JointAngles } from "../domain";
+import { activeTcpOffset, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
 import { BLOCK_SIZE_MM } from "../domain";
 import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE } from "./modelPalette";
@@ -44,12 +43,14 @@ export type SceneState = {
 };
 
 export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string; progress?: number };
-export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer };
+export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer; blockProfile?: ForkContactProfile };
 
 export function viewportVerticalFov(baseFov: number, aspect: number): number {
   if (!Number.isFinite(aspect) || aspect >= 1 || aspect <= 0) return baseFov;
   return Math.min(75, (2 * Math.atan(Math.tan((baseFov * Math.PI) / 360) / aspect) * 180) / Math.PI);
 }
+
+const VIEWPORT_FOV = 46;
 
 export class SimulatorScene {
   private readonly scene = new Scene();
@@ -84,7 +85,7 @@ export class SimulatorScene {
 
   private constructor(private readonly canvas: HTMLCanvasElement) {
     this.scene.background = new Color(MODEL_VIEWPORT_BACKGROUND);
-    this.camera = new PerspectiveCamera(42, 1, 1, 6000);
+    this.camera = new PerspectiveCamera(VIEWPORT_FOV, 1, 1, 6000);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(560, -720, 520);
     this.camera.lookAt(150, 0, 115);
@@ -183,34 +184,39 @@ export class SimulatorScene {
     this.renderFrame();
   }
 
-  static async create(canvas: HTMLCanvasElement, onStatus: (status: SceneStatus) => void) {
+  static async create(canvas: HTMLCanvasElement, urdfXml: string, onStatus: (status: SceneStatus) => void) {
     let view: SimulatorScene | undefined;
     try {
       view = new SimulatorScene(canvas);
       onStatus({ kind: "loading", message: "Loading the Dobot MG400 model…", progress: 0 });
       const path = "/models/mg400/mg400_description/";
-      const loadingManager = new LoadingManager();
-      loadingManager.onProgress = (_url, loaded, total) => onStatus({
-        kind: "loading",
-        message: "Loading MG400 visual meshes…",
-        progress: total > 0 ? Math.round((loaded / total) * 100) : 0,
-      });
-      const modelMeshesLoaded = new Promise<void>((resolve, reject) => {
-        loadingManager.onLoad = () => resolve();
-        loadingManager.onError = (url) => reject(new Error(`Could not load MG400 mesh: ${url}`));
-      });
-      const loader = new URDFLoader(loadingManager);
-      loader.packages = { mg400_description: path };
-      const [robot, urdfResponse] = await Promise.all([
-        loader.loadAsync(path + "urdf/mg400_description.urdf"),
-        fetch(path + "urdf/mg400_description.urdf"),
-      ]);
-      if (!urdfResponse.ok) throw new Error("Could not read the bundled MG400 URDF.");
-      // URDFLoader returns the link tree before its nested STL requests have
-      // necessarily attached their meshes. Color only after those callbacks.
-      await modelMeshesLoaded;
+      const loader = new URDFLoader();
+      loader.packages = { mg400_description: path.slice(0, -1) };
+      loader.workingPath = path + "urdf/";
+      const meshLoads: Promise<void>[] = [];
+      let loaded = 0;
+      let failed = false;
+      loader.loadMeshCb = (url, manager, material, done) => {
+        meshLoads.push(new Promise<void>((resolve, reject) => {
+          loader.defaultMeshLoader(url, manager, material, (mesh, error) => {
+            if (error || !mesh || (mesh instanceof Mesh && !mesh.geometry.getAttribute("position")?.count)) {
+              failed = true;
+              reject(error ?? new Error(`Could not load MG400 mesh: ${url}`));
+              return;
+            }
+            done(mesh);
+            if (!failed) onStatus({ kind: "loading", message: "Loading MG400 visual meshes…", progress: Math.round((++loaded / meshLoads.length) * 100) });
+            resolve();
+          });
+        }));
+      };
+      const robot = loader.parse(urdfXml);
+      // FileLoader deduplicates in-flight URLs across managers. Await each
+      // actual mesh attachment so overlapping/remounted scenes also complete.
+      if (meshLoads.length === 0) throw new Error("MG400 model has no visual meshes.");
+      await Promise.all(meshLoads);
       view.robot = robot;
-      view.kinematics = MG400Kinematics.fromUrdf(await urdfResponse.text());
+      view.kinematics = MG400Kinematics.fromUrdf(urdfXml);
       view.prepareRobot(robot);
       onStatus({ kind: "ready" });
       return view;
@@ -396,9 +402,9 @@ export class SimulatorScene {
     this.block.name = useLocalForkBlock ? "Locally imported fork-task workpiece" : "neutral 40 x 40 x 15 mm reference block";
     this.forkFixtures.visible = isFork;
     const cellBlocks = state.project.scene.blocks ?? [];
-    const baseBlock = cellBlocks[0]?.kind === "puck" ? undefined : cellBlocks[0];
+    const baseBlock = cellBlocks.find((block) => block.kind !== "puck");
     this.block.visible = Boolean(baseBlock);
-    for (const block of (baseBlock ? cellBlocks.slice(1) : cellBlocks)) {
+    for (const block of cellBlocks.filter((block) => block.id !== baseBlock?.id)) {
       let mesh = this.additionalBlocks.get(block.id);
       if (!mesh) {
         mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color);
@@ -425,12 +431,15 @@ export class SimulatorScene {
       : this.block;
     if (state.attached) {
       if (attachedMesh !== this.block && this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
-      if (attachedMesh.parent !== this.toolGroup) this.toolGroup.add(attachedMesh);
+      if (attachedMesh.parent !== this.toolGroup) {
+        this.scene.updateMatrixWorld(true);
+        this.toolGroup.attach(attachedMesh);
+      }
       const offset = activeTcpOffset(state.project.tool);
-      const localStl = isFork && Boolean(this.localForkBlockGeometry);
-      const centerDelta = localStl ? 0 : (isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2);
+      const localStl = isFork && attachedMesh === this.block && Boolean(this.localForkBlockGeometry);
+      const centerDelta = localStl ? (effectiveForkContactProfile(this.appliedLocalMeshes?.blockProfile ?? "reference", cellBlocks, state.attachedCellBlockId ?? baseBlock?.id) === "body1" ? -BODY1_FORK_CONTACT.bottomOffset : 0) : (isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2);
       attachedMesh.position.set(offset.x, offset.y, offset.z + centerDelta);
-      attachedMesh.rotation.set(0, 0, 0);
+      if (!isFork) attachedMesh.rotation.set(0, 0, 0);
       if (attachedMesh !== this.block && baseBlock) this.block.visible = true;
     } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
@@ -479,7 +488,7 @@ export class SimulatorScene {
     const rect = this.canvas.parentElement?.getBoundingClientRect() ?? this.canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
     this.camera.aspect = rect.width / rect.height;
-    this.camera.fov = viewportVerticalFov(42, this.camera.aspect);
+    this.camera.fov = viewportVerticalFov(VIEWPORT_FOV, this.camera.aspect);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(rect.width, rect.height, false);
   }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import { makeJointPoint } from "../projectStore";
-import { FORK_SUPPORT_HEIGHT_MM, rad, type JointAngles, type Pose, type ProjectDocument } from "../domain";
+import { FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type JointAngles, type Pose, type ProjectDocument } from "../domain";
 import { SimulationController, type ControllerEvents, type RunStatus } from "./SimulationController";
 import type { MotionRequest } from "./luaTypes";
 import type { MG400Kinematics } from "./mg400Kinematics";
@@ -17,6 +17,7 @@ function animationFrameMocks() {
 
 function makeHarness(options: {
   project?: ProjectDocument;
+  profile?: ForkContactProfile;
   initialJoints?: JointAngles;
   forward?: (joints: JointAngles) => Pose;
   solve?: (pose: Pose, current: JointAngles) => { ok: boolean; joints: JointAngles; positionErrorMm: number; angleErrorDeg: number };
@@ -24,6 +25,7 @@ function makeHarness(options: {
   let joints: JointAngles = options.initialJoints ?? [rad(0), rad(30), rad(45), rad(0)];
   let status: RunStatus = "ready";
   let attached = false;
+  let attachedId: string | null = null;
   let blockPosition = { ...(options.project ?? DEFAULT_PROJECT).scene.block };
   const project = structuredClone(options.project ?? DEFAULT_PROJECT);
   let cellBlocks = structuredClone(project.scene.blocks);
@@ -37,10 +39,12 @@ function makeHarness(options: {
     getJoints: () => joints,
     isAttached: () => attached,
     getBlock: () => ({ ...blockPosition }),
+    getForkContactProfile: () => options.profile ?? "reference",
     getCellBlocks: () => structuredClone(cellBlocks),
     setCellBlocks: (next) => { cellBlocks = structuredClone(next); },
     setJoints: (next) => { joints = [...next] as JointAngles; positions.push([...next] as JointAngles); },
     setAttached: (next) => { attached = next; },
+    setAttachedCellBlockId: (next) => { attachedId = next; },
     setBlock: (next) => { blockPosition = { ...next }; },
     setDigitalOutput: () => undefined,
     setStatus: (next) => { status = next; },
@@ -52,6 +56,7 @@ function makeHarness(options: {
     positions,
     status: () => status,
     attached: () => attached,
+    attachedId: () => attachedId,
     block: () => ({ ...blockPosition }),
     cellBlocks: () => structuredClone(cellBlocks),
   };
@@ -238,4 +243,37 @@ describe("Go To point transitions", () => {
     action("place");
     expect(harness.cellBlocks()[0].source).toBe("unloaded");
   });
+});
+
+
+it("keeps the same Body1 cell ID and relative world yaw across release and a second pickup", () => {
+  const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";
+  const harness=makeHarness({project,profile:"body1"});
+  const step=(a:Pose,b:Pose)=>(harness.controller as unknown as {updatePassiveFork:(a:Pose,b:Pose)=>void}).updatePassiveFork(a,b);
+  const entry={x:300,y:-20,z:42.5,r:-90},contact={x:300,y:-80,z:42.5,r:-90};
+  step(entry,entry);step(entry,contact);step(contact,{...contact,z:45});
+  expect(harness.attachedId()).toBe("tower-1");expect(harness.attached()).toBe(true);
+  // A 90-degree wrist turn carries the original R0 block to world R90.
+  const place={x:300,y:80,z:45,r:0};step({...place,z:50},place);
+  expect(harness.attached()).toBe(false);expect(harness.attachedId()).toBeNull();
+  const released=harness.cellBlocks().find(block=>block.id==="tower-1")!;
+  expect(released.position).toEqual({x:300,y:80});expect(released.r).toBe(90);expect(harness.block()).toEqual(released.position);
+  const clear={...place,z:42.5};step(place,clear);step(clear,{...clear,x:240});
+  const nextEntry={x:240,y:80,z:42.5,r:0},nextContact={x:300,y:80,z:42.5,r:0};
+  step(nextEntry,nextEntry);step(nextEntry,nextContact);step(nextContact,{...nextContact,z:45});
+  expect(harness.attachedId()).toBe("tower-1");expect(harness.attached()).toBe(true);
+});
+
+it("preserves physical Body1 identity and world yaw across public GoTo and stop",async()=>{
+ animationFrameMocks();const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.simulation.speed=10;
+ const forward=(j:JointAngles)=>({x:j[0]*100,y:j[1]*100,z:j[2]*100,r:j[3]*100});
+ const entry={x:300,y:-20,z:42.5,r:-90};
+ const h=makeHarness({project,profile:"body1",initialJoints:[3,-.2,.425,-.9],forward,solve:(p)=>({ok:true,joints:[p.x/100,p.y/100,p.z/100,p.r/100],positionErrorMm:0,angleErrorDeg:0})});
+ const go=(p:Pose)=>h.controller.goToPoint({id:"go",name:"Go",kind:"cartesian",pose:p});
+ await go(entry);await go({...entry,y:-80});await go({...entry,y:-80,z:50});
+ expect(h.attachedId()).toBe("tower-1");h.controller.stop();expect(h.attachedId()).toBe("tower-1");
+ vi.stubGlobal("Worker",class {postMessage(){} terminate(){} });
+ h.controller.run("print(\"held\")",[]);expect(h.attachedId()).toBe("tower-1");expect(h.attached()).toBe(true);
+ await go({x:300,y:80,z:60,r:0});await go({x:300,y:80,z:45,r:0});
+ expect(h.attached()).toBe(false);expect(h.cellBlocks()[0]).toMatchObject({id:"tower-1",position:{x:300,y:80},r:90,source:"output"});
 });

@@ -1,4 +1,4 @@
-import { FORK_SUPPORT_HEIGHT_MM, type Pose } from "../domain";
+import { BODY1_FORK_CONTACT, FORK_SUPPORT_HEIGHT_MM, type ForkContactProfile, type Pose } from "../domain";
 
 export const FORK_INSERTION_DISTANCE_MM = 60;
 const MIN_LIFT_MM = 0.5;
@@ -7,6 +7,8 @@ export type PassiveForkState = {
   sawEntryApproach: boolean;
   inserted: boolean;
   insertedAtZ: number | null;
+  releasePose?: Pose;
+  releaseCleared?: boolean;
 };
 
 export const EMPTY_PASSIVE_FORK_STATE: PassiveForkState = {
@@ -30,10 +32,12 @@ export function advancePassiveFork(
   previous: Pose,
   current: Pose,
   attached: boolean,
-  block: { x: number; y: number },
+  block: { x: number; y: number; r?: number },
   drop: { x: number; y: number },
   tolerance: { xy: number; z: number },
+  profile: ForkContactProfile = "reference",
 ): PassiveForkTransition {
+  if (profile === "body1") return advanceBody1Fork(state, previous, current, attached, block, drop);
   if (attached) {
     const isLowering = current.z < previous.z;
     const atSupport = Math.abs(current.z - FORK_SUPPORT_HEIGHT_MM) <= tolerance.z;
@@ -84,4 +88,51 @@ export function forkEntryPose(contact: Pose): Pose {
     x: contact.x - FORK_INSERTION_DISTANCE_MM * Math.cos(angle),
     y: contact.y - FORK_INSERTION_DISTANCE_MM * Math.sin(angle),
   };
+}
+
+
+/** Known measured Body1 grooves only; no inference for arbitrary imported STL. */
+function advanceBody1Fork(state: PassiveForkState, previous: Pose, current: Pose, attached: boolean,
+  block: { x: number; y: number; r?: number }, drop: { x: number; y: number }): PassiveForkTransition {
+  const empty = () => ({ state: EMPTY_PASSIVE_FORK_STATE, action: null });
+  if (attached) {
+    if (current.z < previous.z && current.z <= BODY1_FORK_CONTACT.loadZ + 0.05 && current.z >= BODY1_FORK_CONTACT.loadZ - 0.5 && Math.hypot(current.x - drop.x, current.y - drop.y) <= 1) {
+      return { state: { ...EMPTY_PASSIVE_FORK_STATE, releasePose: { ...current } }, action: "place" };
+    }
+    return empty();
+  }
+  const angle = current.r * Math.PI / 180;
+  const local = (pose: Pose, origin: { x: number; y: number }) => ({
+    along: (pose.x - origin.x) * Math.cos(angle) + (pose.y - origin.y) * Math.sin(angle),
+    across: -(pose.x - origin.x) * Math.sin(angle) + (pose.y - origin.y) * Math.cos(angle),
+  });
+  if (state.releasePose) {
+    const exit = local(current, state.releasePose);
+    const beforeExit = local(previous, state.releasePose);
+    const alignedExit = Math.abs(current.r - state.releasePose.r) <= 1 && Math.abs(exit.across) <= 1;
+    const atClearance = Math.abs(current.z - BODY1_FORK_CONTACT.insertionZ) <= 0.5;
+    const releaseCleared = alignedExit && atClearance && (state.releaseCleared || Math.abs(exit.along) <= 1);
+    if (!releaseCleared || exit.along > 1 || (state.releaseCleared && exit.along > beforeExit.along + 0.0001)) {
+      return { state: { ...state, releaseCleared: false }, action: null };
+    }
+    return exit.along <= -FORK_INSERTION_DISTANCE_MM + 0.5 ? empty() : { state: { ...state, releaseCleared: true }, action: null };
+  }
+  const yawError = Math.abs((((current.r - (block.r ?? 0) + 90) % 180) + 270) % 180 - 90);
+  const now = local(current, block), before = local(previous, block);
+  const aligned = yawError <= 1 && Math.abs(now.across) <= 1;
+  const atInsertion = Math.abs(current.z - BODY1_FORK_CONTACT.insertionZ) <= 0.5;
+  if (!aligned) return empty();
+  let sawEntryApproach = state.sawEntryApproach;
+  let inserted = state.inserted && Math.abs(now.along) <= 1 && current.z >= BODY1_FORK_CONTACT.insertionZ - 0.5;
+  if (atInsertion && now.along <= -40) sawEntryApproach = true;
+  if (atInsertion && sawEntryApproach && Math.abs(now.along) <= 1 && now.along > before.along + 0.0001) inserted = true;
+  if (inserted && Math.abs(now.along) <= 1 && current.z > previous.z && current.z >= BODY1_FORK_CONTACT.loadZ - 0.05) {
+    return { state: EMPTY_PASSIVE_FORK_STATE, action: "pick" };
+  }
+  if ((!atInsertion && !inserted) || now.along > 1) return empty();
+  return { state: { sawEntryApproach, inserted, insertedAtZ: inserted ? BODY1_FORK_CONTACT.insertionZ : null }, action: null };
+}
+
+export function forkContactPose(location: { x: number; y: number }, blockR: number, profile: ForkContactProfile = "reference", placing = false): Pose {
+  return { ...location, z: profile === "body1" ? (placing ? BODY1_FORK_CONTACT.loadZ : BODY1_FORK_CONTACT.insertionZ) : FORK_SUPPORT_HEIGHT_MM, r: blockR + (profile === "reference" && placing ? 90 : -90) };
 }
