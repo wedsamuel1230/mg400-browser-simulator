@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleOpenRouterAssist } from "./assist";
+import { handleOpenRouterAssist } from "../../api/assist";
 
 const validBody = {
   question: "Teach me if / else.",
