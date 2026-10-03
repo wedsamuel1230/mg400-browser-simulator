@@ -41,7 +41,7 @@ describe("project document validation", () => {
     legacyTool.tcpOffset = { x: 0, y: 0, z: -35, r: 0 };
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(9);
+    expect(migrated.schemaVersion).toBe(10);
     expect(migrated.points).toEqual(DEFAULT_PROJECT.points);
     expect(migrated.script).toBe(DEFAULT_PROJECT.script);
     expect(migrated.programmingLanguage).toBe("lua");
@@ -101,7 +101,7 @@ describe("project document validation", () => {
     (legacy.tool as Record<string, unknown>).mode = "fork";
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(9);
+    expect(migrated.schemaVersion).toBe(10);
     expect(migrated.script).toBe(DEFAULT_FORK_SCRIPT);
     expect(migrated.pythonScript).toBe(DEFAULT_FORK_PYTHON_SCRIPT);
 
@@ -125,7 +125,7 @@ describe("project document validation", () => {
     });
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(9);
+    expect(migrated.schemaVersion).toBe(10);
     expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
     expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, z: 15 } });
   });
@@ -176,7 +176,7 @@ describe("project document validation", () => {
     });
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(9);
+    expect(migrated.schemaVersion).toBe(10);
     expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
     expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
     expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 240, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
@@ -214,6 +214,16 @@ describe("project document validation", () => {
     expect(preserved.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 315, y: -80, z: 20 } });
     expect(preserved.script).toBe(customFork.script);
     expect(preserved.pythonScript).toBe(customFork.pythonScript);
-    expect(preserved.schemaVersion).toBe(9);
+    expect(preserved.schemaVersion).toBe(10);
   });
+});
+
+it("preserves schema9 learner geometry, code and points when upgrading magnetic plates", () => {
+  const old = structuredClone(DEFAULT_PROJECT);
+  const legacy = { ...old, schemaVersion: 9, script: "print('my lesson')" };
+  const result = validateProject(legacy);
+  expect(result.schemaVersion).toBe(10);
+  expect(result.scene.blocks.every(block => block.kind === "block")).toBe(true);
+  expect(result.script).toBe(legacy.script);
+  expect(result.points).toEqual(legacy.points);
 });

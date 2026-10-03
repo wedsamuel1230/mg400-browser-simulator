@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
-const forbiddenNames = /(?:fork|magnet)\.stl|6eb33378ef210da4/i;
+const forbiddenNames = /fork\.stl/i;
 const required = ["LICENSE", "vercel.json", "public/models/mg400/mg400_description/LICENSE"];
 for (const path of required) if (!existsSync(join(root, path))) throw new Error(`Missing release file: ${path}`);
 const scan = (directory) => {
@@ -17,6 +17,7 @@ const scan = (directory) => {
 scan(join(root, "dist"));
 // Bundling authorized by the maintainer: accept only the exact supplied meshes.
 const approvedTools = {
+  "magnet.stl": "6eb33378ef210da42458c57c86b09be94a82c296d4623a4e40c014754c342f06",
   "Body1.stl": "b6a56256947fcc2dac165ba56d34d5c418bd5eaed248ac49ac7b83268491a185",
   "Block.stl": "bc4b6488f05fc8649bb874b63ed0ec8d45149e307a40be27b1a8c1e5f767a325",
 };
@@ -34,4 +35,4 @@ for (const path of ["src", "api", "vite.config.ts", "index.html"]) {
   for (const file of files) if (/sk-[A-Za-z0-9_-]{30,}/.test(readFileSync(file, "utf8"))) throw new Error(`Credential-like key in release source: ${file}`);
 }
 for (const path of [".env", ".env.local", ".env.production"]) if (existsSync(join(root, path))) throw new Error(`Local environment file must not ship: ${path}`);
-console.log("Public release gate: pass (licensed vendor assets, SPA config, exact maintainer-approved Body1/fork assets, no unapproved magnet mesh or embedded key patterns)");
+console.log("Public release gate: pass (licensed vendor assets, SPA config, exact maintainer-approved Body1/fork/magnet assets, no unapproved mesh or embedded key patterns)");

@@ -1,4 +1,4 @@
-import { activeTcpOffset, effectiveForkContactProfile, BODY1_FORK_CONTACT, body1ForkProgram, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
+import { activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, BODY1_FORK_CONTACT, body1ForkProgram, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { FORK_INSERTION_DISTANCE_MM, forkEntryPose } from "./forkTool";
 
@@ -37,7 +37,7 @@ export function recommendPickAndPlace(
   const home = byName.get("Home");
   const homeReady = home?.kind === "joint";
   const toolLabel = project.tool.mode === "magnet" ? "Magnet" : "Fork";
-  const contactZ = project.tool.mode === "magnet" ? 15 : profile === "body1" ? BODY1_FORK_CONTACT.insertionZ : FORK_SUPPORT_HEIGHT_MM;
+  const contactZ = project.tool.mode === "magnet" ? cellBlockTopZ(project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1), "magnet") : profile === "body1" ? BODY1_FORK_CONTACT.insertionZ : FORK_SUPPORT_HEIGHT_MM;
   const pickTarget = project.scene.block;
   const placeTarget = project.scene.drop;
 
@@ -235,7 +235,7 @@ function checkReachability(
 export function recommendedProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference"): string {
   if (mode === "fork" && profile === "body1") return body1ForkProgram(language);
   const tool = mode === "magnet" ? "Magnet" : "Fork";
-  const contact = mode === "magnet" ? "top face (Z=15 mm)" : `fork support plane (Z=${FORK_SUPPORT_HEIGHT_MM} mm)`;
+  const contact = mode === "magnet" ? "top face (use the saved contact height)" : `fork support plane (Z=${FORK_SUPPORT_HEIGHT_MM} mm)`;
   if (mode === "fork") {
     if (language === "python") {
       return [

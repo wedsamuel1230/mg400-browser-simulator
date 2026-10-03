@@ -1,4 +1,4 @@
-import { activeTcpOffset, effectiveForkContactProfile, deg, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { activeTcpOffset, cellBlockTopZ, cellBlockSize, MAGNET_SUPPORT_HEIGHT_MM, effectiveForkContactProfile, deg, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
@@ -387,19 +387,20 @@ export class SimulationController {
       if (attached) throw new Error("The block is already attached to the tool.");
       const tcp = this.kinematics.forward(this.events.getJoints(), project.tool.flangeOffset, activeTcpOffset(project.tool));
       const candidates = this.events.getCellBlocks?.() ?? [];
-      const block = candidates.length > 0
-        ? (candidates.find((candidate) => candidate.source !== "output" && candidate.source !== "unloaded" && Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy)
-          ?? candidates.find((candidate) => candidate.source === "output" && Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy))?.position
-        : this.events.getBlock();
+      const withinContact = (candidate: CellBlock) => Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy
+        && Math.abs(tcp.z - cellBlockTopZ(candidate, "magnet")) <= project.tool.pickupTolerance.z;
+      const target = candidates.filter((candidate) => candidate.source !== "unloaded" && withinContact(candidate))
+        .sort((a, b) => (a.source === "output" ? 1 : 0) - (b.source === "output" ? 1 : 0) || cellBlockTopZ(b, "magnet") - cellBlockTopZ(a, "magnet"))[0];
+      const block = candidates.length > 0 ? target?.position : this.events.getBlock();
       if (!block) throw new Error("Pick failed: no eligible source block is within the configured pickup tolerance.");
       const xyError = Math.hypot(tcp.x - block.x, tcp.y - block.y);
-      const pickupZ = 15;
+      const pickupZ = cellBlockTopZ(target, "magnet");
       const zError = Math.abs(tcp.z - pickupZ);
       if (xyError > project.tool.pickupTolerance.xy || zError > project.tool.pickupTolerance.z) {
-        throw new Error(`Pick failed: TCP is ${xyError.toFixed(1)} mm from the block centre and ${zError.toFixed(1)} mm from the magnet target at the top-face centre (Z=15 mm).`);
+        throw new Error(`Pick failed: TCP is ${xyError.toFixed(1)} mm from the block centre and ${zError.toFixed(1)} mm from the magnet target at the top-face centre (Z=${pickupZ} mm).`);
       }
       this.events.setAttached(true);
-      this.attachedCellBlockId = candidates.find((candidate) => candidate.position === block)?.id ?? null;
+      this.attachedCellBlockId = target?.id ?? null;
       this.events.setAttachedCellBlockId?.(this.attachedCellBlockId);
       this.events.addLog(`Magnet attached ${this.attachedCellBlockId ?? "reference block"} at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm.`, "info");
       return;
@@ -425,7 +426,7 @@ export class SimulationController {
     }
     this.attachedCellBlockId = null;
     this.events.setAttachedCellBlockId?.(null);
-    this.events.addLog(`Block ${placedCellBlockId ?? "reference block"} placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm${placedStackLevel === undefined ? "" : `, Z ${(15 * (placedStackLevel + 1)).toFixed(1)} mm, R ${tcp.r.toFixed(1)}°`}.`, "info");
+    this.events.addLog(`Block ${placedCellBlockId ?? "reference block"} placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm${placedStackLevel === undefined ? "" : `, Z ${((cellBlockSize(candidates?.find((candidate) => candidate.id === placedCellBlockId), "magnet").z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + cellBlockSize(candidates?.find((candidate) => candidate.id === placedCellBlockId), "magnet").z * (placedStackLevel + 1)).toFixed(1)} mm, R ${tcp.r.toFixed(1)}°`}.`, "info");
   }
 
   private waitForIdle(): Promise<void> {

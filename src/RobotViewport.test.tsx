@@ -19,7 +19,7 @@ const rgb = (hex: string) => {
 };
 
 function getSwatchColors(label: string) {
-  const row = screen.getByText(label, { exact: true }).closest("li");
+  const row = screen.getAllByText(label, { exact: true }).find(element => element.closest("li"))?.closest("li");
   return [...(row?.querySelectorAll<HTMLElement>(".model-swatch") ?? [])].map((swatch) => swatch.style.backgroundColor);
 }
 
@@ -67,10 +67,10 @@ describe("RobotViewport color guide", () => {
     for (const group of ROBOT_COLOR_GROUPS) {
       expect(getSwatchColors(group.label)).toEqual(group.colors.map(rgb));
     }
-    expect(getSwatchColors("Active tool: Magnet")).toEqual([rgb(MODEL_PALETTE.magnet)]);
+    expect(getSwatchColors("Active tool: Magnetic pickup tool")).toEqual([rgb(MODEL_PALETTE.magnet)]);
     expect(getSwatchColors("TCP reference")).toEqual([rgb(MODEL_PALETTE.tcp)]);
     expect(getSwatchColors("Selected point")).toEqual([rgb(MODEL_PALETTE.target), rgb(MODEL_PALETTE.targetCenter)]);
-    expect(getSwatchColors("40 × 40 × 15 mm workpiece")).toEqual([rgb(MODEL_PALETTE.block)]);
+    expect(getSwatchColors("35 × 35 × 4 mm magnetic plate · 20 mm stand, contact Z24")).toEqual([rgb(MODEL_PALETTE.block)]);
     expect(screen.getByText("Training palette overlays the vendor geometry for teaching; it does not represent factory paint.")).toBeInTheDocument();
   });
 });

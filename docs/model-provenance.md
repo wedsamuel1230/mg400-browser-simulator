@@ -1,6 +1,6 @@
 # MG400 model provenance
 
-**Current packaging (2026-10-02):** the supplied Body1 and passive fork load by default. See the final section and `public/models/tools/README.md`. Earlier local-only tool decisions below are historical; the unapproved magnet mesh and proprietary CAD remain local.
+**Current packaging (2026-10-02):** the supplied Body1 and passive fork load by default. See the final section and `public/models/tools/README.md`. Earlier local-only tool decisions below are historical; the magnetic tool is also bundled following the maintainer’s explicit request on 2026-10-03; proprietary CAD remains local.
 
 ## Browser-ready model
 
@@ -71,3 +71,11 @@ The project maintainer explicitly requested “just 匯入 by the app by default
 Both meshes load from same-origin static assets automatically; the Body1 profile is selected without a file chooser. Fork mode renders the supplied Body1 workpiece and flange-mounted passive fork. The first non-puck calibration boundary remains; magnetic workpieces retain the existing geometry. Custom imports take precedence, reset the measured calibration and remain browser-session-only. Project import retains Body1 calibration when the bundled pair is active. Existing custom scripts and teach points are not overwritten: re-teach a pick/place pair after changing tools. A saved stock generic fork program upgrades to the matching Body1 template on startup.
 
 This measured sequence remains a logical contact simulation, not general STL collision physics or physical calibration.
+
+## Magnetic tool and plate release (2026-10-03)
+
+The maintainer explicitly requested “the magnet suck model ... load it to the website” and specified a 35×35×4 mm magnetic workpiece. This supersedes the prior magnet-only packaging exclusion. The exact supplied `magnet.stl` hash is checked by `release:check`; the measured mounting face is placed under the flange using the same datum as the fork. Source filenames are retained for provenance, while the UI names the roles: 磁吸工具 / 無動力叉臂 / 槽積木.
+
+Fresh magnetic exercises use 35×35×4 mm marked plates, on visible 20 mm teaching stands, with centre Z22 and contact Z24. Three-layer tower programs move to contacts Z24/Z28/Z32 after lifting and rotating the held tool. The scene and controller derive geometry, carrying offset, contact and stack heights from workpiece kind. Schema 10 explicitly preserves schema 9 unspecified-kind workpieces as 40×40×15 mm reference blocks without changing learner programs or taught coordinates. Custom tool imports take precedence and remain local to the browser.
+
+These are logical training contacts and attachment transforms; no magnetic force or general collision physics is added.

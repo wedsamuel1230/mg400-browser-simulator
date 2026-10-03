@@ -211,7 +211,7 @@ describe("Go To point transitions", () => {
     project.scene.initialBlocks = structuredClone(project.scene.blocks);
     project.scene.feederOrder = ["first", "second"];
     project.scene.drop = { x: 100, y: 0 };
-    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 0, z: 15, r: 0 }) });
+    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 0, z: 24, r: 0 }) });
     const action = (name: "pick" | "place") => (harness.controller as unknown as { performToolAction: (value: "pick" | "place") => void }).performToolAction(name);
 
     action("pick");
@@ -235,7 +235,7 @@ describe("Go To point transitions", () => {
     const project = structuredClone(DEFAULT_PROJECT);
     project.scene.blocks = [{ id: "sorted-black", color: "black", source: "output", position: { x: 250, y: 80 }, r: 0 }];
     project.scene.initialBlocks = structuredClone(project.scene.blocks);
-    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 80, z: 15, r: 0 }) });
+    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 80, z: 24, r: 0 }) });
     const action = (name: "pick" | "place") => (harness.controller as unknown as { performToolAction: (value: "pick" | "place") => void }).performToolAction(name);
     harness.setJoints([250, 0, 0, 0]);
     action("pick");
@@ -276,4 +276,17 @@ it("preserves physical Body1 identity and world yaw across public GoTo and stop"
  h.controller.run("print(\"held\")",[]);expect(h.attachedId()).toBe("tower-1");expect(h.attached()).toBe(true);
  await go({x:300,y:80,z:60,r:0});await go({x:300,y:80,z:45,r:0});
  expect(h.attached()).toBe(false);expect(h.cellBlocks()[0]).toMatchObject({id:"tower-1",position:{x:300,y:80},r:90,source:"output"});
+});
+
+it("uses actual magnetic plate top height and rejects contact with empty space above it", () => {
+  const project = structuredClone(DEFAULT_PROJECT);
+  project.tool.pickupTolerance.z = 0.5;
+  project.scene.blocks = [{ id: "magnet-1", kind: "magnet", color: "neutral", source: "pickup", position: {x:300,y:-80}, z:10, r:0 }];
+  const harness = makeHarness({project,initialJoints:[300,-80,34,0],forward:j=>({x:j[0],y:j[1],z:j[2],r:j[3]})});
+  const pick = () => (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
+  harness.setJoints([300,-80,35,0]);
+  expect(pick).toThrow(/no eligible/);
+  harness.setJoints([300,-80,34,0]);
+  expect(pick).not.toThrow();
+  expect(harness.attachedId()).toBe("magnet-1");
 });

@@ -31,7 +31,8 @@ import {
   Wrench,
 } from "lucide-react";
 import {
-  BLOCK_SIZE_MM,
+  cellBlockSize,
+  cellBlockTopZ,
   FORK_SUPPORT_HEIGHT_MM,
   BODY1_FORK_CONTACT,
   effectiveForkContactProfile,
@@ -46,6 +47,7 @@ import {
   type BlockColor,
   type BlockSource,
   type CellObjectKind,
+  type CellBlock,
   type Pose,
   type ProjectDocument,
   type TeachPoint,
@@ -221,6 +223,7 @@ export default function App() {
   const [kinematics, setKinematics] = useState<MG400Kinematics | null>(null);
   const [kinematicsUrdf, setKinematicsUrdf] = useState<string | null>(null);
   const [modelError, setModelError] = useState("");
+  const [failedToolModels, setFailedToolModels] = useState<string[]>([]);
   const [status, setStatus] = useState<RunStatus>("ready");
   const [lastRunContext, setLastRunContext] = useState<string | null>(null);
   const [latestPrintOutput, setLatestPrintOutput] = useState<string | null>(null);
@@ -253,7 +256,7 @@ export default function App() {
     teachPoints: "示教點", jointPoint: "儲存關節點", deletePoint: "刪除示教點", jogControls: "點動及示教點控制",
     cartesianStep: "笛卡兒點動步距（毫米）", jointStep: "關節點動步距（度）",
     programmingLanguage: "程式語言", exportProject: "匯出專案", toolMeshTitle: "工具外觀模型",
-    toolMeshDescription: "已內置 Body1 槽積木及無動力叉臂，切換叉臂模式即可使用。你亦可匯入其他 STL；自訂檔案只留在此瀏覽器，不會加入專案匯出。",
+    toolMeshDescription: "磁吸工具、無動力叉臂及槽積木會自動載入，毋須手動匯入。你亦可匯入其他 STL；自訂檔案只留在此瀏覽器，不會加入專案匯出。",
     importMagnet: "匯入磁吸工具 STL", importFork: "匯入叉臂工具 STL", activeTool: "目前工具",
     flangeToTcp: "法蘭至 TCP", robotWrist: "機械臂腕部", flange: "法蘭", toolLocalX: "工具局部 +X",
     flangeExplanation: "法蘭：安裝工具的機械臂端面。TCP：移動指令所到達的工具參考點。圖示沿工具自身 X 軸，不代表螢幕方向。",
@@ -263,7 +266,7 @@ export default function App() {
     cellStateNote: "顏色及供料次序是預設的模擬狀態；沒有攝影機、顏色感測器或視覺辨識功能。",
     toolModeChanged: "執行前請重新示教拾取及放置點組。",
     freeCellHeading: "自由模式 · 自訂工作格", guidedCellHeading: "訓練模式 · 導引工作格",
-    freeCellDescription: "可加入、移動、刪除方塊或磁性圓件；位置以 mm 儲存。", guidedCellDescription: "課程任務使用固定教學供料；切換到自由模式可另存自訂工作格。",
+    freeCellDescription: "可加入、移動、刪除方塊或35×35×4 mm 磁吸片；位置以 mm 儲存。", guidedCellDescription: "課程任務使用固定教學供料；切換到自由模式可另存自訂工作格。",
     simulationOnly: "僅供模擬", vendorModelLocalLua: "MG400 供應商外觀模型 · 本機 Lua · 未連接硬體",
     limitsSource: "關節限制依據 Dobot MG400 User Guide V1.7",
     modelLoadHeading: "MG400 模型載入失敗",
@@ -274,7 +277,7 @@ export default function App() {
     teachPoints: "Teach points", jointPoint: "Save a joint point", deletePoint: "Delete teach point", jogControls: "Jog and point controls",
     cartesianStep: "Cartesian jog step in millimetres", jointStep: "Joint jog step in degrees",
     programmingLanguage: "Programming language", exportProject: "Export project", toolMeshTitle: "Tool visual mesh",
-    toolMeshDescription: "Body1 and the passive fork are bundled and load automatically. You can also import another STL; custom files stay in this browser and are not saved in project export.",
+    toolMeshDescription: "The magnetic tool, passive fork and grooved block load automatically. You can also import another STL; custom files stay in this browser and are not saved in project export.",
     importMagnet: "Import local magnet STL", importFork: "Import local fork STL", activeTool: "Active tool",
     flangeToTcp: "Flange to TCP", robotWrist: "Robot wrist", flange: "Flange", toolLocalX: "tool-local +X",
     flangeExplanation: "Flange: the robot face where the tool mounts. TCP: the tool reference point that motion commands target. This diagram is along the tool's own X axis, not the screen.",
@@ -284,7 +287,7 @@ export default function App() {
     cellStateNote: "Colors and feeder order are configured simulation state; no camera, color sensor, or vision claim is made.",
     toolModeChanged: "Re-teach the pick and place pairs before running.",
     freeCellHeading: "Free mode · custom cell", guidedCellHeading: "Training mode · guided cell",
-    freeCellDescription: "Add, move, or remove blocks and magnetic pucks; positions are stored in mm.", guidedCellDescription: "Lessons use a fixed teaching feeder; switch to Free mode to save a separate custom cell.",
+    freeCellDescription: "Add, move, or remove blocks and 35×35×4 mm magnetic plates; positions are stored in mm.", guidedCellDescription: "Lessons use a fixed teaching feeder; switch to Free mode to save a separate custom cell.",
     simulationOnly: "Simulation only", vendorModelLocalLua: "MG400 vendor visual model · local Lua · no hardware connection",
     limitsSource: "Joint limits from Dobot MG400 User Guide V1.7",
     modelLoadHeading: "MG400 model failed to load",
@@ -296,7 +299,7 @@ export default function App() {
   const forkProfile = effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
   const localMeshesRef = useRef(localToolMeshes);
   localMeshesRef.current = localToolMeshes;
-  const [toolMeshMessage, setToolMeshMessage] = useState(uiLanguage === "zh-Hant" ? "正在載入內置 Body1 積木及叉臂…" : "Loading bundled Body1 and fork…");
+  const [toolMeshMessage, setToolMeshMessage] = useState(uiLanguage === "zh-Hant" ? "正在載入磁吸工具、無動力叉臂及槽積木…" : "Loading magnetic tool, passive fork and grooved block…");
   const [coachOpen, setCoachOpen] = useState(false);
   const [jogStep, setJogStep] = useState(10);
   const [jointStep, setJointStep] = useState(5);
@@ -329,7 +332,7 @@ export default function App() {
       setToolMeshMessage(uiLanguage === "zh-Hant" ? `${file.name} 不是可讀取的 STL（ASCII facet／vertex 或二進位三角面資料）；沒有載入任何內容。` : `${file.name} is not a readable STL (ASCII facet/vertex or binary triangle data). Nothing was loaded.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes, bundledFork: kind === "fork" ? false : current.bundledFork, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", kind) }));
+    setLocalToolMeshes((current) => ({ ...current, [kind]: bytes, bundledFork: kind === "fork" ? false : current.bundledFork, bundledMagnet: kind === "magnet" ? false : current.bundledMagnet, names: { ...current.names, [kind]: file.name }, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", kind) }));
     if (kind === "fork") replaceProject((current) => ({ ...current,
       script: current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
       pythonScript: current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
@@ -352,7 +355,7 @@ export default function App() {
         : `${file.name} is not a readable STL. The current model remains active; the file is not uploaded.`);
       return;
     }
-    setLocalToolMeshes((current) => ({ ...current, block: bytes, bundledFork: false, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", "block") }));
+    setLocalToolMeshes((current) => ({ ...current, block: bytes, bundledFork: false, names: { ...current.names, block: file.name }, blockProfile: forkProfileAfterImport(current.blockProfile ?? "reference", "block") }));
     replaceProject((current) => ({ ...current,
       script: current.tool.mode === "fork" && current.script === getStarterProgram("lua", "fork", "body1") ? getStarterProgram("lua", "fork") : current.script,
       pythonScript: current.tool.mode === "fork" && current.pythonScript === getStarterProgram("python", "fork", "body1") ? getStarterProgram("python", "fork") : current.pythonScript,
@@ -364,34 +367,48 @@ export default function App() {
 
   useEffect(() => {
     const abort = new AbortController();
-    void Promise.all(["Block.stl", "Body1.stl"].map(async (name) => {
+    const files = ["magnet.stl", "Block.stl", "Body1.stl"];
+    void Promise.allSettled(files.map(async (name) => {
       const response = await fetch(`${import.meta.env.BASE_URL}models/tools/${name}`, { signal: abort.signal });
       if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
       if (!isLikelyStl(bytes)) throw new Error(`${name}: invalid STL`);
       return bytes;
-    })).then(([fork, block]) => {
+    })).then(([magnetResult, forkResult, blockResult]) => {
       if (abort.signal.aborted) return;
-      // A learner import made during loading must win over the bundled defaults.
-      const custom = Boolean(localMeshesRef.current.fork || localMeshesRef.current.block);
-      setLocalToolMeshes((current) => ({ ...current, fork: current.fork ?? fork, block: current.block ?? block,
-        blockProfile: custom ? current.blockProfile : "body1", bundledFork: !custom }));
-      if (!custom) setProject((current) => ({ ...current,
+      const magnet = magnetResult.status === "fulfilled" ? magnetResult.value : undefined;
+      const fork = forkResult.status === "fulfilled" ? forkResult.value : undefined;
+      const block = blockResult.status === "fulfilled" ? blockResult.value : undefined;
+      const customFork = Boolean(localMeshesRef.current.fork || localMeshesRef.current.block);
+      setLocalToolMeshes((current) => ({ ...current, magnet: current.magnet ?? magnet, fork: current.fork ?? fork, block: current.block ?? block,
+        names: { magnet: magnet ? "magnet.stl" : undefined, fork: fork ? "Block.stl" : undefined, block: block ? "Body1.stl" : undefined, ...current.names },
+        blockProfile: !customFork && fork && block ? "body1" : current.blockProfile,
+        bundledFork: !customFork && Boolean(fork && block), bundledMagnet: !current.magnet && Boolean(magnet) }));
+      if (!customFork && fork && block) setProject((current) => ({ ...current,
         script: current.tool.mode === "fork" && [getStarterProgram("lua", "fork"), recommendedProgram("lua", "fork")].includes(current.script) ? getStarterProgram("lua", "fork", "body1") : current.script,
         pythonScript: current.tool.mode === "fork" && [getStarterProgram("python", "fork"), recommendedProgram("python", "fork")].includes(current.pythonScript) ? getStarterProgram("python", "fork", "body1") : current.pythonScript,
       }));
-      setToolMeshMessage(uiLanguage === "zh-Hant" ? (custom ? "已保留你匯入的自訂模型；請選擇合適校準。" : "內置 Body1 積木及叉臂已載入；叉臂模式會自動使用 Body1 校準。") : (custom ? "Your custom model takes precedence; choose its calibration." : "Bundled Body1 and fork loaded; fork mode uses Body1 calibration automatically."));
-    }).catch((error: unknown) => {
-      if (!abort.signal.aborted) setToolMeshMessage(`${uiLanguage === "zh-Hant" ? "內置工具載入失敗，請重新整理：" : "Bundled tool loading failed; refresh: "}${error instanceof Error ? error.message : String(error)}`);
+      const failed = [magnetResult, forkResult, blockResult].flatMap((result, index) => result.status === "rejected" ? [files[index]] : []);
+      setFailedToolModels(failed);
+      setToolMeshMessage(failed.length ? `${uiLanguage === "zh-Hant" ? "部分模型未能載入，請重新整理：" : "Some models failed to load; refresh: "}${failed.join(", ")}` : (uiLanguage === "zh-Hant" ? "磁吸工具、無動力叉臂及槽積木已備好；自訂匯入會優先使用。" : "Magnetic tool, passive fork and grooved block are ready; custom imports take precedence."));
     });
     return () => abort.abort();
   }, []);
 
   const selectedPoint = project.points.find((point) => point.id === selectedId);
+  const missingToolModels = failedToolModels.filter((name) => !localToolMeshes[({ "magnet.stl": "magnet", "Block.stl": "fork", "Body1.stl": "block" } as const)[name as "magnet.stl" | "Block.stl" | "Body1.stl"]]);
   const pose = useMemo(
     () => kinematics?.forward(joints, project.tool.flangeOffset, activeTcpOffset(project.tool)) ?? { x: 0, y: 0, z: 0, r: 0 },
     [kinematics, joints, project.tool.flangeOffset, project.tool.tcpOffsets, project.tool.mode],
   );
+  const referenceSize = cellBlockSize(project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1), project.tool.mode);
+  function cellObjectLabel(block: CellBlock) {
+    if (block.kind === "puck") return uiLanguage === "zh-Hant" ? "舊版圓件 Ø28×8 mm" : "Legacy puck Ø28×8 mm";
+    const body1 = project.tool.mode === "fork" && effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, block.id) === "body1";
+    const size = body1 ? {x:40,y:40,z:40} : cellBlockSize(block, project.tool.mode);
+    const name = body1 ? (uiLanguage === "zh-Hant" ? "槽積木" : "Grooved block") : size.z === 4 ? (uiLanguage === "zh-Hant" ? "磁吸片" : "Magnetic plate") : (uiLanguage === "zh-Hant" ? "方塊" : "Block");
+    return `${name} ${size.x}×${size.y}×${size.z} mm`;
+  }
   const tcpOffsetX = activeTcpOffset(project.tool).x;
   const tcpOffsetXLabel = `${tcpOffsetX >= 0 ? "+" : ""}${format(tcpOffsetX, 0)} mm`;
   const selectedPose = getPointPose(selectedPoint, kinematics, project);
@@ -416,11 +433,12 @@ export default function App() {
     const motionAction = /\b(?:MovJ|MovL|JointMovJ|RelMovL|mov_j|mov_l|joint_mov_j|rel_mov_l|sync|Sync)\s*\(/i.test(source);
     if (project.tool.mode === "fork" && poweredAction) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "被動叉臂不能使用 DO、Pick 或 Place；請改用滑入 → 抬高 → 放下流程。" : "Fork mode is passive: remove DO(), Pick(), and Place(), then use the slide-under → lift → lower sequence." };
     if (!motionAction && !poweredAction) return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? "這段程式只輸出文字，不需要工具或教點；可直接執行。" : "This program only prints text; no tool or teach points are needed." };
+    if (project.tool.mode === "magnet" && poweredAction && !localToolMeshes.magnet) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "磁吸工具尚未載入。請稍候；如載入失敗，請重新整理或到工具設定匯入模型。" : "The magnetic tool has not loaded. Wait, or refresh/import the model in tool settings if loading failed." };
     if (project.tool.mode === "magnet" && !/\bDO\s*\(\s*1\s*,\s*(?:ON|TRUE|1)\s*\)/i.test(source)) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "磁吸執行前檢查：找不到 DO1 吸附指令；純移動程式仍可執行，但不會預期完成取件。" : "Magnet preflight: no DO1 ON/True/1 attach step was found. Motion-only scripts can still run; add the attach action before expecting a block cycle." };
     if (project.tool.mode === "fork" && forkProfile === "body1" && !recommendation.ready) return { kind: "error" as const, text: uiLanguage === "zh-Hant" ? "Body1 校準未完成：請重新示教槽方向、插入 Z42.5 及承托／釋放 Z45，再執行。" : "Body1 calibration is incomplete: re-teach groove direction, insertion Z42.5 and load/release Z45 before running." };
     if (!recommendation.ready) return { kind: "warning" as const, text: uiLanguage === "zh-Hant" ? "執行前檢查：請先示教標示的 Home、取件或放置點。" : "Setup preflight: teach the highlighted Home, pick, or place points before running." };
     return { kind: "pass" as const, text: uiLanguage === "zh-Hant" ? `${project.tool.mode === "fork" ? "被動叉臂" : "磁吸工具"} 模式符合模擬器檢查。` : `${project.tool.mode === "fork" ? "Passive fork" : "Magnet"} mode matches this program's local simulator checks.` };
-  }, [project.tool.mode, forkProfile, programText, recommendation.ready, uiLanguage]);
+  }, [project.tool.mode, forkProfile, programText, recommendation.ready, uiLanguage, localToolMeshes.magnet]);
 
   useEffect(() => {
     let alive = true;
@@ -703,7 +721,7 @@ export default function App() {
     };
     const location = kind === "pick" ? current.scene.block : current.scene.drop;
     const blockR = current.scene.blocks.find((block) => Math.hypot(block.position.x - current.scene.block.x, block.position.y - current.scene.block.y) <= 1)?.r ?? 0;
-    const contactHeight = current.tool.mode === "magnet" ? 15 : forkProfile === "body1" ? (kind === "pick" ? BODY1_FORK_CONTACT.insertionZ : BODY1_FORK_CONTACT.loadZ) : FORK_SUPPORT_HEIGHT_MM;
+    const contactHeight = current.tool.mode === "magnet" ? cellBlockTopZ(current.scene.blocks.find((block) => Math.hypot(block.position.x - current.scene.block.x, block.position.y - current.scene.block.y) <= 1), "magnet") : forkProfile === "body1" ? (kind === "pick" ? BODY1_FORK_CONTACT.insertionZ : BODY1_FORK_CONTACT.loadZ) : FORK_SUPPORT_HEIGHT_MM;
     const surfaceName = name(preferred[0], kind === "pick" ? "Pick" : "Place");
     const approachName = name(preferred[1], kind === "pick" ? "PickApproach" : "PlaceApproach");
     const existingSurface = current.points.find((point) => point.name === surfaceName);
@@ -961,13 +979,15 @@ export default function App() {
   }
 
   function addCellBlock() {
-    addCellObject("block");
+    addCellObject(projectRef.current.tool.mode === "magnet" ? "magnet" : "block");
   }
 
   function addCellObject(kind: CellObjectKind) {
     replaceProject((current) => {
-      const index = current.scene.blocks.length + 1;
-      const block = { id: `${kind === "puck" ? "puck" : "block"}-${index}`, kind, color: "neutral" as const, source: "pickup" as const, position: { x: 300 + (index % 5) * 45, y: -240 }, z: 0, r: 0 };
+      if (current.scene.blocks.length >= 32) return current;
+      let index = 1;
+      while (current.scene.blocks.some((block) => block.id === `${kind}-${index}`)) index += 1;
+      const block = { id: `${kind}-${index}`, kind, color: "neutral" as const, source: "pickup" as const, position: { x: 300 + (index % 5) * 45, y: -240 }, z: 0, r: 0 };
       setFreeSelectedId(block.id);
       return { ...current, scene: { ...current.scene, blocks: [...current.scene.blocks, block], initialBlocks: [...current.scene.initialBlocks, block] } };
     });
@@ -1166,14 +1186,14 @@ export default function App() {
   const freeModeTopPanel = freeMode ? <section className={`free-mode-panel free-mode-top${showWorkshop ? " free-mode-detailed" : ""}`} aria-label={uiLanguage === "zh-Hant" ? "自由模式工作格" : "Free mode workcell"}>
     <div className="free-mode-heading"><div><strong>{uiLanguage === "zh-Hant" ? "自由模式 · 自訂工作格" : "Free mode · Custom cell"}</strong><span>{uiLanguage === "zh-Hant" ? "加入物件，再點工作台擺放；拖曳工作台可旋轉視角。" : "Add an object, then click the table to place it. Drag the table to orbit."}</span></div><div className="free-object-actions">
       <button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入方塊" : "Add block"}</button>
-      <button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入磁性圓件" : "Add magnet"}</button>
+      <button className="secondary-button outlined-button" onClick={() => addCellObject("magnet")} disabled={busy}><Plus size={14} /> {uiLanguage === "zh-Hant" ? "加入35×35×4 mm 磁吸片" : "Add magnet"}</button>
       {project.scene.blocks.length > 0 && <button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> {uiLanguage === "zh-Hant" ? "重設" : "Reset"}</button>}
       {project.scene.blocks.length > 0 && <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>}
       <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "為工作格寫程式" : "Code for this cell"}<ArrowRight size={16} /></button>
     </div></div>
-    {project.scene.blocks.length > 0 && <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${block.kind === "puck" ? "puck-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">{block.kind === "puck" ? "●" : "■"}</span> {block.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40 mm 方塊" : "40 mm block")} · {block.id}</button>)}</div>}
-    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{selected.kind === "puck" ? (uiLanguage === "zh-Hant" ? "磁性圓件" : "Magnet puck") : (uiLanguage === "zh-Hant" ? "40×40×15 mm 方塊" : "40×40×15 mm block")} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
-    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "工作台目前是空的；先加入方塊或磁性圓件。" : "The table is empty. Add a block or magnet puck to begin.") : (uiLanguage === "zh-Hant" ? "只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Contact follows simulator rules; magnetic force, collisions and physical stability are not modeled."))}</small>
+    {project.scene.blocks.length > 0 && <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${block.kind === "magnet" || block.kind === "puck" ? "puck-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">{block.kind === "puck" ? "●" : "■"}</span> {cellObjectLabel(block)} · {block.id}</button>)}</div>}
+    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{cellObjectLabel(selected)} · {selected.id}</strong><div className="free-selected-fields"><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
+    <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? "磁吸片厚 4 mm，由 20 mm 教學座承托，因此取件頂面為 Z=24 mm。Z 欄位是底座相對桌面的高度。" : "A 4 mm plate sits on a 20 mm teaching stand, so its pickup surface is Z=24 mm. The Z field moves the stand above the table."}</p><small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "工作台目前是空的；先加入方塊或35×35×4 mm 磁吸片。" : "The table is empty. Add a block or magnetic plate to begin.") : (uiLanguage === "zh-Hant" ? "只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Contact follows simulator rules; magnetic force, collisions and physical stability are not modeled."))}</small>
   </section> : null;
 
   return (
@@ -1198,6 +1218,7 @@ export default function App() {
       </header>
 
       {modelError && <div className="model-warning" role="alert" aria-live="assertive"><AlertCircle size={16} /><strong>{ui.modelLoadHeading}</strong><span>{localizeWorkspaceMessage(modelError, uiLanguage)}</span></div>}
+      {missingToolModels.length > 0 && <div className="model-warning" role="alert"><AlertCircle size={16} /><strong>{ui.modelLoadHeading}</strong><span>{uiLanguage === "zh-Hant" ? `未能載入 ${missingToolModels.join("、")}。請重新整理，或到「更多 → 工具與進階設定」匯入模型。已載入的工具仍可使用。` : `Could not load ${missingToolModels.join(", ")}. Refresh or import the model in More → Tool & advanced settings. Loaded tools remain available.`}</span></div>}
 
       <div className={`workspace-grid view-${workbenchView}`}>
         <aside className="left-workspace" aria-label={uiLanguage === "zh-Hant" ? "目前工作" : "Current task"}>
@@ -1209,13 +1230,13 @@ export default function App() {
               <p className="practice-hint">{uiLanguage === "zh-Hant" ? "約 2 分鐘 · 讓程式顯示一句問候文字" : "About 2 minutes · Make your program say hello"}</p>
               <h2>{uiLanguage === "zh-Hant" ? "想試試機械臂？" : "Ready to try the robot?"}</h2>
               <div className="practice-choices">
-                {[["foundation-first-robot-move", "第一次移動", "讓機械臂平滑前往一個教點", "Your first move", "Move smoothly to a taught point"], ["intermediate-passive-fork", "叉臂取放積木", "使用你提供的叉具及 Body1 槽積木", "Fork pick & place", "Use the supplied fork and Body1 block"], ["intermediate-three-layer-tower", "旋轉並堆成三層塔", "先取件，再轉 90°，逐層放好", "Rotate and build a tower", "Pick, rotate 90°, then place three layers"], ["intermediate-black-white-sort", "分類黑白方塊", "用 if / else 分類，再取出方塊", "Sort black and white", "Use if / else to sort and unload"]].map(([id,zh,detail,en,enDetail]) => <button key={id} onClick={() => preparePractice(id)} disabled={busy || !kinematics || (id === "intermediate-passive-fork" && !localToolMeshes.bundledFork)}><span><strong>{uiLanguage === "zh-Hant" ? zh : en}</strong><small>{uiLanguage === "zh-Hant" ? detail : enDetail}</small></span><ArrowRight size={20} /></button>)}
+                {[["intermediate-pick-and-place", "磁吸片取放", "使用磁吸工具取放 35×35×4 mm 工件", "Magnetic pick & place", "Pick and place a 35×35×4 mm plate"], ["foundation-first-robot-move", "第一次移動", "讓機械臂平滑前往一個教點", "Your first move", "Move smoothly to a taught point"], ["intermediate-passive-fork", "叉臂取放積木", "使用你提供的叉具及 Body1 槽積木", "Fork pick & place", "Use the supplied fork and Body1 block"], ["intermediate-three-layer-tower", "旋轉並堆成三層塔", "先取件，再轉 90°，逐層放好", "Rotate and build a tower", "Pick, rotate 90°, then place three layers"], ["intermediate-black-white-sort", "分類黑白方塊", "用 if / else 分類，再取出方塊", "Sort black and white", "Use if / else to sort and unload"]].map(([id,zh,detail,en,enDetail]) => <button key={id} onClick={() => preparePractice(id)} disabled={busy || !kinematics || (id === "intermediate-passive-fork" && !localToolMeshes.bundledFork) || (id === "intermediate-pick-and-place" && !localToolMeshes.magnet)}><span><strong>{uiLanguage === "zh-Hant" ? zh : en}</strong><small>{uiLanguage === "zh-Hant" ? detail : enDetail}</small></span><ArrowRight size={20} /></button>)}
               </div>
               <button className="text-button" onClick={() => { setTrainingLessonId(null); setShowTraining(true); }}>{uiLanguage === "zh-Hant" ? "查看全部課程" : "Browse all lessons"}<ArrowRight size={17} /></button>
             </> : <>
               <button className="practice-back" onClick={() => { setPracticeLessonId(null); setPracticePrepared(false); }} disabled={busy}><ArrowLeft size={17} />{uiLanguage === "zh-Hant" ? "選另一個練習" : "Choose another practice"}</button>
               <h1>{practiceLesson.title[uiLanguage]}</h1>
-              <p className="practice-intro">{practiceIsPrint ? (uiLanguage === "zh-Hant" ? "讓程式顯示一句文字。這個練習不會移動機械臂。" : "Display a message. This practice does not move the robot.") : practiceLesson.outcome[uiLanguage]}</p>
+              <p className="practice-intro">{practiceIsPrint ? (uiLanguage === "zh-Hant" ? "讓程式顯示一句文字。這個練習不會移動機械臂。" : "Display a message. This practice does not move the robot.") : practiceLessonId === "intermediate-passive-fork" && selectedForkProfile === "body1" ? (uiLanguage === "zh-Hant" ? "使用 40×40×40 mm 槽積木：滑入槽口、抬升、放下及水平退出，全程毋須 DO。" : "Use the 40×40×40 mm slotted block: slide into its slots, lift, lower, and withdraw horizontally. No DO is needed.") : practiceLesson.outcome[uiLanguage]}</p>
               <ol className="practice-steps">
                 <li className={practicePrepared ? "step-done" : "step-current"}><span>{practicePrepared ? <Check size={18} /> : "1"}</span><div><strong>{uiLanguage === "zh-Hant" ? "準備練習" : "Prepare"}</strong><p>{practicePrepared ? (uiLanguage === "zh-Hant" ? (practiceIsPrint ? "三行程式已準備好。" : "工具、工作格及教點已準備好。") : "The example is ready.") : (uiLanguage === "zh-Hant" ? "先建立這課的範例工作格。" : "Prepare the example for this lesson.")}</p>{!practicePrepared && <button className="primary-action" onClick={() => preparePractice(practiceLesson.id)} disabled={busy}>{uiLanguage === "zh-Hant" ? "準備這個練習" : "Prepare this practice"}</button>}</div></li>
                 <li className={practicePrepared && status !== "complete" ? "step-current" : status === "complete" && practicePrepared ? "step-done" : ""}><span>2</span><div><strong>{uiLanguage === "zh-Hant" ? "執行並觀察" : "Run and watch"}</strong><p>{uiLanguage === "zh-Hant" ? "按工作台上方的「執行練習」。結果會顯示在下方。" : "Press Run practice above the worktable. See the result below it."}</p>{practicePrepared && <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "先看看程式" : "Read the code first"}<ArrowRight size={16} /></button>}</div></li>
@@ -1321,7 +1342,7 @@ export default function App() {
             {selectedTab === "points" ? <div className="motion-content teach-content" id="teach-motion-panel" role="tabpanel" aria-labelledby="teach-motion-tab">
               <div className="teach-help"><span className="teach-icon"><Target size={18} /></span><div><strong>{uiLanguage === "zh-Hant" ? "從目前模擬姿勢示教" : "Teach from the current simulated pose"}</strong><span>{uiLanguage === "zh-Hant" ? <>示教點會以名稱儲存目標。示教目前位置會保存 TCP 座標；儲存關節點會保存 J1–J4 角度。程式可使用 <code>PickApproach</code>，毋須直接輸入數字。</> : <>A teach point saves a target by name. Teach current pose stores TCP coordinates; Save joint point stores J1–J4 angles. Your program can use <code>PickApproach</code> instead of raw numbers.</>}</span></div></div>
               <div className="teach-controls"><button className="secondary-button" onClick={addCartesianPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教目前位置" : "Teach current pose"}</button><button className="secondary-button outlined-button" onClick={addJointPoint} disabled={busy || project.points.length >= 100}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "儲存關節點" : "Save joint point"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("pick")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教拾取點組" : "Teach pick pair"}</button><button className="secondary-button outlined-button" onClick={() => addReferencePair("place")} disabled={busy || project.points.length > 98}><Plus size={15} /> {uiLanguage === "zh-Hant" ? "示教放置點組" : "Teach place pair"}</button>{selectedPoint && <button className="secondary-button outlined-button" onClick={moveToSelected} disabled={busy}><Crosshair size={15} /> {uiLanguage === "zh-Hant" ? "前往所選" : "Go to selected"}</button>}</div>
-              <div className="reference-note"><span className="block-swatch" /><span className="block-size">{uiLanguage === "zh-Hant" ? "方塊" : "Block"} {format(BLOCK_SIZE_MM.x, 0)} × {format(BLOCK_SIZE_MM.y, 0)} × {format(project.tool.mode === "fork" && forkProfile === "body1" ? 40 : BLOCK_SIZE_MM.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> {uiLanguage === "zh-Hant" ? "工件局部 +X" : "block-local +X"}</span><span className="note-divider" /><span className="reference-tool-guidance">{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? `TCP 從法蘭沿 X ${tcpOffsetXLabel} · 磁吸接觸方塊頂面 · DO1 只在模擬器生效` : `TCP 從法蘭沿 X ${tcpOffsetXLabel} · ${forkProfile === "body1" ? "Body1 插入 Z42.5／承托 Z45" : `叉臂支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · 不使用 DO`) : (project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · ${forkProfile === "body1" ? "Body1 insertion Z42.5 / support Z45" : `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · no DO`)}</span></div>
+              <div className="reference-note"><span className="block-swatch" /><span className="block-size">{uiLanguage === "zh-Hant" ? "方塊" : "Block"} {format(referenceSize.x, 0)} × {format(referenceSize.y, 0)} × {format(project.tool.mode === "fork" && forkProfile === "body1" ? 40 : referenceSize.z, 0)} mm</span><span className="block-direction-note"><b aria-hidden="true">→</b> {uiLanguage === "zh-Hant" ? "工件局部 +X" : "block-local +X"}</span><span className="note-divider" /><span className="reference-tool-guidance">{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? `TCP 從法蘭沿 X ${tcpOffsetXLabel} · 磁吸接觸方塊頂面 · DO1 只在模擬器生效` : `TCP 從法蘭沿 X ${tcpOffsetXLabel} · ${forkProfile === "body1" ? "Body1 插入 Z42.5／承托 Z45" : `叉臂支撐 Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · 不使用 DO`) : (project.tool.mode === "magnet" ? `TCP X ${tcpOffsetXLabel} from flange · magnet contact is on top · DO1 is simulator-only` : `TCP X ${tcpOffsetXLabel} from flange · ${forkProfile === "body1" ? "Body1 insertion Z42.5 / support Z45" : `passive fork support Z=${FORK_SUPPORT_HEIGHT_MM} mm`} · no DO`)}</span></div>
             </div> : <div className="motion-content jog-content" id="jog-motion-panel" role="tabpanel" aria-labelledby="jog-motion-tab">
               <div className="jog-group cartesian-jog">
                 <div className="jog-group-title"><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "笛卡兒座標" : "CARTESIAN"} <label>{uiLanguage === "zh-Hant" ? "步距" : "step"} <input aria-label={ui.cartesianStep} type="number" min="1" max="100" value={jogStep} disabled={busy} onChange={(event) => setJogStep(Math.max(1, Math.min(100, Number(event.target.value) || 1)))} /> mm</label></div>
@@ -1376,7 +1397,7 @@ export default function App() {
                 </div>
                 <div className="tool-setting-group tool-mesh-import">
                   <strong className="tool-setting-group-title">{ui.toolMeshTitle}</strong>
-                  <p className="tool-mode-note">{ui.toolMeshDescription}</p>
+                  <p className="tool-mode-note">{ui.toolMeshDescription}</p><ul className="loaded-model-list">{(["magnet", "fork", "block"] as const).map((kind) => <li key={kind}>{uiLanguage === "zh-Hant" ? ({magnet: "磁吸工具", fork: "無動力叉臂", block: "槽積木"})[kind] : ({magnet: "Magnetic tool", fork: "Passive fork", block: "Grooved block"})[kind]} · {localToolMeshes[kind] ? `${localToolMeshes.names?.[kind] ?? "STL"} ✓` : (uiLanguage === "zh-Hant" ? "尚未載入" : "Not loaded")}</li>)}</ul>
                   <div className="tool-import-actions">
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "magnet"; toolMeshInputRef.current?.click(); }} disabled={busy}>{ui.importMagnet}</button>
                     <button className="secondary-button outlined-button" type="button" onClick={() => { toolMeshKindRef.current = "fork"; toolMeshInputRef.current?.click(); }} disabled={busy}>{ui.importFork}</button>
@@ -1397,7 +1418,7 @@ export default function App() {
                   <small className="tool-mode-note">{uiLanguage === "zh-Hant" ? "內置模型毋須手動匯入；自行匯入的 STL 只保留在目前瀏覽器工作階段。" : "Bundled models need no manual import; custom STL files stay in the current browser session."}</small>
                   <input ref={toolMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importToolMesh(toolMeshKindRef.current, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
                   <input ref={blockMeshInputRef} type="file" accept=".stl,model/stl" hidden onChange={(event) => { void importForkBlockMesh(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />
-                  <small className="tool-mode-note">{toolMeshMessage}</small>
+                  <small className="tool-mode-note" role="status">{toolMeshMessage}</small>
                 </div>
                 <details className="advanced-tool-settings"><summary>{ui.advanced}<span>{ui.calibration}</span></summary>
                 {(["flangeOffset"] as const).map((path) => <div className="tool-setting-group" key={path}>
@@ -1429,10 +1450,10 @@ export default function App() {
                   <strong className="tool-setting-group-title">{ui.multiBlockCell}</strong>
                   <p>{freeMode ? "自由工作格" : "導引工作格"} · {project.scene.blocks.length} 件物件 · 一次只可邏輯接附一件</p>
                   <p>{ui.feederOrder}：{project.scene.feederOrder.map((id) => project.scene.blocks.find((block) => block.id === id)?.color ?? id).join(" → ")}</p>
-                  {freeMode ? <div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入 40×40×15 方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("puck")} disabled={busy}><Plus size={14} /> 加入磁性圓件</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設自由工作格</button></div> : <button className="secondary-button outlined-button" onClick={addCellBlock} disabled={busy}><Plus size={14} /> {ui.supplyBlock}</button>}
+                  {freeMode ? <div className="free-object-actions"><button className="secondary-button outlined-button" onClick={() => addCellObject("block")} disabled={busy}><Plus size={14} /> 加入 40×40×15 方塊</button><button className="secondary-button outlined-button" onClick={() => addCellObject("magnet")} disabled={busy}><Plus size={14} /> 加入35×35×4 mm 磁吸片</button><button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> 重設自由工作格</button></div> : <button className="secondary-button outlined-button" onClick={addCellBlock} disabled={busy}><Plus size={14} /> {ui.supplyBlock}</button>}
                   <div className="cell-block-list">{project.scene.blocks.map((block) => <div key={block.id} className="cell-block-editor">
-                    <span className={`cell-block-chip cell-block-${block.color}`} title={`${block.id} · ${block.source}`}>{block.kind === "puck" ? "磁性圓件" : "方塊"} · {block.id}</span>
-                    {freeMode && <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 工件類型` : `${block.id} object type`} value={block.kind ?? "block"} disabled={busy} onChange={(event) => updateCellBlock(block.id, { kind: event.currentTarget.value as CellObjectKind })}><option value="block">方塊</option><option value="puck">磁性圓件</option></select>}
+                    <span className={`cell-block-chip cell-block-${block.color}`} title={`${block.id} · ${block.source}`}>{cellObjectLabel(block)} · {block.id}</span>
+                    {freeMode && <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 工件類型` : `${block.id} object type`} value={block.kind ?? "block"} disabled={busy} onChange={(event) => updateCellBlock(block.id, { kind: event.currentTarget.value as CellObjectKind })}><option value="block">方塊</option><option value="magnet">35×35×4 mm 磁吸片</option><option value="puck">舊版圓件 Ø28×8 mm</option></select>}
                     <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 顏色` : `${block.id} color`} value={block.color} disabled={busy} onChange={(event) => updateCellBlock(block.id, { color: event.currentTarget.value as BlockColor })}><option value="neutral">{uiLanguage === "zh-Hant" ? "中性色" : "neutral"}</option><option value="black">{uiLanguage === "zh-Hant" ? "黑色" : "black"}</option><option value="white">{uiLanguage === "zh-Hant" ? "白色" : "white"}</option></select>
                     <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 物件狀態` : `${block.id} source`} value={block.source} disabled={busy} onChange={(event) => updateCellBlock(block.id, { source: event.currentTarget.value as BlockSource })}><option value="pickup">{uiLanguage === "zh-Hant" ? "拾取區" : "pickup"}</option><option value="feeder">{uiLanguage === "zh-Hant" ? "供料區" : "feeder"}</option><option value="output">{uiLanguage === "zh-Hant" ? "輸出區" : "output"}</option><option value="unloaded">{uiLanguage === "zh-Hant" ? "已卸下" : "unloaded"}</option></select>
                     <NumericField label="X" value={block.position.x} suffix="mm" step={1} min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(block.id, { x: value })} />

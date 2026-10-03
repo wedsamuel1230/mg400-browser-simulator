@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Crosshair, LoaderCircle } from "lucide-react";
-import type { JointAngles, Pose, ProjectDocument } from "./domain";
+import { cellBlockSize, type JointAngles, type Pose, type ProjectDocument } from "./domain";
 import { MODEL_PALETTE, ROBOT_COLOR_GROUPS } from "./sim/modelPalette";
 import { SimulatorScene, type LocalToolMeshes, type SceneStatus } from "./sim/SimulatorScene";
 import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
@@ -25,7 +25,9 @@ type Props = {
 };
 
 export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
-  const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1";
+  const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1" && project.scene.blocks.some((block) => !block.kind || block.kind === "block");
+  const size = cellBlockSize(project.scene.blocks[0], project.tool.mode);
+  const workpieceName = body1 ? (uiLanguage === "zh-Hant" ? "槽積木 (Body1) · 40 × 40 × 40 mm" : "Grooved block (Body1) · 40 × 40 × 40 mm") : `${size.x} × ${size.y} × ${size.z} mm ${uiLanguage === "zh-Hant" ? (size.z === 4 ? "磁吸片 · 座高 20 mm，取件 Z24" : "工件") : (size.z === 4 ? "magnetic plate · 20 mm stand, contact Z24" : "workpiece")}`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
   const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes });
@@ -116,15 +118,15 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
             <span className="model-swatch-group" aria-hidden="true">{group.colors.map((color) => <span key={color} className="model-swatch" style={{ backgroundColor: color }} />)}</span>
             {uiLanguage === "zh-Hant" ? ({ Base: "底座", Shoulder: "肩部", "Arms and linkage": "手臂及連桿", "Wrist and flange": "腕部及法蘭" }[group.label] ?? group.label) : group.label}
           </li>)}
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>{uiLanguage === "zh-Hant" ? "目前工具：" : "Active tool: "}{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸" : "Magnet") : (uiLanguage === "zh-Hant" ? "叉" : "Fork")}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE[project.tool.mode] }} /></span>{uiLanguage === "zh-Hant" ? "目前工具：" : "Active tool: "}{project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸工具" : "Magnetic pickup tool") : (uiLanguage === "zh-Hant" ? "無動力叉臂" : "Passive fork")}</li>
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.tcp }} /></span>{uiLanguage === "zh-Hant" ? "TCP 參考" : "TCP reference"}</li>
           <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.target }} /><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.targetCenter }} /></span>{uiLanguage === "zh-Hant" ? "所選示教點" : "Selected point"}</li>
-          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>{body1 ? "40 × 40 × 40 mm Body1" : "40 × 40 × 15 mm"} {uiLanguage === "zh-Hant" ? "工件" : "workpiece"}</li>
+          <li><span className="model-swatch-group" aria-hidden="true"><span className="model-swatch" style={{ backgroundColor: MODEL_PALETTE.block }} /></span>{workpieceName}</li>
         </ul>
         <p>{uiLanguage === "zh-Hant" ? "訓練色彩會覆蓋供應商幾何以便示教，不代表出廠塗裝。" : "Training palette overlays the vendor geometry for teaching; it does not represent factory paint."}</p>
       </details>
       <div className="viewport-hud viewport-hud-bottom">
-        <div className="scene-caption"><Crosshair size={15} /><span>{uiLanguage === "zh-Hant" ? (body1 ? "參考工作格 · 40 × 40 × 40 mm Body1 槽積木" : "參考工作格 · 40 × 40 × 15 mm 工件") : (body1 ? "Reference cell · 40 × 40 × 40 mm Body1 groove block" : "Reference cell · 40 × 40 × 15 mm workpiece")}</span></div>
+        <div className="scene-caption"><Crosshair size={15} /><span>{project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "空工作台 · 可自由加入工件" : "Empty table · add a workpiece") : workpieceName}</span></div>
         <span className="scene-controls">{uiLanguage === "zh-Hant" ? "拖曳旋轉 · 滾動縮放" : "Drag to orbit · scroll to zoom"}</span>
       </div>
       {status.kind !== "ready" && (

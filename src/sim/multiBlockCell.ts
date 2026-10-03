@@ -49,7 +49,7 @@ export function validateCellBlocks(blocks: CellBlock[], feederOrder: string[]): 
   for (const block of blocks) {
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(block.id) || ids.has(block.id)) throw new Error("Cell block IDs must be unique lowercase identifiers.");
     ids.add(block.id);
-    if (!["block", "puck", undefined].includes(block.kind) || !["neutral", "black", "white"].includes(block.color) || !["pickup", "feeder", "output", "unloaded"].includes(block.source)) throw new Error("Cell object kind, color or source is invalid.");
+    if (!["block", "magnet", "puck", undefined].includes(block.kind) || !["neutral", "black", "white"].includes(block.color) || !["pickup", "feeder", "output", "unloaded"].includes(block.source)) throw new Error("Cell object kind, color or source is invalid.");
     if (block.stackLevel !== undefined && (!Number.isInteger(block.stackLevel) || block.stackLevel < 0 || block.stackLevel > 2)) throw new Error("Cell block stack levels must be integer tower layers 0, 1, or 2.");
     if (![block.position.x, block.position.y, block.r, block.z ?? 0].every(Number.isFinite) || Math.abs(block.position.x) > 500 || Math.abs(block.position.y) > 500 || (block.z ?? 0) < 0 || (block.z ?? 0) > 300 || Math.abs(block.r) > 360) throw new Error("Cell object position is outside the supported reachable range.");
   }

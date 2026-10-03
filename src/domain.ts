@@ -1,6 +1,8 @@
 export const PROJECT_FORMAT = "mg400-training-project";
-export const PROJECT_SCHEMA_VERSION = 9;
+export const PROJECT_SCHEMA_VERSION = 10;
 export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
+export const MAGNET_SIZE_MM = { x: 35, y: 35, z: 4 } as const;
+export const MAGNET_SUPPORT_HEIGHT_MM = 20;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
@@ -8,11 +10,11 @@ export const BODY1_FORK_CONTACT = { insertionZ: 42.5, loadZ: 45, bottomOffset: 2
 export type ToolMode = "magnet" | "fork";
 export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
-export type CellObjectKind = "block" | "puck";
+export type CellObjectKind = "block" | "magnet" | "puck"; // puck is a legacy round workpiece.
 
 export type CellBlock = {
   id: string;
-  /** Free Mode may add a distinct magnet-compatible puck; guided blocks omit this and default to block. */
+  /** Omitted kind uses the active tool: magnetic plate or fork reference block. */
   kind?: CellObjectKind;
   color: BlockColor;
   source: BlockSource;
@@ -24,9 +26,18 @@ export type CellBlock = {
   stackLevel?: number;
 };
 
-// Calibration is local to the imported first non-puck cell workpiece.
+export function cellBlockSize(block: CellBlock | undefined, mode: ToolMode) {
+  const kind = block?.kind ?? mode;
+  return kind === "magnet" ? MAGNET_SIZE_MM : kind === "puck" ? { x: 28, y: 28, z: 8 } : BLOCK_SIZE_MM;
+}
+
+export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode) {
+  return (block?.z ?? 0) + (cellBlockSize(block, mode).z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + cellBlockSize(block, mode).z * ((block?.stackLevel ?? 0) + 1);
+}
+
+// Calibration is local to the imported first block workpiece.
 export function effectiveForkContactProfile(profile: ForkContactProfile, blocks: CellBlock[], blockId?: string): ForkContactProfile {
-  return profile === "body1" && blockId !== undefined && blockId === blocks.find((block) => block.kind !== "puck")?.id ? "body1" : "reference";
+  return profile === "body1" && blockId !== undefined && blockId === blocks.find((block) => !block.kind || block.kind === "block")?.id ? "body1" : "reference";
 }
 export function forkProfileAfterImport(profile: ForkContactProfile, kind: "magnet" | "fork" | "block"): ForkContactProfile {
   return kind === "block" || kind === "fork" ? "reference" : profile;

@@ -26,8 +26,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
-import { activeTcpOffset, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
-import { BLOCK_SIZE_MM } from "../domain";
+import { activeTcpOffset, cellBlockSize, MAGNET_SIZE_MM, MAGNET_SUPPORT_HEIGHT_MM, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
 import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE } from "./modelPalette";
 import { createMagnetPuck, createReferenceBlock } from "./blockMarker";
@@ -43,7 +42,7 @@ export type SceneState = {
 };
 
 export type SceneStatus = { kind: "loading" | "ready" | "error"; message?: string; progress?: number };
-export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer; blockProfile?: ForkContactProfile; bundledFork?: boolean };
+export type LocalToolMeshes = { magnet?: ArrayBuffer; fork?: ArrayBuffer; block?: ArrayBuffer; blockProfile?: ForkContactProfile; bundledFork?: boolean; bundledMagnet?: boolean; names?: Partial<Record<"magnet" | "fork" | "block", string>> };
 
 export function viewportVerticalFov(baseFov: number, aspect: number): number {
   if (!Number.isFinite(aspect) || aspect >= 1 || aspect <= 0) return baseFov;
@@ -66,7 +65,9 @@ export class SimulatorScene {
   private readonly dropStand = new Group();
   private readonly block: Mesh<BufferGeometry, MeshStandardMaterial> = createReferenceBlock();
   private readonly proceduralBlockGeometry = this.block.geometry.clone();
+  private readonly magneticBlockGeometry = new BoxGeometry(MAGNET_SIZE_MM.x, MAGNET_SIZE_MM.y, MAGNET_SIZE_MM.z);
   private localForkBlockGeometry?: BufferGeometry;
+  private readonly magnetStands = new Map<string, Mesh>();
   private readonly additionalBlocks = new Map<string, Mesh>();
   private appliedLocalMeshes?: LocalToolMeshes;
   private readonly target = new Group();
@@ -298,6 +299,8 @@ export class SimulatorScene {
     this.forkMesh = new Mesh(forkGeometry, new MeshStandardMaterial({ color: MODEL_PALETTE.fork, roughness: 0.28, metalness: 0.78 }));
     this.magnetMesh.castShadow = this.magnetMesh.receiveShadow = true;
     this.forkMesh.castShadow = this.forkMesh.receiveShadow = true;
+    this.magnetMesh.name = "Magnetic pickup tool / 磁吸工具";
+    this.forkMesh.name = "Passive fork / 無動力叉臂";
     this.toolGroup.add(this.magnetMesh, this.forkMesh);
   }
 
@@ -309,6 +312,7 @@ export class SimulatorScene {
     // on the simulator's support datum. Source coordinates are millimetres.
     geometry.translate(-(bounds.min.x + bounds.max.x) / 2, -(bounds.min.y + bounds.max.y) / 2, -bounds.min.z);
     geometry.computeVertexNormals();
+    this.localForkBlockGeometry?.dispose();
     this.localForkBlockGeometry = geometry;
   }
 
@@ -353,21 +357,22 @@ export class SimulatorScene {
 
   setLocalToolMeshes(localMeshes: LocalToolMeshes) {
     if (this.appliedLocalMeshes === localMeshes) return;
+    const previousMeshes = this.appliedLocalMeshes;
     this.appliedLocalMeshes = localMeshes;
     const loader = new STLLoader();
-    const replacements: Array<[ArrayBuffer | undefined, Mesh | undefined]> = [
-      [localMeshes.magnet, this.magnetMesh],
-      [localMeshes.fork, this.forkMesh],
+    const replacements: Array<[ArrayBuffer | undefined, Mesh | undefined, ArrayBuffer | undefined]> = [
+      [localMeshes.magnet, this.magnetMesh, previousMeshes?.magnet],
+      [localMeshes.fork, this.forkMesh, previousMeshes?.fork],
     ];
-    replacements.forEach(([bytes, mesh]) => {
-      if (!bytes || !mesh) return;
+    replacements.forEach(([bytes, mesh, previousBytes]) => {
+      if (!bytes || !mesh || bytes === previousBytes) return;
       const geometry = loader.parse(bytes);
       prepareFlangeMountedToolGeometry(geometry);
       const previous = mesh.geometry;
       mesh.geometry = geometry;
       previous.dispose();
     });
-    if (localMeshes.block) {
+    if (localMeshes.block && localMeshes.block !== previousMeshes?.block) {
       const geometry = loader.parse(localMeshes.block);
       this.prepareLocalBlock(geometry);
       this.updateBlockParent();
@@ -397,27 +402,56 @@ export class SimulatorScene {
     const state = this.state;
     if (!state) return;
     const isFork = state.project.tool.mode === "fork";
-    const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
-    this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : this.proceduralBlockGeometry;
-    this.block.name = useLocalForkBlock ? "Body1 / imported fork-task workpiece" : "neutral 40 x 40 x 15 mm reference block";
-    this.forkFixtures.visible = isFork;
     const cellBlocks = state.project.scene.blocks ?? [];
-    const baseBlock = cellBlocks.find((block) => block.kind !== "puck");
+    const baseBlock = cellBlocks.find((block) => !block.kind || block.kind === "block");
+    const baseSize = cellBlockSize(baseBlock, state.project.tool.mode);
+    const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
+    this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : baseSize.z === 4 ? this.magneticBlockGeometry : this.proceduralBlockGeometry;
+    this.block.name = useLocalForkBlock ? "Grooved fork block / 槽積木 (Body1)" : `${baseSize.x} x ${baseSize.y} x ${baseSize.z} mm workpiece`;
+    this.block.material.color.set(baseBlock?.color === "black" ? "#202629" : baseBlock?.color === "white" ? "#eef4ef" : MODEL_PALETTE.block);
+    for (const marker of this.block.children) {
+      if (marker.name.includes("top")) marker.position.z = useLocalForkBlock ? 40.25 : baseSize.z / 2 + 0.25;
+      else { marker.position.y = Math.sign(marker.position.y) * (baseSize.y / 2 + 0.25); marker.scale.y = Math.min(1, baseSize.z / 12); }
+    }
+    this.forkFixtures.visible = isFork;
+
     this.block.visible = Boolean(baseBlock);
+    for (const [id, stand] of this.magnetStands) stand.visible = cellBlocks.some((block) => block.id === id && cellBlockSize(block, state.project.tool.mode).z === 4);
+    for (const block of cellBlocks.filter((block) => cellBlockSize(block, state.project.tool.mode).z === 4)) {
+      let stand = this.magnetStands.get(block.id);
+      if (!stand) {
+        stand = new Mesh(new BoxGeometry(38, 38, MAGNET_SUPPORT_HEIGHT_MM), new MeshStandardMaterial({color: "#71868d", roughness: 0.6}));
+        stand.name = "20 mm magnetic teaching stand / 磁吸片教學座";
+        this.magnetStands.set(block.id, stand);
+        this.blockGroup.add(stand);
+      }
+      stand.position.set(block.position.x, block.position.y, (block.z ?? 0) + MAGNET_SUPPORT_HEIGHT_MM / 2);
+      stand.rotation.z = rad(block.r);
+      stand.visible = true;
+    }
     for (const block of cellBlocks.filter((block) => block.id !== baseBlock?.id)) {
       let mesh = this.additionalBlocks.get(block.id);
+      const kind = block.kind ?? state.project.tool.mode;
+      const size = cellBlockSize(block, state.project.tool.mode);
+      if (mesh && mesh.userData.kind !== kind) {
+        mesh.removeFromParent();
+        mesh.traverse((object) => { if (object instanceof Mesh) { object.geometry.dispose(); object.material.dispose(); } });
+        mesh = undefined;
+      }
       if (!mesh) {
-        mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color);
+        mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color, size);
+        mesh.userData.kind = kind;
         mesh.userData.cellBlockId = block.id;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.additionalBlocks.set(block.id, mesh);
         this.blockGroup.add(mesh);
       }
-      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0) + (block.stackLevel ?? 0) * BLOCK_SIZE_MM.z + (block.kind === "puck" ? 4 : BLOCK_SIZE_MM.z / 2));
+      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : size.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + (block.stackLevel ?? 0) * size.z + size.z / 2);
       mesh.rotation.z = rad(block.r);
       if (!(state.attached && state.attachedCellBlockId === block.id) && mesh.parent !== this.blockGroup) this.blockGroup.add(mesh);
-      mesh.visible = !state.attached || state.attachedCellBlockId === block.id;
+      mesh.visible = true;
+      (mesh as Mesh<BufferGeometry, MeshStandardMaterial>).material.color.set(block.color === "black" ? "#202629" : block.color === "white" ? "#eef4ef" : MODEL_PALETTE.block);
     }
     for (const [id, mesh] of this.additionalBlocks) {
       if (!cellBlocks.some((block) => block.id === id)) mesh.visible = false;
@@ -429,6 +463,10 @@ export class SimulatorScene {
     const attachedMesh = state.attachedCellBlockId
       ? (baseBlock?.id === state.attachedCellBlockId ? this.block : this.additionalBlocks.get(state.attachedCellBlockId) ?? this.block)
       : this.block;
+    if (baseBlock && attachedMesh !== this.block) {
+      this.block.position.set(baseBlock.position.x, baseBlock.position.y, (baseBlock.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : baseSize.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
+      this.block.rotation.z = rad(baseBlock.r);
+    }
     if (state.attached) {
       if (attachedMesh !== this.block && this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       if (attachedMesh.parent !== this.toolGroup) {
@@ -437,15 +475,16 @@ export class SimulatorScene {
       }
       const offset = activeTcpOffset(state.project.tool);
       const localStl = isFork && attachedMesh === this.block && Boolean(this.localForkBlockGeometry);
-      const centerDelta = localStl ? (effectiveForkContactProfile(this.appliedLocalMeshes?.blockProfile ?? "reference", cellBlocks, state.attachedCellBlockId ?? baseBlock?.id) === "body1" ? -BODY1_FORK_CONTACT.bottomOffset : 0) : (isFork ? BLOCK_SIZE_MM.z / 2 : -BLOCK_SIZE_MM.z / 2);
+      const carriedSize = cellBlockSize(cellBlocks.find((block) => block.id === state.attachedCellBlockId), state.project.tool.mode);
+      const centerDelta = localStl ? (effectiveForkContactProfile(this.appliedLocalMeshes?.blockProfile ?? "reference", cellBlocks, state.attachedCellBlockId ?? baseBlock?.id) === "body1" ? -BODY1_FORK_CONTACT.bottomOffset : 0) : (isFork ? carriedSize.z / 2 : -carriedSize.z / 2);
       attachedMesh.position.set(offset.x, offset.y, offset.z + centerDelta);
       if (!isFork) attachedMesh.rotation.set(0, 0, 0);
       if (attachedMesh !== this.block && baseBlock) this.block.visible = true;
     } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       const position = baseBlock.position ?? state.blockPosition;
-      const supportHeight = isFork ? FORK_SUPPORT_HEIGHT_MM : 0;
-      this.block.position.set(position.x, position.y, supportHeight + (baseBlock.stackLevel ?? 0) * BLOCK_SIZE_MM.z + (useLocalForkBlock ? 0 : BLOCK_SIZE_MM.z / 2));
+      const supportHeight = isFork ? FORK_SUPPORT_HEIGHT_MM : baseSize.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0;
+      this.block.position.set(position.x, position.y, (baseBlock.z ?? 0) + supportHeight + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     } else {
       this.block.visible = false;
@@ -508,6 +547,7 @@ export class SimulatorScene {
     });
     if (this.block.geometry !== this.proceduralBlockGeometry) this.proceduralBlockGeometry.dispose();
     if (this.localForkBlockGeometry && this.block.geometry !== this.localForkBlockGeometry) this.localForkBlockGeometry.dispose();
+    if (this.block.geometry !== this.magneticBlockGeometry) this.magneticBlockGeometry.dispose();
     this.renderer.dispose();
   }
 }

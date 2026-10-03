@@ -109,6 +109,11 @@ export function validateProject(input: unknown): ProjectDocument {
   if (value.schemaVersion === 6) value = migrateV6Project(value);
   if (value.schemaVersion === 7) value = migrateV7Project(value);
   if (value.schemaVersion === 8) value = migrateV8Project(value);
+  if (value.schemaVersion === 9 && isRecord(value.scene)) {
+    const scene = value.scene;
+    const preserveKinds = (blocks: unknown) => Array.isArray(blocks) ? blocks.map((block) => isRecord(block) && block.kind === undefined ? { ...block, kind: "block" } : block) : blocks;
+    value = { ...value, schemaVersion: 10, scene: { ...scene, blocks: preserveKinds(scene.blocks), initialBlocks: preserveKinds(scene.initialBlocks) } };
+  }
   if (value.schemaVersion !== PROJECT_SCHEMA_VERSION) {
     throw new Error("Unsupported project schema version: " + String(value.schemaVersion) + ".");
   }
@@ -191,7 +196,7 @@ function migrateV8Project(value: Record<string, unknown>): Record<string, unknow
   blocks[0].position = { ...block };
   return {
     ...value,
-    schemaVersion: PROJECT_SCHEMA_VERSION,
+    schemaVersion: 9,
     scene: {
       ...scene,
       blocks,

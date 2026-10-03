@@ -33,3 +33,12 @@ it("ships the real Body1 and flange-mounted fork as valid default assets", () =>
   expect(fork.boundingBox!.min.z).toBeCloseTo(-5, 4);
   body.dispose(); fork.dispose();
 });
+
+it("ships the supplied magnetic pickup tool underneath the flange", () => {
+  const bytes = readFileSync("public/models/tools/magnet.stl");
+  const geometry = prepareFlangeMountedToolGeometry(new STLLoader().parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
+  expect(geometry.attributes.position.count).toBe(13836);
+  expect(geometry.boundingBox!.max.z).toBeCloseTo(0, 4);
+  expect(geometry.boundingBox!.min.z).toBeCloseTo(-5, 4);
+  geometry.dispose();
+});
