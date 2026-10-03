@@ -1633,7 +1633,7 @@ export default function App() {
             <button type="button" className="small-icon-button" onClick={() => setCoachOpen(false)} aria-label={uiLanguage === "zh-Hant" ? "關閉 AI 程式教練" : "Close AI coach"} title={uiLanguage === "zh-Hant" ? "關閉 AI 程式教練" : "Close AI coach"}>×</button>
           </div>
           <div className="coach-dock-content">
-            <CodeAssistant uiLanguage={uiLanguage}
+            <CodeAssistant uiLanguage={uiLanguage} onUiLanguageChange={setUiLanguage}
               code={programText}
               savedPoints={project.points}
               language={project.programmingLanguage}

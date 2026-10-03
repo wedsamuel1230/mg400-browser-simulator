@@ -18,6 +18,7 @@ type VerificationSummary = { title?: string; checks: VerificationCheck[]; findin
 type CoachMessage = { role: "user" | "assistant"; content: string; includedProjectContext: boolean; language: ProgramLanguage; toolMode: ToolMode; programVerification?: VerificationSummary; verification?: VerificationSummary };
 type CodeAssistantProps = {
   uiLanguage?: CoachLanguage;
+  onUiLanguageChange?: (language: CoachLanguage) => void;
   code: string;
   savedPoints: TeachPoint[];
   language: ProgramLanguage;
@@ -305,7 +306,7 @@ function renderCoachReply(content: string) {
     : <p className="ai-reply-text" key={index}>{block.value}</p>);
 }
 
-export function CodeAssistant({ uiLanguage = "zh-Hant", code, savedPoints, language, toolMode, setupReady, setupChecks, recentRunLog, hasCurrentRun, onOpenControlFlowLesson }: CodeAssistantProps) {
+export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code, savedPoints, language, toolMode, setupReady, setupChecks, recentRunLog, hasCurrentRun, onOpenControlFlowLesson }: CodeAssistantProps) {
   const [apiKey, setApiKey] = useState("");
   const [endpoint, setEndpoint] = useState(DEFAULT_CHAT_COMPLETIONS_ENDPOINT);
   const [question, setQuestion] = useState("");
@@ -443,6 +444,7 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", code, savedPoints, langu
       <div className="ai-coach-heading">
         <div><Sparkles size={14} /><strong>AI coding coach · read-only</strong><span>OpenAI-compatible API</span></div>
         <div className="ai-coach-header-actions">
+          {onUiLanguageChange && <button type="button" className="ai-language-toggle" onClick={() => onUiLanguageChange(uiLanguage === "zh-Hant" ? "en" : "zh-Hant")} aria-label={uiLanguage === "zh-Hant" ? "Switch to English" : "切換至繁體中文"} title={uiLanguage === "zh-Hant" ? "Switch to English" : "切換至繁體中文"}>{uiLanguage === "zh-Hant" ? "EN" : "繁中"}</button>}
           {messages.length > 0 && <button type="button" className="ai-clear-chat" onClick={() => { setMessages([]); setQuestion(""); setError(""); }} disabled={loading} aria-label="Clear coach conversation">Clear conversation</button>}
         </div>
       </div>

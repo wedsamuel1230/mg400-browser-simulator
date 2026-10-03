@@ -53,6 +53,18 @@ function stubSyntaxWorker(
 }
 
 describe("AI coding coach", () => {
+  it("lets learners switch the whole app language while the coach is open", () => {
+    const onUiLanguageChange = vi.fn();
+    const { rerender } = render(<CodeAssistant uiLanguage="zh-Hant" onUiLanguageChange={onUiLanguageChange} code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
+    expect(onUiLanguageChange).toHaveBeenCalledWith("en");
+
+    rerender(<CodeAssistant uiLanguage="en" onUiLanguageChange={onUiLanguageChange} code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "切換至繁體中文" }));
+    expect(onUiLanguageChange).toHaveBeenLastCalledWith("zh-Hant");
+  });
+
   it("defaults to the requested model while leaving the provider key blank", () => {
     render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));

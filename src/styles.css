@@ -212,6 +212,7 @@ svg { flex-shrink: 0; }
 .coach-dock-content { padding: 20px; }
 .ai-coach p, .ai-coach small, .guided-example-content { font-size: 16px; line-height: 1.65; color: var(--muted); }
 .ai-coach-heading, .ai-coach-header-actions, .ai-coach-actions, .ai-presets { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.ai-language-toggle { min-height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--text); font: inherit; font-size: 15px; cursor: pointer; }
 .ai-coach-heading h3 { margin: 0; } .ai-provider-fields { display: grid; gap: 8px; padding: 16px 0; }
 .ai-provider-setup, .ai-transparency, .guided-example-section { border-top: 1px solid var(--line); padding: 12px 0; }
 .ai-provider-setup summary, .ai-transparency summary, .guided-example-section summary { cursor: pointer; min-height: 44px; font-size: 16px; }
