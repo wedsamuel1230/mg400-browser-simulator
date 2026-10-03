@@ -1,6 +1,6 @@
 import {
   BoxGeometry,
-  CylinderGeometry,
+  BufferGeometry,
   DoubleSide,
   Mesh,
   MeshBasicMaterial,
@@ -33,7 +33,7 @@ export function createReferenceBlock(color: BlockColor = "neutral", size: { x: n
   arrow.closePath();
   const geometry = new ShapeGeometry(arrow);
   const material = new MeshBasicMaterial({
-    color: MARKER_COLOR,
+    color: color === "black" ? "#eef4ef" : MARKER_COLOR,
     side: DoubleSide,
     depthWrite: false,
     polygonOffset: true,
@@ -59,19 +59,14 @@ export function createReferenceBlock(color: BlockColor = "neutral", size: { x: n
 
   block.userData.orientationMarker = {
     meaning: "The arrow points along the block's local +X direction.",
-    color: MARKER_COLOR,
+    color: color === "black" ? "#eef4ef" : MARKER_COLOR,
   };
   return block;
 }
 
-/** A visibly distinct magnetic workpiece for Free Mode; this is a logical puck, not a force model. */
-export function createMagnetPuck(color: BlockColor = "neutral"): Mesh<CylinderGeometry, MeshStandardMaterial> {
-  const puck = new Mesh(
-    new CylinderGeometry(14, 14, 8, 32),
-    new MeshStandardMaterial({ color: color === "black" ? "#323b3d" : color === "white" ? "#e7eee9" : "#e4a63f", roughness: 0.3, metalness: 0.55 }),
-  );
-  puck.name = "Free Mode magnet puck (logical contact only)";
-  puck.geometry.rotateX(Math.PI / 2);
-  puck.userData.simulationOnly = true;
-  return puck;
+export function setWorkpieceColor(mesh: Mesh<BufferGeometry, MeshStandardMaterial>, color: BlockColor): void {
+  mesh.material.color.set(color === "black" ? "#202629" : color === "white" ? "#eef4ef" : MODEL_PALETTE.block);
+  for (const marker of mesh.children) {
+    if (marker instanceof Mesh && marker.userData.directionAxis === "+X" && marker.material instanceof MeshBasicMaterial) marker.material.color.set(color === "black" ? "#eef4ef" : MARKER_COLOR);
+  }
 }

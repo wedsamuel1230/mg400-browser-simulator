@@ -35,8 +35,8 @@ Choose the tool before teaching or refreshing its points. A saved point is a pos
 
 | Tool | What the simulator represents | Program behavior |
 |---|---|---|
-| **Magnet** | The 40 × 40 × 15 mm block rests on the table. A dark arrow marks the block's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the rotation lesson, the block is attached and lifted before the wrist turns +90°. |
-| **Fork** | The supplied unpowered printed fork slides beneath the block. Three pads hold the block with its bottom at Z=20 mm. | Move to the entry point, slide under the block, lift to pick it up, then lower it onto the destination pads to release it. No `DO`, `Pick()`, or `Place()` call is needed. |
+| **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the block's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the rotation lesson, the block is attached and lifted before the wrist turns +90°. |
+| **Fork** | The supplied printed fork enters the 40 × 40 × 40 mm Body1 grooves. Support pads on the platform hold its bottom at Z130; insertion TCP is Z152.5 and load/release is Z155. | Move to the entry point, slide under the block, lift to pick it up, then lower it onto the destination pads to release it. No `DO`, `Pick()`, or `Place()` call is needed. |
 
 The fork is passive: it has no motor or powered fingers. The app models support and release with deterministic simulator rules, not rigid-body physics. A completed run is evidence about this simulator only.
 
@@ -54,7 +54,7 @@ In the carried-block rotation lesson, watch the arrow: it turns with the attache
 | **J1–J4** | The MG400's four joint angles, shown in radians in the simulator. |
 | **CP** | A path-blending option. This simulator supports only `CP=0`; it is not the TCP offset. |
 
-The block is 15 mm tall. In Magnet mode, its centre is Z=7.5 mm and its top face is Z=15 mm. In Fork mode, its bottom is supported at Z=20 mm and its centre is Z=27.5 mm. The magnet targets the top face; the fork supports the block from below.
+Fresh exercises share a front platform with top Z110. The magnetic plate centre is Z112 and its contact face is Z114. Body1 rests at Z130, with insertion TCP Z152.5 and load/release Z155. These are base-frame coordinates; older custom projects retain their saved geometry and points.
 
 ## Write and check a program
 
@@ -122,8 +122,8 @@ The browser saves the current robot project locally. You can export a project JS
 
 | 工具 | 模擬內容 | 程式行為 |
 |---|---|---|
-| **Magnet** | 40 × 40 × 15 mm 方塊放在枱面上，深色箭嘴標示方塊本身的 +X 方向；磁吸工具從上方接觸頂面。 | **DO(1, ON)** 和 **DO(1, OFF)** 只在模擬器內代表吸附及釋放，並非實體 I/O。旋轉課會先附上及抬高方塊，再把手腕轉 +90°。 |
-| **Fork** | 隨附的無動力列印叉臂滑到方塊底下。三個承托墊把方塊底面托高至 Z=20 mm。 | 移至入口點、滑入方塊底下、抬起方塊，再放低至目的地承托墊上以釋放。毋須呼叫 **DO**、**Pick()** 或 **Place()**。 |
+| **Magnet** | 35 × 35 × 4 mm 磁吸片放在前方 110 mm 平台上，對比色箭嘴標示方塊本身的 +X 方向；磁吸工具從上方接觸頂面。 | **DO(1, ON)** 和 **DO(1, OFF)** 只在模擬器內代表吸附及釋放，並非實體 I/O。旋轉課會先附上及抬高方塊，再把手腕轉 +90°。 |
+| **Fork** | 隨附叉臂沿 40 × 40 × 40 mm Body1 槽滑入。平台上的承托墊把底面托至 Z130；插入 TCP 為 Z152.5，承托／釋放為 Z155。 | 移至入口點、滑入方塊底下、抬起方塊，再放低至目的地承托墊上以釋放。毋須呼叫 **DO**、**Pick()** 或 **Place()**。 |
 
 叉臂是被動工具：沒有馬達或動力手指。程式以確定性的模擬規則處理承托和釋放，並非剛體物理模擬。成功完成模擬只代表模擬器內的結果。
 
@@ -141,7 +141,7 @@ The browser saves the current robot project locally. You can export a project JS
 | **J1–J4** | MG400 的四個關節角度；本模擬器以弧度顯示。 |
 | **CP** | 路徑平滑選項。本模擬器只支援 **CP=0**；它不是 TCP 偏移。 |
 
-方塊高度為 15 mm。Magnet 模式下方塊放在枱面，中心 Z=7.5 mm、頂面 Z=15 mm。Fork 模式下方塊底面由承托墊托高至 Z=20 mm，中心 Z=27.5 mm。磁吸工具對準頂面；叉臂從底部承托方塊。
+新練習共用前方平台，頂面 Z110。磁吸片中心 Z112、取件頂面 Z114。Body1 底面 Z130，插入 TCP Z152.5、承托／釋放 Z155。這些是基座座標；舊自訂專案保留已儲存幾何與教點。
 
 ### 編寫及檢查程式
 

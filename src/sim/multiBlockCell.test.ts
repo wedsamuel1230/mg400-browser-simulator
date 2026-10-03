@@ -36,14 +36,14 @@ describe("deterministic multi-block cell state", () => {
     expect(() => validateCellBlocks([{ ...blocks[0], stackLevel: 3 }], [])).toThrow(/stack levels/);
   });
 
-  it("keeps a Free Mode magnet puck distinct from a 40 mm block and single-attachment safe", () => {
+  it("keeps a Free Mode magnetic plate distinct from a 40 mm block and single-attachment safe", () => {
     const project = structuredClone(DEFAULT_PROJECT);
-    project.scene.blocks.push({ id: "puck-8", kind: "puck", color: "neutral", source: "pickup", position: { x: 280, y: -220 }, r: 0 });
-    project.scene.initialBlocks.push({ id: "puck-8", kind: "puck", color: "neutral", source: "pickup", position: { x: 280, y: -220 }, r: 0 });
+    project.scene.blocks.push({ id: "magnet-8", kind: "magnet", color: "neutral", source: "pickup", position: { x: 280, y: -220 }, r: 0 });
+    project.scene.initialBlocks.push({ id: "magnet-8", kind: "magnet", color: "neutral", source: "pickup", position: { x: 280, y: -220 }, r: 0 });
     expect(() => validateCellBlocks(project.scene.blocks, project.scene.feederOrder)).not.toThrow();
-    expect(project.scene.blocks.find((block) => block.id === "puck-8")?.kind).toBe("puck");
-    expect(canAttachCellBlock(project, "puck-8", null)).toBe(true);
-    expect(canAttachCellBlock(project, "puck-8", "tower-1")).toBe(false);
+    expect(project.scene.blocks.find((block) => block.id === "magnet-8")?.kind).toBe("magnet");
+    expect(canAttachCellBlock(project, "magnet-8", null)).toBe(true);
+    expect(canAttachCellBlock(project, "magnet-8", "tower-1")).toBe(false);
     expect(() => validateCellBlocks([{ ...project.scene.blocks[0], z: 40 }], [])).not.toThrow();
     expect(() => validateCellBlocks([{ ...project.scene.blocks[0], z: 301 }], [])).toThrow(/reachable range/);
   });

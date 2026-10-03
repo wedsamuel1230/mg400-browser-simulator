@@ -1,4 +1,4 @@
-import { activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, BODY1_FORK_CONTACT, body1ForkProgram, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
+import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, BODY1_FORK_CONTACT, body1ForkProgram, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type ProgramLanguage, type ProjectDocument, type TeachPoint, type ToolMode } from "../domain";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { FORK_INSERTION_DISTANCE_MM, forkEntryPose } from "./forkTool";
 
@@ -37,7 +37,7 @@ export function recommendPickAndPlace(
   const home = byName.get("Home");
   const homeReady = home?.kind === "joint";
   const toolLabel = project.tool.mode === "magnet" ? "Magnet" : "Fork";
-  const contactZ = project.tool.mode === "magnet" ? cellBlockTopZ(project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1), "magnet") : profile === "body1" ? BODY1_FORK_CONTACT.insertionZ : FORK_SUPPORT_HEIGHT_MM;
+  const contactZ = project.tool.mode === "magnet" ? cellBlockTopZ(project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1), "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) : platformHeight(project.scene) + (profile === "body1" ? BODY1_FORK_CONTACT.insertionZ : FORK_SUPPORT_HEIGHT_MM);
   const pickTarget = project.scene.block;
   const placeTarget = project.scene.drop;
 
@@ -52,7 +52,7 @@ export function recommendPickAndPlace(
           action: "teach-home",
         },
     checkPair(project, byName, "pick", pickTarget, contactZ, profile),
-    checkPair(project, byName, "place", placeTarget, profile === "body1" && project.tool.mode === "fork" ? BODY1_FORK_CONTACT.loadZ : contactZ, profile),
+    checkPair(project, byName, "place", placeTarget, profile === "body1" && project.tool.mode === "fork" ? platformHeight(project.scene) + BODY1_FORK_CONTACT.loadZ : contactZ, profile),
     checkReachability(project, byName, home, kinematics, modelError),
     language === "lua"
       ? {
@@ -76,7 +76,7 @@ export function recommendPickAndPlace(
       ? blocking.detail
       : `The saved ${toolLabel.toLowerCase()} points pass the simulator's setup checks. Review each motion step before running the example.`,
     checks,
-    code: recommendedProgram(language, project.tool.mode, profile),
+    code: recommendedProgram(language, project.tool.mode, profile, platformHeight(project.scene)),
   };
 }
 
@@ -232,16 +232,16 @@ function checkReachability(
   };
 }
 
-export function recommendedProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference"): string {
-  if (mode === "fork" && profile === "body1") return body1ForkProgram(language);
+export function recommendedProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference", platformHeightMm = 110): string {
+  if (mode === "fork" && profile === "body1") return body1ForkProgram(language, platformHeightMm);
   const tool = mode === "magnet" ? "Magnet" : "Fork";
-  const contact = mode === "magnet" ? "top face (use the saved contact height)" : `fork support plane (Z=${FORK_SUPPORT_HEIGHT_MM} mm)`;
+  const contact = mode === "magnet" ? "top face (use the saved contact height)" : `fork support plane (Z=${platformHeightMm + FORK_SUPPORT_HEIGHT_MM} mm)`;
   if (mode === "fork") {
     if (language === "python") {
       return [
         "# MG400 simulator Python API; not a Dobot controller SDK.",
         "# Passive fork: slide beneath the 40 x 40 x 15 mm block, then lift to pick it up.",
-        `# PickApproach begins ${FORK_INSERTION_DISTANCE_MM} mm before PickPoint along tool -X at the ${FORK_SUPPORT_HEIGHT_MM} mm support height. No DO is needed.`,
+        `# PickApproach begins ${FORK_INSERTION_DISTANCE_MM} mm before PickPoint along tool -X at the ${platformHeightMm + FORK_SUPPORT_HEIGHT_MM} mm support height. No DO is needed.`,
         "",
         "# 1. Move to the fork entry point, then slide beneath the block.",
         "await joint_mov_j(Home, cp=0)",
@@ -262,7 +262,7 @@ export function recommendedProgram(language: ProgramLanguage, mode: ToolMode, pr
     return [
       "-- MG400 training simulator template; bounded Lua subset.",
       "-- Passive fork: slide beneath the 40 x 40 x 15 mm block, then lift to pick it up.",
-      `-- PickApproach begins ${FORK_INSERTION_DISTANCE_MM} mm before PickPoint along tool -X at the ${FORK_SUPPORT_HEIGHT_MM} mm support height. No DO is needed.`,
+      `-- PickApproach begins ${FORK_INSERTION_DISTANCE_MM} mm before PickPoint along tool -X at the ${platformHeightMm + FORK_SUPPORT_HEIGHT_MM} mm support height. No DO is needed.`,
       "",
       "-- 1. Move to the fork entry point, then slide beneath the block.",
       "JointMovJ(Home, {CP=0})",

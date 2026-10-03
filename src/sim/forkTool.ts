@@ -36,7 +36,13 @@ export function advancePassiveFork(
   drop: { x: number; y: number },
   tolerance: { xy: number; z: number },
   profile: ForkContactProfile = "reference",
+  platformHeightMm = 0,
 ): PassiveForkTransition {
+  if (platformHeightMm !== 0) {
+    const local = (pose: Pose) => ({ ...pose, z: pose.z - platformHeightMm });
+    const result = advancePassiveFork({ ...state, insertedAtZ: state.insertedAtZ === null ? null : state.insertedAtZ - platformHeightMm, releasePose: state.releasePose && local(state.releasePose) }, local(previous), local(current), attached, block, drop, tolerance, profile);
+    return { ...result, state: { ...result.state, insertedAtZ: result.state.insertedAtZ === null ? null : result.state.insertedAtZ + platformHeightMm, releasePose: result.state.releasePose && { ...result.state.releasePose, z: result.state.releasePose.z + platformHeightMm } } };
+  }
   if (profile === "body1") return advanceBody1Fork(state, previous, current, attached, block, drop);
   if (attached) {
     const isLowering = current.z < previous.z;
@@ -133,6 +139,6 @@ function advanceBody1Fork(state: PassiveForkState, previous: Pose, current: Pose
   return { state: { sawEntryApproach, inserted, insertedAtZ: inserted ? BODY1_FORK_CONTACT.insertionZ : null }, action: null };
 }
 
-export function forkContactPose(location: { x: number; y: number }, blockR: number, profile: ForkContactProfile = "reference", placing = false): Pose {
-  return { ...location, z: profile === "body1" ? (placing ? BODY1_FORK_CONTACT.loadZ : BODY1_FORK_CONTACT.insertionZ) : FORK_SUPPORT_HEIGHT_MM, r: blockR + (profile === "reference" && placing ? 90 : -90) };
+export function forkContactPose(location: { x: number; y: number }, blockR: number, profile: ForkContactProfile = "reference", placing = false, platformHeightMm = 0): Pose {
+  return { ...location, z: platformHeightMm + (profile === "body1" ? (placing ? BODY1_FORK_CONTACT.loadZ : BODY1_FORK_CONTACT.insertionZ) : FORK_SUPPORT_HEIGHT_MM), r: blockR + (profile === "reference" && placing ? 90 : -90) };
 }

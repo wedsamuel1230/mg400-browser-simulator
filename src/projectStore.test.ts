@@ -41,7 +41,7 @@ describe("project document validation", () => {
     legacyTool.tcpOffset = { x: 0, y: 0, z: -35, r: 0 };
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(10);
+    expect(migrated.schemaVersion).toBe(11);
     expect(migrated.points).toEqual(DEFAULT_PROJECT.points);
     expect(migrated.script).toBe(DEFAULT_PROJECT.script);
     expect(migrated.programmingLanguage).toBe("lua");
@@ -101,7 +101,7 @@ describe("project document validation", () => {
     (legacy.tool as Record<string, unknown>).mode = "fork";
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(10);
+    expect(migrated.schemaVersion).toBe(11);
     expect(migrated.script).toBe(DEFAULT_FORK_SCRIPT);
     expect(migrated.pythonScript).toBe(DEFAULT_FORK_PYTHON_SCRIPT);
 
@@ -125,7 +125,7 @@ describe("project document validation", () => {
     });
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(10);
+    expect(migrated.schemaVersion).toBe(11);
     expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
     expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, z: 15 } });
   });
@@ -176,7 +176,7 @@ describe("project document validation", () => {
     });
 
     const migrated = validateProject(legacy);
-    expect(migrated.schemaVersion).toBe(10);
+    expect(migrated.schemaVersion).toBe(11);
     expect(migrated.scene).toMatchObject({ block: { x: 300, y: -80 }, drop: { x: 300, y: 80 } });
     expect(migrated.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 300, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
     expect(migrated.points.find((point) => point.name === "PickApproach")).toMatchObject({ pose: { x: 240, y: -80, z: FORK_SUPPORT_HEIGHT_MM, r: 0 } });
@@ -214,7 +214,7 @@ describe("project document validation", () => {
     expect(preserved.points.find((point) => point.name === "PickPoint")).toMatchObject({ pose: { x: 315, y: -80, z: 20 } });
     expect(preserved.script).toBe(customFork.script);
     expect(preserved.pythonScript).toBe(customFork.pythonScript);
-    expect(preserved.schemaVersion).toBe(10);
+    expect(preserved.schemaVersion).toBe(11);
   });
 });
 
@@ -222,8 +222,53 @@ it("preserves schema9 learner geometry, code and points when upgrading magnetic 
   const old = structuredClone(DEFAULT_PROJECT);
   const legacy = { ...old, schemaVersion: 9, script: "print('my lesson')" };
   const result = validateProject(legacy);
-  expect(result.schemaVersion).toBe(10);
+  expect(result.schemaVersion).toBe(11);
   expect(result.scene.blocks.every(block => block.kind === "block")).toBe(true);
   expect(result.script).toBe(legacy.script);
   expect(result.points).toEqual(legacy.points);
+});
+
+
+it("converts old round items without deleting learner code, points or custom fixture height", () => {
+  const legacy = JSON.parse(JSON.stringify(DEFAULT_PROJECT));
+  legacy.schemaVersion = 10;
+  legacy.script = 'print("my lesson")';
+  legacy.scene.magnetStandHeightMm = 35;
+  legacy.scene.blocks[0].kind = "puck";
+  legacy.scene.initialBlocks[0].kind = "puck";
+  const result = validateProject(legacy);
+  expect(result.schemaVersion).toBe(11);
+  expect(result.scene.blocks[0].kind).toBe("magnet");
+  expect(result.scene.initialBlocks[0].kind).toBe("magnet");
+  expect(result.script).toBe(legacy.script);
+  expect(result.points).toEqual(legacy.points);
+  expect(result.scene.magnetStandHeightMm).toBe(35);
+});
+it("upgrades only untouched stock magnetic contacts from the old20mm stand to a110mm shared platform", () => {
+  const legacy = JSON.parse(JSON.stringify(DEFAULT_PROJECT)); legacy.schemaVersion=10; delete legacy.scene.magnetStandHeightMm;
+  legacy.points = legacy.points.map((point: {kind:string;pose?:{z:number}}) => point.kind==="cartesian" ? {...point,pose:{...point.pose,z:point.pose!.z-90}} : point);
+  const upgraded=validateProject(legacy);
+  expect(upgraded.scene.platformHeightMm).toBe(110);
+  expect(upgraded.scene.magnetStandHeightMm).toBe(0);
+  expect(upgraded.points).toEqual(DEFAULT_PROJECT.points);
+  legacy.points[1].pose.x=301;
+  const customized=validateProject(legacy);
+  expect(customized.scene.magnetStandHeightMm).toBe(20);
+  expect(customized.points).toEqual(legacy.points);
+});
+it("rejects new round items and invalid fixture heights instead of retaining a hidden legacy mode",()=>{
+ const invalid=JSON.parse(JSON.stringify(DEFAULT_PROJECT)); invalid.scene.blocks[0].kind="puck";
+ expect(()=>validateProject(invalid)).toThrow(/object kind/);
+ invalid.scene.blocks[0].kind="magnet";invalid.scene.magnetStandHeightMm=Infinity;
+ expect(()=>validateProject(invalid)).toThrow(/stand height/);
+});
+
+it("retains a custom historical cell on its original stand instead of moving its code and points",()=>{
+ const legacy=structuredClone(DEFAULT_PROJECT) as unknown as Record<string,any>;
+ legacy.schemaVersion=10;delete legacy.scene.platformHeightMm;delete legacy.scene.magnetStandHeightMm;
+ legacy.scene.blocks[0].position.x=350;
+ legacy.points=legacy.points.map((point:any)=>point.kind==="cartesian"?{...point,pose:{...point.pose,z:point.pose.z-90}}:point);
+ const migrated=validateProject(legacy);
+ expect(migrated.scene.platformHeightMm).toBe(0);expect(migrated.scene.magnetStandHeightMm).toBe(20);
+ expect(migrated.points).toEqual(legacy.points);expect(migrated.script).toBe(legacy.script);
 });

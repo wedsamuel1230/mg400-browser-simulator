@@ -1,4 +1,4 @@
-import { activeTcpOffset, cellBlockTopZ, cellBlockSize, MAGNET_SUPPORT_HEIGHT_MM, effectiveForkContactProfile, deg, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
@@ -346,7 +346,7 @@ export class SimulationController {
     const result = advancePassiveFork(
       this.passiveForkState, previous, current, this.events.isAttached(),
       { ...location, r: candidate?.r ?? 0 }, project.scene.drop, project.tool.pickupTolerance,
-      effectiveForkContactProfile(this.events.getForkContactProfile?.() ?? "reference", candidates, candidate?.id),
+      effectiveForkContactProfile(this.events.getForkContactProfile?.() ?? "reference", candidates, candidate?.id), platformHeight(project.scene) + (candidate?.z ?? 0),
     );
     this.passiveForkState = result.state;
     if (result.action === "pick") {
@@ -380,7 +380,7 @@ export class SimulationController {
   private performToolAction(action: "pick" | "place") {
     const project = this.currentProject();
     if (project.tool.mode === "fork") {
-      throw new Error(`The fork is passive. Move it to its Z=${FORK_SUPPORT_HEIGHT_MM} mm support plane, slide beneath the block, then lift; lower it onto the support pads to release it. Remove DO1 and Pick()/Place() actions from the fork program.`);
+      throw new Error(`The fork is passive. Use the saved insertion and support points above platform Z=${platformHeight(project.scene)} mm, slide beneath the block, then lift; lower it onto the support pads to release it. Remove DO1 and Pick()/Place() actions from the fork program.`);
     }
     const attached = this.events.isAttached();
     if (action === "pick") {
@@ -388,13 +388,13 @@ export class SimulationController {
       const tcp = this.kinematics.forward(this.events.getJoints(), project.tool.flangeOffset, activeTcpOffset(project.tool));
       const candidates = this.events.getCellBlocks?.() ?? [];
       const withinContact = (candidate: CellBlock) => Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy
-        && Math.abs(tcp.z - cellBlockTopZ(candidate, "magnet")) <= project.tool.pickupTolerance.z;
+        && Math.abs(tcp.z - cellBlockTopZ(candidate, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene))) <= project.tool.pickupTolerance.z;
       const target = candidates.filter((candidate) => candidate.source !== "unloaded" && withinContact(candidate))
-        .sort((a, b) => (a.source === "output" ? 1 : 0) - (b.source === "output" ? 1 : 0) || cellBlockTopZ(b, "magnet") - cellBlockTopZ(a, "magnet"))[0];
+        .sort((a, b) => (a.source === "output" ? 1 : 0) - (b.source === "output" ? 1 : 0) || cellBlockTopZ(b, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) - cellBlockTopZ(a, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)))[0];
       const block = candidates.length > 0 ? target?.position : this.events.getBlock();
       if (!block) throw new Error("Pick failed: no eligible source block is within the configured pickup tolerance.");
       const xyError = Math.hypot(tcp.x - block.x, tcp.y - block.y);
-      const pickupZ = cellBlockTopZ(target, "magnet");
+      const pickupZ = cellBlockTopZ(target, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene));
       const zError = Math.abs(tcp.z - pickupZ);
       if (xyError > project.tool.pickupTolerance.xy || zError > project.tool.pickupTolerance.z) {
         throw new Error(`Pick failed: TCP is ${xyError.toFixed(1)} mm from the block centre and ${zError.toFixed(1)} mm from the magnet target at the top-face centre (Z=${pickupZ} mm).`);
@@ -426,7 +426,9 @@ export class SimulationController {
     }
     this.attachedCellBlockId = null;
     this.events.setAttachedCellBlockId?.(null);
-    this.events.addLog(`Block ${placedCellBlockId ?? "reference block"} placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm${placedStackLevel === undefined ? "" : `, Z ${((cellBlockSize(candidates?.find((candidate) => candidate.id === placedCellBlockId), "magnet").z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + cellBlockSize(candidates?.find((candidate) => candidate.id === placedCellBlockId), "magnet").z * (placedStackLevel + 1)).toFixed(1)} mm, R ${tcp.r.toFixed(1)}°`}.`, "info");
+    const releasedBlock = candidates?.find(candidate => candidate.id === placedCellBlockId);
+    const releaseTop = cellBlockTopZ(releasedBlock && { ...releasedBlock, stackLevel: placedStackLevel }, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene));
+    this.events.addLog(`Block ${placedCellBlockId ?? "reference block"} placed at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm${placedStackLevel === undefined ? "" : `, Z ${releaseTop.toFixed(1)} mm, R ${tcp.r.toFixed(1)}°`}.`, "info");
   }
 
   private waitForIdle(): Promise<void> {

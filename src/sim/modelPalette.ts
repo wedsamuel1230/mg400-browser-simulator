@@ -16,6 +16,10 @@ export const MODEL_PALETTE = {
 } as const;
 
 export const MODEL_VIEWPORT_BACKGROUND = "#10171a";
+export const WORKSPACE_SCENE_PALETTES = {
+  light: { background: "#edf2f7", table: "#cbd5df", bed: "#e2e8ee", gridMajor: "#74879a", gridMinor: "#b2c0ce", ambient: 1.05, key: 1.8 },
+  dark: { background: "#10171a", table: "#252f32", bed: "#182225", gridMajor: "#3b4d4e", gridMinor: "#253436", ambient: 0.9, key: 1.5 },
+} as const;
 
 export const ROBOT_LINK_PALETTE = {
   base_link: MODEL_PALETTE.base,

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import { makeJointPoint } from "../projectStore";
-import { FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type JointAngles, type Pose, type ProjectDocument } from "../domain";
+import { MAGNET_SUPPORT_HEIGHT_MM, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type JointAngles, type Pose, type ProjectDocument } from "../domain";
 import { SimulationController, type ControllerEvents, type RunStatus } from "./SimulationController";
 import type { MotionRequest } from "./luaTypes";
 import type { MG400Kinematics } from "./mg400Kinematics";
@@ -180,7 +180,7 @@ describe("Go To point transitions", () => {
   it("uses fork insertion, lift, and lowering as automatic pick and release actions", async () => {
     animationFrameMocks();
     const project = structuredClone(DEFAULT_PROJECT);
-    project.tool.mode = "fork";
+    project.tool.mode = "fork"; project.scene.platformHeightMm = 0;
     project.scene.block = { x: 0, y: 0 };
     project.scene.drop = { x: 100, y: 0 };
     const harness = makeHarness({
@@ -211,7 +211,7 @@ describe("Go To point transitions", () => {
     project.scene.initialBlocks = structuredClone(project.scene.blocks);
     project.scene.feederOrder = ["first", "second"];
     project.scene.drop = { x: 100, y: 0 };
-    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 0, z: 24, r: 0 }) });
+    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 0, z: MAGNET_SUPPORT_HEIGHT_MM + 4, r: 0 }) });
     const action = (name: "pick" | "place") => (harness.controller as unknown as { performToolAction: (value: "pick" | "place") => void }).performToolAction(name);
 
     action("pick");
@@ -235,7 +235,7 @@ describe("Go To point transitions", () => {
     const project = structuredClone(DEFAULT_PROJECT);
     project.scene.blocks = [{ id: "sorted-black", color: "black", source: "output", position: { x: 250, y: 80 }, r: 0 }];
     project.scene.initialBlocks = structuredClone(project.scene.blocks);
-    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 80, z: 24, r: 0 }) });
+    const harness = makeHarness({ project, forward: (joints) => ({ x: joints[0], y: 80, z: MAGNET_SUPPORT_HEIGHT_MM + 4, r: 0 }) });
     const action = (name: "pick" | "place") => (harness.controller as unknown as { performToolAction: (value: "pick" | "place") => void }).performToolAction(name);
     harness.setJoints([250, 0, 0, 0]);
     action("pick");
@@ -247,7 +247,7 @@ describe("Go To point transitions", () => {
 
 
 it("keeps the same Body1 cell ID and relative world yaw across release and a second pickup", () => {
-  const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";
+  const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.scene.platformHeightMm=0;
   const harness=makeHarness({project,profile:"body1"});
   const step=(a:Pose,b:Pose)=>(harness.controller as unknown as {updatePassiveFork:(a:Pose,b:Pose)=>void}).updatePassiveFork(a,b);
   const entry={x:300,y:-20,z:42.5,r:-90},contact={x:300,y:-80,z:42.5,r:-90};
@@ -265,7 +265,7 @@ it("keeps the same Body1 cell ID and relative world yaw across release and a sec
 });
 
 it("preserves physical Body1 identity and world yaw across public GoTo and stop",async()=>{
- animationFrameMocks();const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.simulation.speed=10;
+ animationFrameMocks();const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.scene.platformHeightMm=0;project.simulation.speed=10;
  const forward=(j:JointAngles)=>({x:j[0]*100,y:j[1]*100,z:j[2]*100,r:j[3]*100});
  const entry={x:300,y:-20,z:42.5,r:-90};
  const h=makeHarness({project,profile:"body1",initialJoints:[3,-.2,.425,-.9],forward,solve:(p)=>({ok:true,joints:[p.x/100,p.y/100,p.z/100,p.r/100],positionErrorMm:0,angleErrorDeg:0})});
@@ -282,11 +282,21 @@ it("uses actual magnetic plate top height and rejects contact with empty space a
   const project = structuredClone(DEFAULT_PROJECT);
   project.tool.pickupTolerance.z = 0.5;
   project.scene.blocks = [{ id: "magnet-1", kind: "magnet", color: "neutral", source: "pickup", position: {x:300,y:-80}, z:10, r:0 }];
-  const harness = makeHarness({project,initialJoints:[300,-80,34,0],forward:j=>({x:j[0],y:j[1],z:j[2],r:j[3]})});
+  const harness = makeHarness({project,initialJoints:[300,-80,MAGNET_SUPPORT_HEIGHT_MM + 14,0],forward:j=>({x:j[0],y:j[1],z:j[2],r:j[3]})});
   const pick = () => (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
-  harness.setJoints([300,-80,35,0]);
+  harness.setJoints([300,-80,MAGNET_SUPPORT_HEIGHT_MM + 15,0]);
   expect(pick).toThrow(/no eligible/);
-  harness.setJoints([300,-80,34,0]);
+  harness.setJoints([300,-80,MAGNET_SUPPORT_HEIGHT_MM + 14,0]);
   expect(pick).not.toThrow();
   expect(harness.attachedId()).toBe("magnet-1");
+});
+
+it("uses the raised platform for an explicitly rectangular block in magnet mode", () => {
+ const project = structuredClone(DEFAULT_PROJECT);
+ project.scene.blocks = [{id:"block",kind:"block",color:"neutral",source:"pickup",position:{x:300,y:-80},r:0}];
+ project.tool.pickupTolerance.z = .5;
+ const harness = makeHarness({project,initialJoints:[300,-80,125,0],forward:j=>({x:j[0],y:j[1],z:j[2],r:j[3]})});
+ const pick=()=> (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
+ harness.setJoints([300,-80,15,0]);expect(pick).toThrow(/no eligible/);
+ harness.setJoints([300,-80,125,0]);expect(pick).not.toThrow();expect(harness.attachedId()).toBe("block");
 });

@@ -79,3 +79,9 @@ The maintainer explicitly requested “the magnet suck model ... load it to the 
 Fresh magnetic exercises use 35×35×4 mm marked plates, on visible 20 mm teaching stands, with centre Z22 and contact Z24. Three-layer tower programs move to contacts Z24/Z28/Z32 after lifting and rotating the held tool. The scene and controller derive geometry, carrying offset, contact and stack heights from workpiece kind. Schema 10 explicitly preserves schema 9 unspecified-kind workpieces as 40×40×15 mm reference blocks without changing learner programs or taught coordinates. Custom tool imports take precedence and remain local to the browser.
 
 These are logical training contacts and attachment transforms; no magnetic force or general collision physics is added.
+
+## 2026-10-03 shared front platform and workpiece update
+
+Fresh schema-11 exercises use one shared teaching platform in front of the robot, with top Z110 mm. Its footprint covers the initial and current workcell fixtures and remains stable during normal task movement. Magnetic plates are 35×35×4 mm: bottom Z110, centre Z112, contact Z114; tower contacts are Z114/Z118/Z122. The exact supplied Body1/fork/magnet STL bytes remain unchanged. Body1 retains measured local geometry, with 20 mm pads on the platform (bottom Z130, insertion TCP Z152.5, load/release Z155).
+
+The legacy Ø28×8 round option and rendering are removed. Historical round entries convert to magnetic plates with an explicit re-teach notice, preserving scripts and points. Untouched stock magnetic setups migrate to the raised platform; customized old cells preserve their prior heights and coordinates. Workspace theme changes reuse the existing scene and meshes. Task outcomes use observed attachment, lift, turn and release poses; they remain logical simulation evidence, not physical collision or magnetic-force validation. Earlier dated sections document historical releases.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { Group, Vector3 } from "three";
+import { Group, Vector3, Mesh, MeshBasicMaterial } from "three";
 import { BLOCK_SIZE_MM, MAGNET_SIZE_MM } from "../domain";
-import { createReferenceBlock } from "./blockMarker";
+import { createReferenceBlock, setWorkpieceColor } from "./blockMarker";
 
 describe("reference-block direction marker", () => {
   it("keeps the 40 × 40 × 15 mm block and marks its local +X direction on the top and sides", () => {
@@ -43,4 +43,11 @@ it("makes the requested marked 35×35×4 magnetic plate with arrows inside its t
   expect(plate.geometry.parameters).toMatchObject({ width: 35, height: 35, depth: 4 });
   expect(plate.children[0].position.z).toBe(2.25);
   expect(plate.children[1].scale.y).toBeCloseTo(1 / 3);
+});
+
+it("keeps rotation arrows visible on black and recolored pieces",()=>{
+ const piece=createReferenceBlock("black",MAGNET_SIZE_MM);const marker=piece.children[0] as Mesh<import("three").BufferGeometry,MeshBasicMaterial>;
+ expect(marker.material.color.getHexString()).toBe("eef4ef");
+ setWorkpieceColor(piece,"white");expect(marker.material.color.getHexString()).toBe("152326");
+ setWorkpieceColor(piece,"black");expect(marker.material.color.getHexString()).toBe("eef4ef");
 });

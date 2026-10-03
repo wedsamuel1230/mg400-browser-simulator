@@ -5,6 +5,7 @@ import {
   DEFAULT_TCP_OFFSETS,
   PROJECT_FORMAT,
   PROJECT_SCHEMA_VERSION,
+  MAGNET_SUPPORT_HEIGHT_MM,
   rad,
   type ProjectDocument,
 } from "../domain";
@@ -30,10 +31,10 @@ export const DEFAULT_PROJECT: ProjectDocument = {
       kind: "joint",
       joints: [rad(0), rad(30), rad(45), rad(0)],
     },
-    point("PickPoint", 300, -80, 24),
-    point("PickApproach", 300, -80, 104),
-    point("PlacePoint", 300, 80, 24),
-    point("PlaceApproach", 300, 80, 104),
+    point("PickPoint", 300, -80, MAGNET_SUPPORT_HEIGHT_MM + 4),
+    point("PickApproach", 300, -80, MAGNET_SUPPORT_HEIGHT_MM + 84),
+    point("PlacePoint", 300, 80, MAGNET_SUPPORT_HEIGHT_MM + 4),
+    point("PlaceApproach", 300, 80, MAGNET_SUPPORT_HEIGHT_MM + 84),
   ],
   scene: {
     block: { x: 300, y: -80 },
@@ -41,6 +42,8 @@ export const DEFAULT_PROJECT: ProjectDocument = {
     blocks: cloneCellBlocks(DEFAULT_CELL_BLOCKS),
     initialBlocks: cloneCellBlocks(DEFAULT_CELL_BLOCKS),
     feederOrder: [...DEFAULT_FEEDER_ORDER],
+    platformHeightMm: MAGNET_SUPPORT_HEIGHT_MM,
+    magnetStandHeightMm: 0,
   },
   tool: {
     mode: "magnet",

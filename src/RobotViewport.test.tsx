@@ -70,7 +70,7 @@ describe("RobotViewport color guide", () => {
     expect(getSwatchColors("Active tool: Magnetic pickup tool")).toEqual([rgb(MODEL_PALETTE.magnet)]);
     expect(getSwatchColors("TCP reference")).toEqual([rgb(MODEL_PALETTE.tcp)]);
     expect(getSwatchColors("Selected point")).toEqual([rgb(MODEL_PALETTE.target), rgb(MODEL_PALETTE.targetCenter)]);
-    expect(getSwatchColors("35 × 35 × 4 mm magnetic plate · 20 mm stand, contact Z24")).toEqual([rgb(MODEL_PALETTE.block)]);
+    expect(getSwatchColors("35 × 35 × 4 mm magnetic plate · 110 mm platform, contact Z114")).toEqual([rgb(MODEL_PALETTE.block)]);
     expect(screen.getByText("Training palette overlays the vendor geometry for teaching; it does not represent factory paint.")).toBeInTheDocument();
   });
 });

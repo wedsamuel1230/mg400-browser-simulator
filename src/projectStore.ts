@@ -8,6 +8,7 @@ import {
   DEFAULT_FLANGE_OFFSET,
   PROJECT_FORMAT,
   PROJECT_SCHEMA_VERSION,
+  MAGNET_SUPPORT_HEIGHT_MM,
   JOINT_LIMITS_DEG,
   deg,
   type JointPoint,
@@ -114,6 +115,19 @@ export function validateProject(input: unknown): ProjectDocument {
     const preserveKinds = (blocks: unknown) => Array.isArray(blocks) ? blocks.map((block) => isRecord(block) && block.kind === undefined ? { ...block, kind: "block" } : block) : blocks;
     value = { ...value, schemaVersion: 10, scene: { ...scene, blocks: preserveKinds(scene.blocks), initialBlocks: preserveKinds(scene.initialBlocks) } };
   }
+  if (value.schemaVersion === 10 && isRecord(value.scene)) {
+    const scene = value.scene;
+    const removeRoundPieces = (blocks: unknown) => Array.isArray(blocks) ? blocks.map((block) => isRecord(block) && block.kind === "puck" ? { ...block, kind: "magnet" } : block) : blocks;
+    const points = Array.isArray(value.points) ? value.points : [];
+    const stockNames = new Map(points.filter(isRecord).map((point) => [point.name, point]));
+    const stockZ = (name: string, expected: number) => { const point = stockNames.get(name); return isRecord(point) && isPose(point.pose) && point.pose.z === expected && point.pose.x === 300 && point.pose.y === (name.startsWith("Pick") ? -80 : 80) && point.pose.r === 0; };
+    const stockBlocks = (blocks: unknown) => Array.isArray(blocks) && JSON.stringify(blocks) === JSON.stringify(DEFAULT_CELL_BLOCKS);
+    const stockMagnet = stockBlocks(scene.blocks) && stockBlocks(scene.initialBlocks) && isRecord(scene.block) && scene.block.x === 300 && scene.block.y === -80 && isRecord(scene.drop) && scene.drop.x === 300 && scene.drop.y === 80 && isRecord(value.tool) && value.tool.mode === "magnet" && value.script === DEFAULT_SCRIPT && value.pythonScript === DEFAULT_PYTHON_SCRIPT
+      && stockZ("PickPoint", 24) && stockZ("PlacePoint", 24) && stockZ("PickApproach", 104) && stockZ("PlaceApproach", 104);
+    value = { ...value, schemaVersion: 11,
+      points: stockMagnet ? points.map((point) => isRecord(point) && isPose(point.pose) && ["PickPoint", "PlacePoint", "PickApproach", "PlaceApproach"].includes(String(point.name)) ? { ...point, pose: { ...point.pose, z: point.pose.z + MAGNET_SUPPORT_HEIGHT_MM - 20 } } : point) : points,
+      scene: { ...scene, platformHeightMm: stockMagnet ? 110 : 0, magnetStandHeightMm: stockMagnet ? 0 : scene.magnetStandHeightMm ?? 20, blocks: removeRoundPieces(scene.blocks), initialBlocks: removeRoundPieces(scene.initialBlocks) } };
+  }
   if (value.schemaVersion !== PROJECT_SCHEMA_VERSION) {
     throw new Error("Unsupported project schema version: " + String(value.schemaVersion) + ".");
   }
@@ -156,6 +170,8 @@ export function validateProject(input: unknown): ProjectDocument {
   if (!Array.isArray(value.scene.blocks) || !Array.isArray(value.scene.initialBlocks) || !Array.isArray(value.scene.feederOrder)) {
     throw new Error("Multi-block cell state is malformed.");
   }
+  if (value.scene.platformHeightMm !== undefined && (!isFiniteNumber(value.scene.platformHeightMm) || value.scene.platformHeightMm < 0 || value.scene.platformHeightMm > 200)) throw new Error("Teaching platform height must be between 0 and 200 mm.");
+  if (value.scene.magnetStandHeightMm !== undefined && (!isFiniteNumber(value.scene.magnetStandHeightMm) || value.scene.magnetStandHeightMm < 0 || value.scene.magnetStandHeightMm > 200)) throw new Error("Magnetic teaching stand height must be between 0 and 200 mm.");
   try {
     validateCellBlocks(value.scene.blocks as CellBlock[], value.scene.feederOrder as string[]);
     validateCellBlocks(value.scene.initialBlocks as CellBlock[], value.scene.feederOrder as string[]);
@@ -454,4 +470,10 @@ export function resetProject(): ProjectDocument {
     fork: { ...DEFAULT_TCP_OFFSETS.fork },
   };
   return fresh;
+}
+
+/** Only used to explain a historical import conversion, never to accept invalid data. */
+export function containsRemovedRoundWorkpieces(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.scene)) return false;
+  return [value.scene.blocks, value.scene.initialBlocks].some((blocks) => Array.isArray(blocks) && blocks.some((block) => isRecord(block) && block.kind === "puck"));
 }

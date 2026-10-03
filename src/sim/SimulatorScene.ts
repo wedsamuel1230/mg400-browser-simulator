@@ -26,10 +26,11 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
-import { activeTcpOffset, cellBlockSize, MAGNET_SIZE_MM, MAGNET_SUPPORT_HEIGHT_MM, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
+import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockSize, MAGNET_SIZE_MM, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
+import type { WorkspaceTheme } from "../theme";
 import { MG400Kinematics } from "./mg400Kinematics";
-import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE } from "./modelPalette";
-import { createMagnetPuck, createReferenceBlock } from "./blockMarker";
+import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE, WORKSPACE_SCENE_PALETTES } from "./modelPalette";
+import { createReferenceBlock, setWorkpieceColor } from "./blockMarker";
 import { createFallbackForkGeometry, prepareFlangeMountedToolGeometry } from "./toolMount";
 
 export type SceneState = {
@@ -53,6 +54,11 @@ const VIEWPORT_FOV = 46;
 
 export class SimulatorScene {
   private readonly scene = new Scene();
+  private readonly table: Mesh<BoxGeometry, MeshStandardMaterial>;
+  private readonly bed: Mesh<BoxGeometry, MeshStandardMaterial>;
+  private readonly grid: GridHelper;
+  private readonly ambient: AmbientLight;
+  private readonly keyLight: DirectionalLight;
   private readonly camera: PerspectiveCamera;
   private readonly renderer: WebGLRenderer;
   private readonly controls: OrbitControls;
@@ -67,6 +73,7 @@ export class SimulatorScene {
   private readonly proceduralBlockGeometry = this.block.geometry.clone();
   private readonly magneticBlockGeometry = new BoxGeometry(MAGNET_SIZE_MM.x, MAGNET_SIZE_MM.y, MAGNET_SIZE_MM.z);
   private localForkBlockGeometry?: BufferGeometry;
+  private readonly teachingPlatform = new Mesh(new BoxGeometry(260, 320, 1), new MeshStandardMaterial({ color: "#71868d", roughness: 0.6 }));
   private readonly magnetStands = new Map<string, Mesh>();
   private readonly additionalBlocks = new Map<string, Mesh>();
   private appliedLocalMeshes?: LocalToolMeshes;
@@ -100,8 +107,8 @@ export class SimulatorScene {
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.setClearColor(MODEL_VIEWPORT_BACKGROUND);
 
-    const ambient = new AmbientLight("#d9eceb", 0.62);
-    const key = new DirectionalLight("#fff2d8", 1.15);
+    const ambient = this.ambient = new AmbientLight("#d9eceb", 0.62);
+    const key = this.keyLight = new DirectionalLight("#fff2d8", 1.15);
     key.position.set(250, -360, 650);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -111,7 +118,7 @@ export class SimulatorScene {
     key.shadow.camera.bottom = -600;
     this.scene.add(ambient, key);
 
-    const table = new Mesh(
+    const table = this.table = new Mesh(
       new BoxGeometry(1050, 820, 40),
       new MeshStandardMaterial({ color: "#252f32", roughness: 0.82, metalness: 0.08 }),
     );
@@ -119,12 +126,12 @@ export class SimulatorScene {
     table.receiveShadow = true;
     this.scene.add(table);
 
-    const grid = new GridHelper(1200, 48, "#3b4d4e", "#253436");
+    const grid = this.grid = new GridHelper(1200, 48, "#3b4d4e", "#253436");
     grid.rotation.x = Math.PI / 2;
     grid.position.z = 0.7;
     this.scene.add(grid);
 
-    const bed = new Mesh(
+    const bed = this.bed = new Mesh(
       new BoxGeometry(570, 420, 5),
       new MeshStandardMaterial({ color: "#182225", roughness: 0.64, metalness: 0.1 }),
     );
@@ -185,10 +192,11 @@ export class SimulatorScene {
     this.renderFrame();
   }
 
-  static async create(canvas: HTMLCanvasElement, urdfXml: string, onStatus: (status: SceneStatus) => void) {
+  static async create(canvas: HTMLCanvasElement, urdfXml: string, onStatus: (status: SceneStatus) => void, workspaceTheme: WorkspaceTheme = "light") {
     let view: SimulatorScene | undefined;
     try {
       view = new SimulatorScene(canvas);
+      view.setTheme(workspaceTheme);
       onStatus({ kind: "loading", message: "Loading the Dobot MG400 model…", progress: 0 });
       const path = "/models/mg400/mg400_description/";
       const loader = new URDFLoader();
@@ -229,6 +237,26 @@ export class SimulatorScene {
       if (view) return view;
       throw error;
     }
+  }
+
+  setTheme(theme: WorkspaceTheme) {
+    const palette = WORKSPACE_SCENE_PALETTES[theme];
+    (this.scene.background as Color).set(palette.background);
+    this.renderer.setClearColor(palette.background);
+    this.table.material.color.set(palette.table);
+    this.bed.material.color.set(palette.bed);
+    this.ambient.intensity = palette.ambient;
+    this.keyLight.intensity = palette.key;
+    const position = this.grid.geometry.getAttribute("position");
+    const colors = this.grid.geometry.getAttribute("color");
+    const major = new Color(palette.gridMajor), minor = new Color(palette.gridMinor);
+    for (let i = 0; i < position.count; i += 2) {
+      const centreLine = Math.floor(i / 2) % 2 === 0 ? Math.abs(position.getZ(i)) < 0.001 : Math.abs(position.getX(i)) < 0.001;
+      const color = centreLine ? major : minor;
+      colors.setXYZ(i, color.r, color.g, color.b);
+      colors.setXYZ(i + 1, color.r, color.g, color.b);
+    }
+    colors.needsUpdate = true;
   }
 
   private createLoadingPlaceholder() {
@@ -393,7 +421,8 @@ export class SimulatorScene {
     const raycaster = new Raycaster();
     raycaster.setFromCamera(pointer, this.camera);
     const hit = new Vector3();
-    if (!raycaster.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), 0), hit)) return null;
+    const surfaceZ = this.state ? platformHeight(this.state.project.scene) : 0;
+    if (!raycaster.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -surfaceZ), hit)) return null;
     if (Math.abs(hit.x) > 500 || Math.abs(hit.y) > 500) return null;
     return { x: Number(hit.x.toFixed(1)), y: Number(hit.y.toFixed(1)) };
   }
@@ -403,12 +432,24 @@ export class SimulatorScene {
     if (!state) return;
     const isFork = state.project.tool.mode === "fork";
     const cellBlocks = state.project.scene.blocks ?? [];
+    const magneticStandHeight = magneticSurfaceHeight(state.project.scene);
+    const platformZ = platformHeight(state.project.scene);
+    if (!this.teachingPlatform.parent) this.blockGroup.add(this.teachingPlatform);
+    const fixturePositions = [...cellBlocks.map(block => block.position), ...state.project.scene.initialBlocks.map(block => block.position), state.project.scene.block, state.project.scene.drop];
+    const minX = Math.min(170, ...fixturePositions.map(p => p.x - 25));
+    const maxX = Math.max(430, ...fixturePositions.map(p => p.x + 25));
+    const minY = Math.min(-160, ...fixturePositions.map(p => p.y - 25));
+    const maxY = Math.max(160, ...fixturePositions.map(p => p.y + 25));
+    this.teachingPlatform.name = "Shared teaching platform / 共用教學平台";
+    this.teachingPlatform.scale.set((maxX - minX) / 260, (maxY - minY) / 320, platformZ);
+    this.teachingPlatform.position.set((minX + maxX) / 2, (minY + maxY) / 2, platformZ / 2);
+    this.teachingPlatform.visible = platformZ > 0;
     const baseBlock = cellBlocks.find((block) => !block.kind || block.kind === "block");
     const baseSize = cellBlockSize(baseBlock, state.project.tool.mode);
     const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
     this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : baseSize.z === 4 ? this.magneticBlockGeometry : this.proceduralBlockGeometry;
     this.block.name = useLocalForkBlock ? "Grooved fork block / 槽積木 (Body1)" : `${baseSize.x} x ${baseSize.y} x ${baseSize.z} mm workpiece`;
-    this.block.material.color.set(baseBlock?.color === "black" ? "#202629" : baseBlock?.color === "white" ? "#eef4ef" : MODEL_PALETTE.block);
+    setWorkpieceColor(this.block, baseBlock?.color ?? "neutral");
     for (const marker of this.block.children) {
       if (marker.name.includes("top")) marker.position.z = useLocalForkBlock ? 40.25 : baseSize.z / 2 + 0.25;
       else { marker.position.y = Math.sign(marker.position.y) * (baseSize.y / 2 + 0.25); marker.scale.y = Math.min(1, baseSize.z / 12); }
@@ -416,16 +457,18 @@ export class SimulatorScene {
     this.forkFixtures.visible = isFork;
 
     this.block.visible = Boolean(baseBlock);
-    for (const [id, stand] of this.magnetStands) stand.visible = cellBlocks.some((block) => block.id === id && cellBlockSize(block, state.project.tool.mode).z === 4);
-    for (const block of cellBlocks.filter((block) => cellBlockSize(block, state.project.tool.mode).z === 4)) {
+    for (const [id, stand] of this.magnetStands) stand.visible = platformZ === 0 && cellBlocks.some((block) => block.id === id && cellBlockSize(block, state.project.tool.mode).z === 4);
+    for (const block of cellBlocks.filter((block) => platformZ === 0 && cellBlockSize(block, state.project.tool.mode).z === 4)) {
       let stand = this.magnetStands.get(block.id);
       if (!stand) {
-        stand = new Mesh(new BoxGeometry(38, 38, MAGNET_SUPPORT_HEIGHT_MM), new MeshStandardMaterial({color: "#71868d", roughness: 0.6}));
-        stand.name = "20 mm magnetic teaching stand / 磁吸片教學座";
+        stand = new Mesh(new BoxGeometry(38, 38, 1), new MeshStandardMaterial({color: "#71868d", roughness: 0.6}));
+        stand.name = "Magnetic teaching stand / 磁吸片教學座";
         this.magnetStands.set(block.id, stand);
         this.blockGroup.add(stand);
       }
-      stand.position.set(block.position.x, block.position.y, (block.z ?? 0) + MAGNET_SUPPORT_HEIGHT_MM / 2);
+      stand.scale.z = magneticStandHeight;
+      stand.name = `${magneticStandHeight} mm magnetic teaching stand / 磁吸片教學座`;
+      stand.position.set(block.position.x, block.position.y, (block.z ?? 0) + magneticStandHeight / 2);
       stand.rotation.z = rad(block.r);
       stand.visible = true;
     }
@@ -439,7 +482,7 @@ export class SimulatorScene {
         mesh = undefined;
       }
       if (!mesh) {
-        mesh = block.kind === "puck" ? createMagnetPuck(block.color) : createReferenceBlock(block.color, size);
+        mesh = createReferenceBlock(block.color, size);
         mesh.userData.kind = kind;
         mesh.userData.cellBlockId = block.id;
         mesh.castShadow = true;
@@ -447,24 +490,24 @@ export class SimulatorScene {
         this.additionalBlocks.set(block.id, mesh);
         this.blockGroup.add(mesh);
       }
-      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : size.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + (block.stackLevel ?? 0) * size.z + size.z / 2);
+      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (size.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0)) + (block.stackLevel ?? 0) * size.z + size.z / 2);
       mesh.rotation.z = rad(block.r);
       if (!(state.attached && state.attachedCellBlockId === block.id) && mesh.parent !== this.blockGroup) this.blockGroup.add(mesh);
       mesh.visible = true;
-      (mesh as Mesh<BufferGeometry, MeshStandardMaterial>).material.color.set(block.color === "black" ? "#202629" : block.color === "white" ? "#eef4ef" : MODEL_PALETTE.block);
+      setWorkpieceColor(mesh as Mesh<BufferGeometry, MeshStandardMaterial>, block.color);
     }
     for (const [id, mesh] of this.additionalBlocks) {
       if (!cellBlocks.some((block) => block.id === id)) mesh.visible = false;
     }
-    this.pickupStand.position.set(state.blockPosition.x, state.blockPosition.y, 0);
-    this.dropStand.position.set(state.project.scene.drop.x, state.project.scene.drop.y, 0);
+    this.pickupStand.position.set(state.blockPosition.x, state.blockPosition.y, platformZ);
+    this.dropStand.position.set(state.project.scene.drop.x, state.project.scene.drop.y, platformZ);
     this.pickupStand.rotation.z = this.pointRotation(state.project, "PickPoint");
     this.dropStand.rotation.z = this.pointRotation(state.project, "PlacePoint");
     const attachedMesh = state.attachedCellBlockId
       ? (baseBlock?.id === state.attachedCellBlockId ? this.block : this.additionalBlocks.get(state.attachedCellBlockId) ?? this.block)
       : this.block;
     if (baseBlock && attachedMesh !== this.block) {
-      this.block.position.set(baseBlock.position.x, baseBlock.position.y, (baseBlock.z ?? 0) + (isFork ? FORK_SUPPORT_HEIGHT_MM : baseSize.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
+      this.block.position.set(baseBlock.position.x, baseBlock.position.y, (baseBlock.z ?? 0) + (baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0)) + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     }
     if (state.attached) {
@@ -483,7 +526,7 @@ export class SimulatorScene {
     } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       const position = baseBlock.position ?? state.blockPosition;
-      const supportHeight = isFork ? FORK_SUPPORT_HEIGHT_MM : baseSize.z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0;
+      const supportHeight = baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0);
       this.block.position.set(position.x, position.y, (baseBlock.z ?? 0) + supportHeight + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     } else {
@@ -495,8 +538,8 @@ export class SimulatorScene {
     } else {
       this.target.visible = false;
     }
-    this.dropPad?.position.set(state.project.scene.drop.x, state.project.scene.drop.y, -1.5);
-    this.dropRing?.position.set(state.project.scene.drop.x, state.project.scene.drop.y, 0.2);
+    this.dropPad?.position.set(state.project.scene.drop.x, state.project.scene.drop.y, platformZ - 1.5);
+    this.dropRing?.position.set(state.project.scene.drop.x, state.project.scene.drop.y, platformZ + 0.2);
   }
 
   private pointRotation(project: ProjectDocument, name: string): number {

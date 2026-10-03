@@ -1,8 +1,8 @@
 export const PROJECT_FORMAT = "mg400-training-project";
-export const PROJECT_SCHEMA_VERSION = 10;
+export const PROJECT_SCHEMA_VERSION = 11;
 export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
 export const MAGNET_SIZE_MM = { x: 35, y: 35, z: 4 } as const;
-export const MAGNET_SUPPORT_HEIGHT_MM = 20;
+export const MAGNET_SUPPORT_HEIGHT_MM = 110;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
@@ -10,7 +10,7 @@ export const BODY1_FORK_CONTACT = { insertionZ: 42.5, loadZ: 45, bottomOffset: 2
 export type ToolMode = "magnet" | "fork";
 export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
-export type CellObjectKind = "block" | "magnet" | "puck"; // puck is a legacy round workpiece.
+export type CellObjectKind = "block" | "magnet";
 
 export type CellBlock = {
   id: string;
@@ -28,11 +28,11 @@ export type CellBlock = {
 
 export function cellBlockSize(block: CellBlock | undefined, mode: ToolMode) {
   const kind = block?.kind ?? mode;
-  return kind === "magnet" ? MAGNET_SIZE_MM : kind === "puck" ? { x: 28, y: 28, z: 8 } : BLOCK_SIZE_MM;
+  return kind === "magnet" ? MAGNET_SIZE_MM : BLOCK_SIZE_MM;
 }
 
-export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode) {
-  return (block?.z ?? 0) + (cellBlockSize(block, mode).z === 4 ? MAGNET_SUPPORT_HEIGHT_MM : 0) + cellBlockSize(block, mode).z * ((block?.stackLevel ?? 0) + 1);
+export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode, standHeightMm = MAGNET_SUPPORT_HEIGHT_MM, platformHeightMm = 0) {
+  return (block?.z ?? 0) + (cellBlockSize(block, mode).z === 4 ? standHeightMm : platformHeightMm) + cellBlockSize(block, mode).z * ((block?.stackLevel ?? 0) + 1);
 }
 
 // Calibration is local to the imported first block workpiece.
@@ -76,6 +76,10 @@ export type ProjectDocument = {
     blocks: CellBlock[];
     initialBlocks: CellBlock[];
     feederOrder: string[];
+    /** Magnetic fixture height above the table; saved legacy cells retain their measured height. */
+    magnetStandHeightMm?: number;
+    /** Shared teaching platform top above the table. Historical custom cells use zero. */
+    platformHeightMm?: number;
   };
   tool: {
     mode: ToolMode;
@@ -87,6 +91,9 @@ export type ProjectDocument = {
     speed: number;
   };
 };
+
+export const platformHeight = (scene: ProjectDocument["scene"]) => scene.platformHeightMm ?? 0;
+export const magneticSurfaceHeight = (scene: ProjectDocument["scene"]) => platformHeight(scene) + (scene.magnetStandHeightMm ?? (platformHeight(scene) > 0 ? 0 : MAGNET_SUPPORT_HEIGHT_MM));
 
 export const JOINT_LIMITS_DEG = [
   { min: -160, max: 160 },
@@ -145,7 +152,7 @@ export const DEFAULT_SCRIPT = [
 export const DEFAULT_FORK_SCRIPT = [
   "-- MG400 training simulator · passive fork pick and place",
   "-- Slide the unpowered fork under the block, lift to pick, and lower onto its stand; no DO is needed.",
-  "-- The 40 x 40 x 15 mm block is supported 20 mm above the table, leaving room for the fork.",
+  "-- The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
   "-- PickApproach is 60 mm before PickPoint along tool -X at the support height.",
   "",
   "JointMovJ(Home, {CP=0})",
@@ -187,7 +194,7 @@ export const DEFAULT_PYTHON_SCRIPT = [
 export const DEFAULT_FORK_PYTHON_SCRIPT = [
   "# MG400 simulator Python API (not a Dobot controller SDK)",
   "# Passive fork: slide beneath the block, lift to pick, and lower onto its stand; no DO is needed.",
-  "# The 40 x 40 x 15 mm block is supported 20 mm above the table, leaving room for the fork.",
+  "# The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
   "# PickApproach is 60 mm before PickPoint along tool -X at the support height.",
   "",
   "await joint_mov_j(Home, cp=0)",
@@ -203,10 +210,10 @@ export const DEFAULT_FORK_PYTHON_SCRIPT = [
   "",
 ].join("\n");
 
-export function body1ForkProgram(language: ProgramLanguage): string {
+export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 110): string {
   if (language === "python") return [
-    "import math", "# 已量度 Body1 槽：插入 42.5 mm；承托／釋放 45 mm；不使用 DO。",
-    `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": 42.5}}`,
+    "import math", `# 已量度 Body1 槽：插入 ${platformHeightMm + 42.5} mm；承托／釋放 ${platformHeightMm + 45} mm；不使用 DO。`,
+    `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": ${platformHeightMm + 42.5}}}`,
     `PlaceExit = {"coordinate": {**PlaceClear["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60 * math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60 * math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}`,
     "await joint_mov_j(Home, cp=0)", "await mov_j(PickApproach, cp=0)", "await mov_l(PickPoint, cp=0)",
     "await rel_mov_l([0, 0, 80, 0], cp=0)", "await mov_j(PlaceApproach, cp=0)", "await mov_l(PlacePoint, cp=0)",
@@ -214,9 +221,9 @@ export function body1ForkProgram(language: ProgramLanguage): string {
     "await joint_mov_j(Home, cp=0)", "await sync()", "print('Body1 fork pick and place complete')", "",
   ].join("\n");
   return [
-    "-- 已量度 Body1 槽：插入 42.5 mm；承托／釋放 45 mm；不使用 DO。",
-    "local PlaceClear = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=42.5, r=PlacePoint.coordinate.r } }",
-    "local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=42.5, r=PlacePoint.coordinate.r } }",
+    `-- 已量度 Body1 槽：插入 ${platformHeightMm + 42.5} mm；承托／釋放 ${platformHeightMm + 45} mm；不使用 DO。`,
+    `local PlaceClear = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=${platformHeightMm + 42.5}, r=PlacePoint.coordinate.r } }`,
+    `local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=${platformHeightMm + 42.5}, r=PlacePoint.coordinate.r } }`,
     "JointMovJ(Home, {CP=0})", "MovJ(PickApproach, {CP=0})", "MovL(PickPoint, {CP=0})",
     "RelMovL({0, 0, 80, 0}, {CP=0})", "MovJ(PlaceApproach, {CP=0})", "MovL(PlacePoint, {CP=0})",
     "MovL(PlaceClear, {CP=0})", "MovL(PlaceExit, {CP=0})", "RelMovL({0, 0, 80, 0}, {CP=0})",
@@ -224,8 +231,8 @@ export function body1ForkProgram(language: ProgramLanguage): string {
   ].join("\n");
 }
 
-export function getStarterProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference"): string {
-  if (mode === "fork" && profile === "body1") return body1ForkProgram(language);
+export function getStarterProgram(language: ProgramLanguage, mode: ToolMode, profile: ForkContactProfile = "reference", platformHeightMm = 110): string {
+  if (mode === "fork" && profile === "body1") return body1ForkProgram(language, platformHeightMm);
   if (mode === "fork") return language === "lua" ? DEFAULT_FORK_SCRIPT : DEFAULT_FORK_PYTHON_SCRIPT;
   return language === "lua" ? DEFAULT_SCRIPT : DEFAULT_PYTHON_SCRIPT;
 }

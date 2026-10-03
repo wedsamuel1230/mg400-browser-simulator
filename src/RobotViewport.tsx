@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import type { WorkspaceTheme } from "./theme";
 import { AlertTriangle, Crosshair, LoaderCircle } from "lucide-react";
-import { cellBlockSize, type JointAngles, type Pose, type ProjectDocument } from "./domain";
+import { magneticSurfaceHeight, cellBlockSize, type JointAngles, type Pose, type ProjectDocument } from "./domain";
 import { MODEL_PALETTE, ROBOT_COLOR_GROUPS } from "./sim/modelPalette";
 import { SimulatorScene, type LocalToolMeshes, type SceneStatus } from "./sim/SimulatorScene";
 import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
 
 type Props = {
+  workspaceTheme?: WorkspaceTheme;
   joints: JointAngles;
   project: ProjectDocument;
   blockPosition: { x: number; y: number };
@@ -24,16 +26,17 @@ type Props = {
   onTableConfirm?: () => void;
 };
 
-export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
+export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", workspaceTheme = "light", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
   const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1" && project.scene.blocks.some((block) => !block.kind || block.kind === "block");
+  const standHeight = magneticSurfaceHeight(project.scene);
   const size = cellBlockSize(project.scene.blocks[0], project.tool.mode);
-  const workpieceName = body1 ? (uiLanguage === "zh-Hant" ? "槽積木 (Body1) · 40 × 40 × 40 mm" : "Grooved block (Body1) · 40 × 40 × 40 mm") : `${size.x} × ${size.y} × ${size.z} mm ${uiLanguage === "zh-Hant" ? (size.z === 4 ? "磁吸片 · 座高 20 mm，取件 Z24" : "工件") : (size.z === 4 ? "magnetic plate · 20 mm stand, contact Z24" : "workpiece")}`;
+  const workpieceName = body1 ? (uiLanguage === "zh-Hant" ? "槽積木 (Body1) · 40 × 40 × 40 mm" : "Grooved block (Body1) · 40 × 40 × 40 mm") : `${size.x} × ${size.y} × ${size.z} mm ${uiLanguage === "zh-Hant" ? (size.z === 4 ? `磁吸片 · 平台高 ${standHeight} mm，取件 Z${standHeight + 4}` : "工件") : (size.z === 4 ? `magnetic plate · ${standHeight} mm platform, contact Z${standHeight + 4}` : "workpiece")}`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
-  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes });
+  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme });
   const [status, setStatus] = useState<SceneStatus>({ kind: "loading", message: "Preparing viewport…" });
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
-  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes };
+  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,7 +47,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
     if (!canvas || !urdfXml) return;
     let alive = true;
     let created: SimulatorScene | undefined;
-    void SimulatorScene.create(canvas, urdfXml, (nextStatus) => { if (alive) setStatus(nextStatus); }).then((scene) => {
+    void SimulatorScene.create(canvas, urdfXml, (nextStatus) => { if (alive) setStatus(nextStatus); }, latest.current.workspaceTheme).then((scene) => {
       if (!alive) {
         scene.dispose();
         return;
@@ -52,6 +55,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       created = scene;
       sceneRef.current = scene;
       scene.setState(latest.current);
+      scene.setTheme(latest.current.workspaceTheme);
       if (latest.current.localToolMeshes) scene.setLocalToolMeshes(latest.current.localToolMeshes);
     }).catch(() => undefined);
     return () => {
@@ -60,6 +64,8 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       created?.dispose();
     };
   }, [urdfXml, modelError]);
+
+  useEffect(() => { sceneRef.current?.setTheme(workspaceTheme); }, [workspaceTheme]);
 
   useEffect(() => {
     if (localToolMeshes) sceneRef.current?.setLocalToolMeshes(localToolMeshes);

@@ -26,7 +26,7 @@ Open the local URL printed by Vite (normally `http://127.0.0.1:5173`). After dep
 5. Press **Run program** or `⌘/Ctrl + Enter`. Pause, resume, stop, and reset are available in the command bar.
 6. Export a project JSON for backup or import a previously exported, validated project. The current project is also saved in this browser's local storage.
 
-The reference workpiece is 40 × 40 × 15 mm. Magnet mode places it on the table and uses virtual `DO(1, ON/OFF)` to attach/release it at the top-face TCP. Fork mode uses the unpowered fork: three visible pads raise the block's bottom to Z=20 mm, leaving clearance to slide underneath; insertion and lift pick it up, and lowering it onto the pads releases it. Fork mode does not use `DO`, `Pick()`, or `Place()`. Both modes are simplified logical interactions, not contact physics.
+Fresh exercises use a shared teaching platform in front of the robot with its top at Z110 mm. Magnet mode uses marked 35 × 35 × 4 mm plates (centre Z112, top contact Z114) and virtual `DO(1, ON/OFF)` to attach/release. Fork mode automatically loads the supplied 40 × 40 × 40 mm Body1 grooved block and passive printed fork. Its 20 mm support pads sit on the platform: bottom Z130, insertion TCP Z152.5, load/release Z155. Fork mode does not use `DO`, `Pick()`, or `Place()`. Both modes use logical contact rules rather than contact physics. The workspace, editor and 3D view support a saved light/dark preference. Legacy custom projects retain their measured points and heights; prepare a fresh practice to use the new platform.
 
 ## AI coding coach
 

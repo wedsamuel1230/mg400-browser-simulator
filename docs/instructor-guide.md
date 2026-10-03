@@ -57,10 +57,10 @@ Have learners select a tool, teach or refresh the pick pair, then run the single
 
 ### Magnet and passive fork comparison
 
-The reference block is 40 × 40 × 15 mm:
+Fresh exercises use the front 110 mm teaching platform:
 
-- **Magnet:** the block rests on the table. The magnetic tool targets the top face at Z=15 mm. `DO(1, ON/OFF)` is only a simulator attach/release action; it does not represent connected hardware I/O.
-- **Fork:** three support pads hold the block bottom at Z=20 mm. The unpowered tool must approach, slide beneath the block, lift, travel, and lower onto the destination pads. No `DO`, `Pick()`, or `Place()` call is required.
+- **Magnet:** the 35 × 35 × 4 mm plate rests on the platform. The magnetic tool targets its top face at Z114. `DO(1, ON/OFF)` is only a simulator attach/release action; it does not represent connected hardware I/O.
+- **Fork:** support pads hold the supplied Body1 bottom at Z130; insertion is Z152.5 and load/release is Z155. The unpowered tool must approach, slide beneath the block, lift, travel, and lower onto the destination pads. No `DO`, `Pick()`, or `Place()` call is required.
 
 Ask learners to explain why the two modes use different contact geometry and why an approach point is useful. The fork support and release rules are deterministic simulation logic, not a physics or force model.
 
@@ -163,10 +163,10 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 
 #### 比較磁吸與無動力叉臂
 
-示範方塊尺寸為 40 × 40 × 15 mm：
+新練習使用前方 110 mm 教學平台：
 
-- **Magnet：**方塊放在枱面，磁吸工具對準 Z=15 mm 頂面。**DO(1, ON/OFF)** 只在模擬器內代表吸附／釋放，沒有連接實體 I/O。
-- **Fork：**三個承托墊把方塊底面托高至 Z=20 mm。無動力工具需接近、滑入方塊底下、抬起、移動，再放低至目的地承托墊上。毋須 **DO**、**Pick()** 或 **Place()**。
+- **Magnet：**35 × 35 × 4 mm 磁吸片放在平台上，磁吸工具對準 Z114 頂面。**DO(1, ON/OFF)** 只在模擬器內代表吸附／釋放，沒有連接實體 I/O。
+- **Fork：**承托墊把隨附 Body1 底面托至 Z130；插入為 Z152.5，承托／釋放為 Z155。無動力工具需接近、滑入方塊底下、抬起、移動，再放低至目的地承托墊上。毋須 **DO**、**Pick()** 或 **Place()**。
 
 請學生解釋兩種模式為何有不同接觸幾何，以及接近點有甚麼作用。叉臂承托和釋放屬確定性模擬規則，不是物理或受力模型。
 
