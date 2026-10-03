@@ -443,8 +443,8 @@ export default function App() {
     [hasCurrentRun, programRunLog],
   );
   const recommendation = useMemo(
-    () => recommendPickAndPlace(practicePrepared && !freeMode && !attached && status === "complete" ? resetCell(project) : project, project.programmingLanguage, kinematics ?? undefined, modelError, forkProfile),
-    [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError, forkProfile, practicePrepared, freeMode, attached, status],
+    () => recommendPickAndPlace(practicePrepared && !freeMode && !attached && status === "complete" ? resetCell(project) : project, project.programmingLanguage, kinematics ?? undefined, modelError, forkProfile, uiLanguage),
+    [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError, forkProfile, practicePrepared, freeMode, attached, status, uiLanguage],
   );
   const towerBlocks = project.scene.blocks.filter((block) => block.stackLevel !== undefined);
 
@@ -1627,10 +1627,10 @@ export default function App() {
           </section>
         </aside>
 
-        <aside id="coach-dock" className="panel coach-dock" aria-label="AI coach and setup checks" hidden={!coachOpen || workbenchView !== "program"}>
+        <aside id="coach-dock" className="panel coach-dock" aria-label={uiLanguage === "zh-Hant" ? "AI 程式教練及設定檢查" : "AI coach and setup checks"} hidden={!coachOpen || workbenchView !== "program"}>
           <div className="coach-dock-heading">
             <div className="heading-title"><span className="heading-icon purple-icon"><Sparkles size={16} /></span><div><h2>{uiLanguage === "zh-Hant" ? "AI 程式教練" : "AI coding coach"}</h2><small>{uiLanguage === "zh-Hant" ? "提供提示，協助你自己修改" : "Hints to help you make your own changes"}</small></div></div>
-            <button type="button" className="small-icon-button" onClick={() => setCoachOpen(false)} aria-label="Close AI coach" title="Close AI coach">×</button>
+            <button type="button" className="small-icon-button" onClick={() => setCoachOpen(false)} aria-label={uiLanguage === "zh-Hant" ? "關閉 AI 程式教練" : "Close AI coach"} title={uiLanguage === "zh-Hant" ? "關閉 AI 程式教練" : "Close AI coach"}>×</button>
           </div>
           <div className="coach-dock-content">
             <CodeAssistant uiLanguage={uiLanguage}
@@ -1639,7 +1639,7 @@ export default function App() {
               language={project.programmingLanguage}
               toolMode={project.tool.mode}
               setupReady={recommendation.ready}
-              setupChecks={[...recommendation.checks, { id: "scene-height", status: "info", title: "Actual scene heights", detail: `Platform top Z=${platformHeight(project.scene)} mm; magnetic contact Z=${magneticSurfaceHeight(project.scene) + 4} mm; fork support Z=${platformHeight(project.scene) + 20} mm; Body1 insertion Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.insertionZ}, load/release Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.loadZ} mm. Individual workpiece Z offsets are added to these values.` }]}
+              setupChecks={[...recommendation.checks, { id: "scene-height", status: "info", title: uiLanguage === "zh-Hant" ? "工作格實際高度" : "Actual scene heights", detail: uiLanguage === "zh-Hant" ? `平台頂面 Z=${platformHeight(project.scene)} mm；磁吸接觸 Z=${magneticSurfaceHeight(project.scene) + 4} mm；叉臂承托 Z=${platformHeight(project.scene) + 20} mm；Body1 插入 Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.insertionZ}、承托／釋放 Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.loadZ} mm。各工件的 Z 偏移會再加到以上高度。` : `Platform top Z=${platformHeight(project.scene)} mm; magnetic contact Z=${magneticSurfaceHeight(project.scene) + 4} mm; fork support Z=${platformHeight(project.scene) + 20} mm; Body1 insertion Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.insertionZ}, load/release Z=${platformHeight(project.scene) + body1SupportHeight(project.scene) + BODY1_FORK_CONTACT.loadZ} mm. Individual workpiece Z offsets are added to these values.` }]}
               recentRunLog={recentRunLog}
               hasCurrentRun={hasCurrentRun && recentRunLog.length > 0}
               onOpenControlFlowLesson={(topic) => {
@@ -1648,7 +1648,7 @@ export default function App() {
               }}
             />
             <details className="guided-example-section">
-              <summary>Setup review &amp; guided example · {project.tool.mode === "magnet" ? "Magnet" : "Passive fork"} · {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
+              <summary>{uiLanguage === "zh-Hant" ? "設定檢查與導學範例" : "Setup review & guided example"} · {project.tool.mode === "magnet" ? (uiLanguage === "zh-Hant" ? "磁吸工具" : "Magnet") : (uiLanguage === "zh-Hant" ? "被動叉臂" : "Passive fork")} · {project.programmingLanguage === "lua" ? "Lua" : "Python"}</summary>
               <div className="guided-example-content">
                     <p className="recommendation-intro">{recommendation.message}</p>
                     <ul className="recommendation-checks">
@@ -1657,16 +1657,16 @@ export default function App() {
                           <span className="recommendation-check-mark" aria-hidden="true">{check.status === "pass" ? "✓" : check.status === "action" ? "!" : check.status === "waiting" ? "…" : "i"}</span>
                           <div><strong>{check.title}</strong><span>{check.detail}</span>
                             {check.action && <button className="recommendation-action" onClick={() => applyRecommendationAction(check.action!, check.pointName)} disabled={busy || ((check.action === "teach-pick" || check.action === "teach-place") && project.points.length > 98) || (check.action === "teach-home" && project.points.length >= 100 && !project.points.some((point) => point.name.toLowerCase() === "home"))}>
-                              {check.action === "teach-home" ? "Set current pose as Home" : check.action === "teach-pick" ? (project.points.some((point) => point.name === "PickPoint" || point.name === "PickApproach") ? "Reset pick pair to block" : "Create pick pair at block") : check.action === "teach-place" ? (project.points.some((point) => point.name === "PlacePoint" || point.name === "PlaceApproach") ? "Reset place pair to drop zone" : "Create place pair at drop zone") : `Select ${check.pointName}`}
+                              {check.action === "teach-home" ? (uiLanguage === "zh-Hant" ? "將目前姿勢設為 Home" : "Set current pose as Home") : check.action === "teach-pick" ? (project.points.some((point) => point.name === "PickPoint" || point.name === "PickApproach") ? (uiLanguage === "zh-Hant" ? "重新設定取件點組" : "Reset pick pair to block") : (uiLanguage === "zh-Hant" ? "在工件位置建立取件點組" : "Create pick pair at block")) : check.action === "teach-place" ? (project.points.some((point) => point.name === "PlacePoint" || point.name === "PlaceApproach") ? (uiLanguage === "zh-Hant" ? "重新設定放置點組" : "Reset place pair to drop zone") : (uiLanguage === "zh-Hant" ? "在放置區建立放置點組" : "Create place pair at drop zone")) : uiLanguage === "zh-Hant" ? `選取 ${check.pointName}` : `Select ${check.pointName}`}
                             </button>}
                           </div>
                         </li>
                       ))}
                     </ul>
-                    <div className="recommendation-lesson"><strong>Why this sequence?</strong><span>{project.tool.mode === "magnet" ? "Home → approach above → descend → DO1 attaches → lift clear → place → DO1 releases → return Home." : "Home → approach from outside at the raised support plane → slide under → lift to auto-pick → move above the drop zone → lower onto the active platform or taught stack layer to release → return Home. The passive fork needs no DO."} The example stays in the editor for you to review and run.</span></div>
-                    <details className="recommendation-preview"><summary>Preview the full example</summary><pre>{recommendation.code}</pre></details>
-                    <button className="recommendation-load" onClick={loadRecommendedProgram} disabled={!recommendation.ready}>Replace current {project.programmingLanguage === "lua" ? "Lua" : "Python"} code with this example</button>
-                    <small>The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Endpoints are checked; path collision and tool physics are not simulated.</small>
+                    <div className="recommendation-lesson"><strong>{uiLanguage === "zh-Hant" ? "為何使用這個次序？" : "Why this sequence?"}</strong><span>{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? "Home → 上方接近 → 直線下降 → DO1 附上工件 → 抬高 → 移至放置區 → DO1 釋放 → 返回 Home。範例會留在編輯器，供你檢視及自行執行。" : "Home → 在承托高度從外側接近 → 滑入叉臂 → 抬高並承托工件 → 移至放置區上方 → 降至平台或已示教的堆疊層並釋放 → 返回 Home。無動力叉臂不使用 DO。範例會留在編輯器，供你檢視及自行執行。") : (project.tool.mode === "magnet" ? "Home → approach above → descend → DO1 attaches → lift clear → place → DO1 releases → return Home." : "Home → approach from outside at the raised support plane → slide under → lift to auto-pick → move above the drop zone → lower onto the active platform or taught stack layer to release → return Home. The passive fork needs no DO.") + " The example stays in the editor for you to review and run."}</span></div>
+                    <details className="recommendation-preview"><summary>{uiLanguage === "zh-Hant" ? "預覽完整範例程式" : "Preview the full example"}</summary><pre>{recommendation.code}</pre></details>
+                    <button className="recommendation-load" onClick={loadRecommendedProgram} disabled={!recommendation.ready}>{uiLanguage === "zh-Hant" ? `以此範例取代目前的 ${project.programmingLanguage === "lua" ? "Lua" : "Python"} 程式` : `Replace current ${project.programmingLanguage === "lua" ? "Lua" : "Python"} code with this example`}</button>
+                    <small>{uiLanguage === "zh-Hant" ? "導學範例只會取代目前選取語言的編輯器內容。Python 只供模擬器使用。RelMovL 語法及選項見 DobotStudio Pro 2.8.0 官方手冊第 172 頁；此模擬器使用基座座標偏移。只檢查移動端點，不會模擬路徑碰撞或工具物理。" : "The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Endpoints are checked; path collision and tool physics are not simulated."}</small>
                   </div>
             </details>
           </div>

@@ -112,6 +112,21 @@ describe("context-aware pick-and-place recommendations", () => {
     const failed = recommendPickAndPlace(project, "python", undefined, "URDF unavailable");
     expect(failed.checks.find((check) => check.id === "reachability")?.detail).toContain("URDF unavailable");
   });
+
+  it("localizes setup guidance for the Traditional Chinese workspace", () => {
+    const project = structuredClone(DEFAULT_PROJECT);
+    project.tool.mode = "fork";
+    project.scene.platformHeightMm = 0;
+    project.points = project.points.filter((point) => !["PickPoint", "PickApproach"].includes(point.name));
+
+    const result = recommendPickAndPlace(project, "lua", reachableKinematics, "", "body1", "zh-Hant");
+    expect(result.message).toContain("在參考工件建立無動力叉臂入口點組");
+    expect(result.checks.find((check) => check.id === "home")?.title).toBe("起始位置");
+    expect(result.checks.find((check) => check.id === "pick")?.detail).toContain("Z=42.5 mm");
+    expect(result.checks.find((check) => check.id === "reachability")?.title).toBe("工作範圍檢查");
+    expect(result.checks.find((check) => check.id === "api-profile")?.detail).toContain("官方手冊第 172 頁");
+    expect(result.checks.map((check) => `${check.title} ${check.detail}`).join(" ")).not.toContain("Create the");
+  });
 });
 
 
