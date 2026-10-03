@@ -285,11 +285,11 @@ const RAW_LESSONS: Lesson[] = [
     durationMinutes: 18,
     evidenceProfile: { en: "Official DobotStudio Pro V2.8.0 guide · RelMovL", "zh-Hant": "DobotStudio Pro V2.8.0 官方手冊 · RelMovL" },
     title: { en: "Relative linear motion with RelMovL", "zh-Hant": "RelMovL 相對直線移動" },
-    outcome: { en: "Move by a base-frame Cartesian offset from the TCP pose when the queued command starts.", "zh-Hant": "理解指令開始執行時，TCP 按基座笛卡兒座標偏移移動。" },
+    outcome: { en: "Practice RelMovL with the simulator's base-frame Cartesian offset from the current TCP.", "zh-Hant": "按模擬器的基座座標設定，練習以 RelMovL 從目前 TCP 作笛卡兒偏移。" },
     prerequisite: { en: "Understand TCP coordinates and MovL from the Foundation track.", "zh-Hant": "先理解初階課程中的 TCP 座標及 MovL。" },
     explanation: [
-      { en: "The official DobotStudio Pro V2.8.0 MG400 guide documents RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR}); offsets are Cartesian X/Y/Z in millimetres and R in degrees. It also lists CP, SpeedL, AccL, and SYNC options. The native Lua form is a four-value positional table.", "zh-Hant": "DobotStudio Pro V2.8.0 MG400 官方手冊記載 RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR})；偏移量是笛卡兒 X/Y/Z 毫米及 R 角度，亦列出 CP、SpeedL、AccL 及 SYNC 選項。原生 Lua 寫法使用四個依序排列的數值。" },
-      { en: "This simulator resolves each offset from the current TCP when the queued action begins, in its base Cartesian frame. Earlier asynchronous motions therefore finish in queue order before the next relative target is calculated. V1 supports CP=0 only; speed and acceleration affect simulated time, not robot dynamics. User/tool frames and physical controller behavior are not verified here.", "zh-Hant": "本模擬器會在佇列中的指令開始執行時，以當刻 TCP 在基座笛卡兒座標系加上偏移量。因此前面的非同步移動會先按佇列完成，再計算下一個相對目標。此版本只支援 CP=0；速度和加速度只改變模擬時間，並非真實機械臂動力學。本處沒有模擬使用者／工具座標系，也沒有驗證實體控制器行為。" },
+      { en: "The official DobotStudio Pro V2.8.0 MG400 guide documents RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR}) with CP, SpeedL, AccL, and SYNC options. It defines X/Y/Z in millimetres and R in degrees, but this command description does not name a base, user, or tool frame. The native Lua form is a four-value positional table.", "zh-Hant": "DobotStudio Pro V2.8.0 MG400 官方手冊記載 RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR})，並列出 CP、SpeedL、AccL 及 SYNC 選項。X/Y/Z 用毫米，R 用角度；但手冊沒有指出此指令使用基座、使用者或工具座標系。原生 Lua 寫法使用四個依序排列的數值。" },
+      { en: "For practice, this simulator adds each offset to the current TCP pose in its base frame when the queued action starts. Treat that frame choice as a simulator convention; actual controller frame behavior is not verified. V1 supports CP=0 only; speed and acceleration affect simulated time, not robot dynamics.", "zh-Hant": "練習時，模擬器會在佇列中的指令開始執行時，把偏移量加到目前 TCP 的基座座標姿態。這是模擬器的座標設定，尚未驗證實體控制器是否相同。此版本只支援 CP=0；速度和加速度只改變模擬時間，並非機械臂動力學。" },
     ],
     guidedSteps: [
       { en: "Copy the example, then return to the simulator and paste it into the program editor.", "zh-Hant": "複製範例，返回模擬器後貼到程式編輯器。" },
