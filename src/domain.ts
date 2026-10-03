@@ -4,9 +4,10 @@ export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
 export const MAGNET_SIZE_MM = { x: 35, y: 35, z: 4 } as const;
 export const MAGNET_SUPPORT_HEIGHT_MM = 110;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
+export const TEACHING_PLATFORM = { width:340, depth:320, x:270, y:0, top:110 } as const;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
-export const BODY1_FORK_CONTACT = { insertionZ: 42.5, loadZ: 45, bottomOffset: 25 } as const;
+export const BODY1_FORK_CONTACT = { insertionZ: 22.5, loadZ: 25, bottomOffset: 25 } as const;
 export type ToolMode = "magnet" | "fork";
 export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
@@ -16,6 +17,8 @@ export type CellBlock = {
   id: string;
   /** Omitted kind uses the active tool: magnetic plate or fork reference block. */
   kind?: CellObjectKind;
+  geometry?: "body1";
+  pileId?: string;
   color: BlockColor;
   source: BlockSource;
   position: { x: number; y: number };
@@ -27,6 +30,7 @@ export type CellBlock = {
 };
 
 export function cellBlockSize(block: CellBlock | undefined, mode: ToolMode) {
+  if (block?.geometry === "body1") return { x: 40, y: 40, z: 40 };
   const kind = block?.kind ?? mode;
   return kind === "magnet" ? MAGNET_SIZE_MM : BLOCK_SIZE_MM;
 }
@@ -37,7 +41,7 @@ export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode, stan
 
 // Calibration is local to the imported first block workpiece.
 export function effectiveForkContactProfile(profile: ForkContactProfile, blocks: CellBlock[], blockId?: string): ForkContactProfile {
-  return profile === "body1" && blockId !== undefined && blockId === blocks.find((block) => !block.kind || block.kind === "block")?.id ? "body1" : "reference";
+  return blocks.find(block => block.id === blockId)?.geometry === "body1" || (profile === "body1" && blockId !== undefined && blockId === blocks.find((block) => !block.kind || block.kind === "block")?.id) ? "body1" : "reference";
 }
 export function forkProfileAfterImport(profile: ForkContactProfile, kind: "magnet" | "fork" | "block"): ForkContactProfile {
   return kind === "block" || kind === "fork" ? "reference" : profile;
@@ -80,6 +84,9 @@ export type ProjectDocument = {
     magnetStandHeightMm?: number;
     /** Shared teaching platform top above the table. Historical custom cells use zero. */
     platformHeightMm?: number;
+    /** Explicit 0 for direct Body1 platform contact; omitted preserves historical 20 mm stands. */
+    body1SupportHeightMm?: number;
+    platformMigrationFromMm?: number;
   };
   tool: {
     mode: ToolMode;
@@ -93,6 +100,7 @@ export type ProjectDocument = {
 };
 
 export const platformHeight = (scene: ProjectDocument["scene"]) => scene.platformHeightMm ?? 0;
+export const body1SupportHeight = (scene: ProjectDocument["scene"]) => scene.body1SupportHeightMm ?? 20;
 export const magneticSurfaceHeight = (scene: ProjectDocument["scene"]) => platformHeight(scene) + (scene.magnetStandHeightMm ?? (platformHeight(scene) > 0 ? 0 : MAGNET_SUPPORT_HEIGHT_MM));
 
 export const JOINT_LIMITS_DEG = [
@@ -119,6 +127,11 @@ export const DEFAULT_FLANGE_OFFSET: Pose = {
   z: FLANGE_TO_LINK5_ORIGIN_MM,
   r: 0,
 };
+
+export function authoredPythonProgram(source: string): string {
+  if (!/\bawait\s/.test(source) && /\bdef task\(/.test(source)) return source;
+  return "def task():\n" + source.replace(/\bawait\s+/g, "").split("\n").map(line=>"    "+line).join("\n") + "\ntask()";
+}
 
 export const DEFAULT_SCRIPT = [
   "-- MG400 training simulator · bounded Dobot Lua subset",
@@ -168,7 +181,7 @@ export const DEFAULT_FORK_SCRIPT = [
   "",
 ].join("\n");
 
-export const DEFAULT_PYTHON_SCRIPT = [
+export const DEFAULT_PYTHON_SCRIPT = authoredPythonProgram([
   "# MG400 training simulator Python API (not a Dobot controller SDK)",
   "# Offsets use base-frame millimetres and degrees; motion timing is simulated.",
   "# The dark arrow on the block shows its local +X direction.",
@@ -189,9 +202,9 @@ export const DEFAULT_PYTHON_SCRIPT = [
   "await sync()",
   "print('Picked, rotated +90 degrees, and placed the block')",
   "",
-].join("\n");
+].join("\n"));
 
-export const DEFAULT_FORK_PYTHON_SCRIPT = [
+export const DEFAULT_FORK_PYTHON_SCRIPT = authoredPythonProgram([
   "# MG400 simulator Python API (not a Dobot controller SDK)",
   "# Passive fork: slide beneath the block, lift to pick, and lower onto its stand; no DO is needed.",
   "# The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
@@ -208,22 +221,22 @@ export const DEFAULT_FORK_PYTHON_SCRIPT = [
   "await sync()",
   "print('Fork pick and place complete')",
   "",
-].join("\n");
+].join("\n"));
 
-export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 110): string {
-  if (language === "python") return [
-    "import math", `# 已量度 Body1 槽：插入 ${platformHeightMm + 42.5} mm；承托／釋放 ${platformHeightMm + 45} mm；不使用 DO。`,
-    `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": ${platformHeightMm + 42.5}}}`,
+export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 110, supportHeightMm = 20): string {
+  if (language === "python") return authoredPythonProgram([
+    "import math", `# 已量度 Body1 槽：插入 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ} mm；承托／釋放 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.loadZ} mm；不使用 DO。`,
+    `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ}}}`,
     `PlaceExit = {"coordinate": {**PlaceClear["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60 * math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60 * math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}`,
     "await joint_mov_j(Home, cp=0)", "await mov_j(PickApproach, cp=0)", "await mov_l(PickPoint, cp=0)",
     "await rel_mov_l([0, 0, 80, 0], cp=0)", "await mov_j(PlaceApproach, cp=0)", "await mov_l(PlacePoint, cp=0)",
     "await mov_l(PlaceClear, cp=0)", "await mov_l(PlaceExit, cp=0)", "await rel_mov_l([0, 0, 80, 0], cp=0)",
     "await joint_mov_j(Home, cp=0)", "await sync()", "print('Body1 fork pick and place complete')", "",
-  ].join("\n");
+  ].join("\n"));
   return [
-    `-- 已量度 Body1 槽：插入 ${platformHeightMm + 42.5} mm；承托／釋放 ${platformHeightMm + 45} mm；不使用 DO。`,
-    `local PlaceClear = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=${platformHeightMm + 42.5}, r=PlacePoint.coordinate.r } }`,
-    `local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=${platformHeightMm + 42.5}, r=PlacePoint.coordinate.r } }`,
+    `-- 已量度 Body1 槽：插入 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ} mm；承托／釋放 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.loadZ} mm；不使用 DO。`,
+    `local PlaceClear = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ}, r=PlacePoint.coordinate.r } }`,
+    `local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ}, r=PlacePoint.coordinate.r } }`,
     "JointMovJ(Home, {CP=0})", "MovJ(PickApproach, {CP=0})", "MovL(PickPoint, {CP=0})",
     "RelMovL({0, 0, 80, 0}, {CP=0})", "MovJ(PlaceApproach, {CP=0})", "MovL(PlacePoint, {CP=0})",
     "MovL(PlaceClear, {CP=0})", "MovL(PlaceExit, {CP=0})", "RelMovL({0, 0, 80, 0}, {CP=0})",

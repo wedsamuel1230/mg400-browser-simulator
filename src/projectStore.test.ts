@@ -242,7 +242,7 @@ it("converts old round items without deleting learner code, points or custom fix
   expect(result.scene.initialBlocks[0].kind).toBe("magnet");
   expect(result.script).toBe(legacy.script);
   expect(result.points).toEqual(legacy.points);
-  expect(result.scene.magnetStandHeightMm).toBe(35);
+  expect(result.scene.magnetStandHeightMm).toBe(0);
 });
 it("upgrades only untouched stock magnetic contacts from the old20mm stand to a110mm shared platform", () => {
   const legacy = JSON.parse(JSON.stringify(DEFAULT_PROJECT)); legacy.schemaVersion=10; delete legacy.scene.magnetStandHeightMm;
@@ -253,7 +253,7 @@ it("upgrades only untouched stock magnetic contacts from the old20mm stand to a1
   expect(upgraded.points).toEqual(DEFAULT_PROJECT.points);
   legacy.points[1].pose.x=301;
   const customized=validateProject(legacy);
-  expect(customized.scene.magnetStandHeightMm).toBe(20);
+  expect(customized.scene.magnetStandHeightMm).toBe(0);
   expect(customized.points).toEqual(legacy.points);
 });
 it("rejects new round items and invalid fixture heights instead of retaining a hidden legacy mode",()=>{
@@ -263,12 +263,12 @@ it("rejects new round items and invalid fixture heights instead of retaining a h
  expect(()=>validateProject(invalid)).toThrow(/stand height/);
 });
 
-it("retains a custom historical cell on its original stand instead of moving its code and points",()=>{
+it("normalizes a custom historical platform and preserves code and points for re-teaching",()=>{
  const legacy=structuredClone(DEFAULT_PROJECT) as unknown as Record<string,any>;
  legacy.schemaVersion=10;delete legacy.scene.platformHeightMm;delete legacy.scene.magnetStandHeightMm;
  legacy.scene.blocks[0].position.x=350;
  legacy.points=legacy.points.map((point:any)=>point.kind==="cartesian"?{...point,pose:{...point.pose,z:point.pose.z-90}}:point);
  const migrated=validateProject(legacy);
- expect(migrated.scene.platformHeightMm).toBe(0);expect(migrated.scene.magnetStandHeightMm).toBe(20);
+ expect(migrated.scene.platformHeightMm).toBe(110);expect(migrated.scene.magnetStandHeightMm).toBe(0);expect(migrated.scene.platformMigrationFromMm).toBe(0);
  expect(migrated.points).toEqual(legacy.points);expect(migrated.script).toBe(legacy.script);
 });

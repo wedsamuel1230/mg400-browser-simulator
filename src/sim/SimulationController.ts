@@ -1,10 +1,11 @@
-import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import type { LuaWorkerMessage, MotionRequest } from "./luaTypes";
 import { advancePassiveFork, EMPTY_PASSIVE_FORK_STATE, type PassiveForkState } from "./forkTool";
+import { cellBlockIsOccluded } from "./multiBlockCell";
 
 type Action =
   | { type: "motion"; motion: MotionRequest }
@@ -267,6 +268,8 @@ export class SimulationController {
     const project = this.currentProject();
     const current = this.events.getJoints();
     const currentPose = this.kinematics.forward(current, project.tool.flangeOffset, activeTcpOffset(project.tool));
+    // The measured Body1 contact band is narrower than ordinary IK endpoint accuracy.
+    const toleranceMm=project.tool.mode === "fork" && (this.events.getForkContactProfile?.()==="body1" || project.scene.blocks.some(block=>block.geometry==="body1")) ? 0.01 : 0.5;
     let destination: JointAngles;
     let targetPose: Pose;
 
@@ -278,7 +281,7 @@ export class SimulationController {
     } else {
       if (!request.targetPose) throw new Error(`${request.command} requires a Cartesian point.`);
       targetPose = request.targetPose;
-      const solved = this.kinematics.solve(targetPose, current, project.tool.flangeOffset, activeTcpOffset(project.tool));
+      const solved = this.kinematics.solve(targetPose, current, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
       if (!solved.ok) {
         throw new Error(`Target is outside the modeled workspace (remaining error ${solved.positionErrorMm.toFixed(1)} mm, ${solved.angleErrorDeg.toFixed(1)}°).`);
       }
@@ -314,7 +317,7 @@ export class SimulationController {
 
       if (request.command === "MovL") {
         const pose = interpolatePose(currentPose, targetPose, eased);
-        const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool));
+        const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
         if (!result.ok) {
           throw new Error(`Straight-line motion left the modeled workspace (${result.positionErrorMm.toFixed(1)} mm position error).`);
         }
@@ -342,11 +345,26 @@ export class SimulationController {
     }
     const candidates = this.events.getCellBlocks?.() ?? [];
     const location = this.events.getBlock();
-    const candidate = candidates.find((block) => Math.hypot(block.position.x - location.x, block.position.y - location.y) <= 1);
+    const occluded = (block: CellBlock) => cellBlockIsOccluded(block, candidates, project.tool.mode, magneticSurfaceHeight(project.scene), platformHeight(project.scene));
+    const accessibleCandidates = this.events.isAttached() ? [] : candidates.filter(block => block.source !== "unloaded" && !occluded(block));
+    const candidate = this.attachedCellBlockId ? candidates.find(block => block.id === this.attachedCellBlockId)
+      : accessibleCandidates.filter(block => {
+          if (block.source !== "pickup") return false;
+          const angle=current.r*Math.PI/180, dx=current.x-block.position.x, dy=current.y-block.position.y;
+          const along=dx*Math.cos(angle)+dy*Math.sin(angle), across=-dx*Math.sin(angle)+dy*Math.cos(angle);
+          const profile=effectiveForkContactProfile(this.events.getForkContactProfile?.()??"reference",candidates,block.id);
+          const insertZ=platformHeight(project.scene)+(block.z??0)+(profile==="body1"?body1SupportHeight(project.scene)+40*(block.stackLevel??0)+BODY1_FORK_CONTACT.insertionZ:20);
+          return Math.abs(across)<=1 && along>=-61 && along<=1 && current.z>=insertZ-1 && current.z<=insertZ+(this.passiveForkState.inserted?3:1);
+        }).sort((a,b)=>(b.stackLevel??0)-(a.stackLevel??0))[0]
+        ?? accessibleCandidates.filter(block => Math.hypot(block.position.x-location.x,block.position.y-location.y)<=1).sort((a,b)=>(b.stackLevel??0)-(a.stackLevel??0))[0];
+    const profile = effectiveForkContactProfile(this.events.getForkContactProfile?.() ?? "reference", candidates, candidate?.id);
+    const outputs = candidates.filter(block => block.id !== candidate?.id && block.source === "output" && Math.hypot(block.position.x-project.scene.drop.x,block.position.y-project.scene.drop.y)<=1);
+    const stackLevel = profile === "body1" && this.events.isAttached() ? outputs.length : candidate?.stackLevel ?? 0;
+    const supportBase = platformHeight(project.scene) + (candidate?.z ?? 0) + (profile === "body1" ? 40 * stackLevel : 0);
     const result = advancePassiveFork(
       this.passiveForkState, previous, current, this.events.isAttached(),
-      { ...location, r: candidate?.r ?? 0 }, project.scene.drop, project.tool.pickupTolerance,
-      effectiveForkContactProfile(this.events.getForkContactProfile?.() ?? "reference", candidates, candidate?.id), platformHeight(project.scene) + (candidate?.z ?? 0),
+      { ...(candidate?.position ?? location), r: candidate?.r ?? 0 }, project.scene.drop, project.tool.pickupTolerance,
+      profile, supportBase, body1SupportHeight(project.scene),
     );
     this.passiveForkState = result.state;
     if (result.action === "pick") {
@@ -357,7 +375,7 @@ export class SimulationController {
       this.events.addLog("叉臂已插入並承托工件；抬升後接附。", "info");
     } else if (result.action === "place") {
       this.events.setCellBlocks?.(candidates.map((block) => block.id === this.attachedCellBlockId
-        ? { ...block, position: { x: current.x, y: current.y }, r: current.r + this.attachedForkYaw, source: "output", stackLevel: undefined }
+        ? { ...block, position: { x: current.x, y: current.y }, r: current.r + this.attachedForkYaw, source: "output", stackLevel: profile === "body1" ? stackLevel : undefined }
         : block));
       this.events.setAttached(false);
       this.events.setBlock({ x: current.x, y: current.y });
@@ -389,7 +407,7 @@ export class SimulationController {
       const candidates = this.events.getCellBlocks?.() ?? [];
       const withinContact = (candidate: CellBlock) => Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy
         && Math.abs(tcp.z - cellBlockTopZ(candidate, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene))) <= project.tool.pickupTolerance.z;
-      const target = candidates.filter((candidate) => candidate.source !== "unloaded" && withinContact(candidate))
+      const target = candidates.filter((candidate) => candidate.source !== "unloaded" && !cellBlockIsOccluded(candidate, candidates, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) && withinContact(candidate))
         .sort((a, b) => (a.source === "output" ? 1 : 0) - (b.source === "output" ? 1 : 0) || cellBlockTopZ(b, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) - cellBlockTopZ(a, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)))[0];
       const block = candidates.length > 0 ? target?.position : this.events.getBlock();
       if (!block) throw new Error("Pick failed: no eligible source block is within the configured pickup tolerance.");
@@ -415,8 +433,8 @@ export class SimulationController {
     if (candidates && this.attachedCellBlockId) {
       const towerRadius = Math.max(8, project.tool.pickupTolerance.xy);
       const inTowerZone = Math.hypot(tcp.x - project.scene.drop.x, tcp.y - project.scene.drop.y) <= towerRadius;
-      const towerBlocks = candidates.filter((candidate) => candidate.source === "output" && candidate.stackLevel !== undefined);
-      const stackLevel = inTowerZone ? towerBlocks.length : undefined;
+      const towerBlocks = candidates.filter((candidate) => candidate.id !== this.attachedCellBlockId && candidate.source === "output" && Math.hypot(candidate.position.x-tcp.x,candidate.position.y-tcp.y)<=1);
+      const stackLevel = towerBlocks.length > 0 || inTowerZone ? towerBlocks.length : 0;
       placedStackLevel = stackLevel;
       const attachedCandidate = candidates.find((candidate) => candidate.id === this.attachedCellBlockId);
       const unloading = attachedCandidate?.source === "output" && Math.hypot(tcp.x - project.scene.drop.x, tcp.y - project.scene.drop.y) > towerRadius;

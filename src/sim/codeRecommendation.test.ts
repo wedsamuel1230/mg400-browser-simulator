@@ -31,7 +31,7 @@ describe("context-aware pick-and-place recommendations", () => {
     expect(result.ready).toBe(false);
     expect(result.checks.find((check) => check.id === "pick")?.action).toBe("teach-pick");
     expect(result.message).toContain(`Fork contact is Z=${FORK_SUPPORT_HEIGHT_MM} mm`);
-    expect(result.code).toContain("await rel_mov_l");
+    expect(result.code).toContain("rel_mov_l");
     expect(result.code).toContain("not a Dobot controller SDK");
     expect(result.code).toContain("No DO is needed");
     expect(result.code).not.toContain("RotatedPlacePoint");

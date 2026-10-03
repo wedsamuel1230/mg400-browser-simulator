@@ -170,6 +170,7 @@ export function validateProject(input: unknown): ProjectDocument {
   if (!Array.isArray(value.scene.blocks) || !Array.isArray(value.scene.initialBlocks) || !Array.isArray(value.scene.feederOrder)) {
     throw new Error("Multi-block cell state is malformed.");
   }
+  if (value.scene.body1SupportHeightMm !== undefined && (!isFiniteNumber(value.scene.body1SupportHeightMm) || value.scene.body1SupportHeightMm < 0 || value.scene.body1SupportHeightMm > 100)) throw new Error("Body1 support datum must be between 0 and 100 mm.");
   if (value.scene.platformHeightMm !== undefined && (!isFiniteNumber(value.scene.platformHeightMm) || value.scene.platformHeightMm < 0 || value.scene.platformHeightMm > 200)) throw new Error("Teaching platform height must be between 0 and 200 mm.");
   if (value.scene.magnetStandHeightMm !== undefined && (!isFiniteNumber(value.scene.magnetStandHeightMm) || value.scene.magnetStandHeightMm < 0 || value.scene.magnetStandHeightMm > 200)) throw new Error("Magnetic teaching stand height must be between 0 and 200 mm.");
   try {
@@ -200,7 +201,13 @@ export function validateProject(input: unknown): ProjectDocument {
     throw new Error("Simulation settings are malformed.");
   }
 
-  return structuredClone(value) as ProjectDocument;
+  const project = structuredClone(value) as ProjectDocument;
+  if ((project.scene.platformHeightMm ?? 0) !== 110) {
+    project.scene.platformMigrationFromMm = project.scene.platformHeightMm ?? 0;
+    project.scene.platformHeightMm = 110;
+    project.scene.magnetStandHeightMm = 0;
+  }
+  return project;
 }
 
 function migrateV8Project(value: Record<string, unknown>): Record<string, unknown> {

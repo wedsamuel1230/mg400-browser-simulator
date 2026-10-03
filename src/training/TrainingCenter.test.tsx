@@ -79,7 +79,7 @@ describe("TrainingCenter example replacement", () => {
 
     await user.click(screen.getByRole("button", { name: "確認替換程式" }));
     expect(onUseExample).toHaveBeenCalledWith(
-      "# A comment is a note for people\ngreeting = \"Hello, robot!\"\nprint(greeting)",
+      "def task():\n    # A comment is a note for people\n    greeting = \"Hello, robot!\"\n    print(greeting)\ntask()",
       "python",
       "foundation-first-program",
     );
@@ -139,21 +139,21 @@ describe("TrainingCenter example replacement", () => {
 it("shows and loads the calibrated Body1 no-output withdrawal example", async () => {
   const onUseExample=vi.fn();
   render(<TrainingCenter open programLanguage="lua" forkContactProfile="body1" initialLessonId="intermediate-passive-fork" onClose={vi.fn()} onUseExample={onUseExample} />);
-  await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
-  expect(document.querySelector(".lesson-code")?.textContent).toContain("z=152.5");
+  await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("z=z-2.5"));
+  expect(document.querySelector(".lesson-code")?.textContent).toContain("z=132.5");
   expect(document.querySelector(".lesson-code")?.textContent).not.toMatch(/\b(?:DO|Pick|Place)\s*\(/);
-  expect(screen.getByText(/The built-in Body1, measured calibration, and taught points/)).toBeInTheDocument();
+  expect(screen.getByText(/Prepare the practice, read the sequence/)).toBeInTheDocument();
   expect(screen.queryByText(/Import Body1 and select/)).not.toBeInTheDocument();
 });
 
 it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
  render(<TrainingCenter open programLanguage="lua" forkContactProfile="body1" initialLessonId="intermediate-passive-fork" onClose={vi.fn()} onUseExample={vi.fn()} />);
- await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("PlaceClear"));
+ await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("z=z-2.5"));
  const user=userEvent.setup();
  await user.click(screen.getByRole("button",{name:"EN"}));
- await user.click(screen.getByText("Check your learning · 2 questions"));
- await user.click(screen.getByRole("radio",{name:"Slide at Z152.5, then lift to Z155"}));
- expect(screen.getByText(/Z152.5 centres the 5 mm plate/)).toBeInTheDocument();
+ await user.click(screen.getByText("Check your learning · 1 questions"));
+ await user.click(screen.getByRole("radio",{name:"Lower to135, then132.5 and withdraw60 horizontally"}));
+ expect(screen.getAllByText(/One supplied 40×40×40 Body1 rests directly/).length).toBeGreaterThan(0);
  expect(screen.queryByText("Slide beneath it at Z=20 mm, then lift")).not.toBeInTheDocument();
 });
 

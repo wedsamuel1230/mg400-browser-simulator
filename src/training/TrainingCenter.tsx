@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpenCheck, Check, ChevronLeft, ChevronRight, Clipboard, X } from "lucide-react";
-import { body1ForkProgram, type ForkContactProfile, type ProgramLanguage } from "../domain";
+import { type ForkContactProfile, type ProgramLanguage } from "../domain";
 import { CURRICULUM_VERSION, LESSONS, TRACKS, type CourseLanguage, type Lesson } from "./curriculum";
 import { loadCourseProgress, saveCourseProgress, type CourseProgress } from "./courseProgress";
 
@@ -13,7 +13,7 @@ type Props = {
   onUseExample: (example: string, language: ProgramLanguage, lessonId?: string) => void;
 };
 
-export function TrainingCenter({ open, programLanguage, forkContactProfile = "reference", initialLessonId, onClose, onUseExample }: Props) {
+export function TrainingCenter({ open, programLanguage, initialLessonId, onClose, onUseExample }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [progress, setProgress] = useState<CourseProgress>(() => loadCourseProgress());
   const [lessonId, setLessonId] = useState(progress.lastLessonId);
@@ -23,26 +23,7 @@ export function TrainingCenter({ open, programLanguage, forkContactProfile = "re
   const [copied, setCopied] = useState(false);
   const [confirmExampleReplacement, setConfirmExampleReplacement] = useState(false);
   const [courseLanguage, setCourseLanguage] = useState<CourseLanguage>(progress.language);
-  const lesson = useMemo(() => {
-    const base = LESSONS.find((item) => item.id === lessonId) ?? LESSONS[0];
-    if (base.id !== "intermediate-passive-fork" || forkContactProfile !== "body1") return base;
-    return { ...base,
-      outcome: { en: "Insert the measured Body1 grooves, lift, release and withdraw without digital output.", "zh-Hant": "沿已量度 Body1 槽插入、抬升、放下及水平退出，全程毋須數碼輸出。" },
-      explanation: [{ en: "Body1 is 40×40×40 mm with local-Y grooves at Z15–25. This prepared practice uses the 110 mm front platform; the block bottom rests at Z130. A 5 mm fork plate enters with TCP Z152.5 and supports/releases at Z155. This calibrated contact sequence is not arbitrary STL physics.", "zh-Hant": "Body1 為 40×40×40 mm，槽沿本體 Y 方向、位於 Z15–25。本課範例使用 110 mm 前方平台，底面放在 Z130；5 mm 叉板於 TCP Z152.5 插入，Z155 承托／釋放。這是指定模型的接觸校準，不是任意 STL 的物理模擬。" }],
-      guidedSteps: [
-        { en: "Load the example, then choose Prepare this practice. The built-in Body1, measured calibration, and taught points will be prepared for you.", "zh-Hant": "載入範例後，按「準備這個練習」；系統會準備內置 Body1、已量度校準及教點。" },
-        { en: "Slide 60 mm along tool +X into the grooves, then lift to carry.", "zh-Hant": "沿工具 +X 滑入 60 mm，再抬升承托工件。" },
-        { en: "Lower to Z155 to release, lower the fork to Z152.5, withdraw 60 mm along tool −X, then lift clear.", "zh-Hant": "降至 Z155 釋放，再把叉臂降至 Z152.5，沿工具 −X 水平退出 60 mm，最後抬高離開。" },
-      ], questions: [
-        { en: "How does the measured Body1 fork pick up?", "zh-Hant": "已量度 Body1 叉臂如何拾取？",
-          options: { en: ["Slide at Z152.5, then lift to Z155", "Slide at Z130", "Turn DO1 on"], "zh-Hant": ["在 Z152.5 沿槽滑入，再抬至 Z155", "在 Z130 滑入", "開啟 DO1"] }, answer: 0,
-          explanation: { en: "Z152.5 centres the 5 mm plate in the groove; Z155 contacts its upper surface and supports the workpiece.", "zh-Hant": "Z152.5 令 5 mm 叉板位於槽中間；Z155 接觸槽上表面並承托工件。" } },
-        { en: "How does Body1 release and clear the fork?", "zh-Hant": "Body1 如何釋放並退出叉臂？",
-          options: { en: ["Release at Z155, lower to Z152.5, withdraw along tool −X60 before lifting", "Lift first, then withdraw", "Turn DO1 off"], "zh-Hant": ["在 Z155 釋放，降至 Z152.5，沿工具 −X 退出60 mm後抬高", "先抬高再退出", "關閉 DO1"] }, answer: 0,
-          explanation: { en: "Clearance must be restored at Z152.5 before aligned horizontal withdrawal; lifting while still in the groove is invalid.", "zh-Hant": "須先降回 Z152.5 恢復槽內間隙，再沿槽水平退出；仍在槽內時抬高不是有效退出。" } },
-      ], examples: { lua: body1ForkProgram("lua"), python: body1ForkProgram("python") },
-    };
-  }, [lessonId, forkContactProfile]);
+  const lesson = LESSONS.find((item) => item.id === lessonId) ?? LESSONS[0];
   const track = TRACKS.find((item) => item.id === lesson.track)!;
   const strings = courseLanguage === "en" ? englishUi : chineseUi;
   const completed = new Set(progress.completedLessonIds);

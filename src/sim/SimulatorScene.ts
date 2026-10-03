@@ -1,3 +1,4 @@
+import { TEACHING_PLATFORM, body1SupportHeight } from "../domain";
 import {
   AmbientLight,
   AxesHelper,
@@ -73,7 +74,7 @@ export class SimulatorScene {
   private readonly proceduralBlockGeometry = this.block.geometry.clone();
   private readonly magneticBlockGeometry = new BoxGeometry(MAGNET_SIZE_MM.x, MAGNET_SIZE_MM.y, MAGNET_SIZE_MM.z);
   private localForkBlockGeometry?: BufferGeometry;
-  private readonly teachingPlatform = new Mesh(new BoxGeometry(260, 320, 1), new MeshStandardMaterial({ color: "#71868d", roughness: 0.6 }));
+  private readonly teachingPlatform = new Mesh(new BoxGeometry(TEACHING_PLATFORM.width, TEACHING_PLATFORM.depth, 1), new MeshStandardMaterial({ color: "#71868d", roughness: 0.6 }));
   private readonly magnetStands = new Map<string, Mesh>();
   private readonly additionalBlocks = new Map<string, Mesh>();
   private appliedLocalMeshes?: LocalToolMeshes;
@@ -414,6 +415,16 @@ export class SimulatorScene {
     this.controls.update();
   }
 
+  focusPlacedWorkpieces() {
+    const placed = this.state?.project.scene.blocks.filter(block => block.source === "output") ?? [];
+    if (!placed.length) return;
+    const x = placed.reduce((sum, block) => sum + block.position.x, 0) / placed.length;
+    const y = placed.reduce((sum, block) => sum + block.position.y, 0) / placed.length;
+    this.camera.position.set(x + 420, y + 570, 370);
+    this.controls.target.set(x, y, 160);
+    this.controls.update();
+  }
+
   tablePositionFromPointer(clientX: number, clientY: number): { x: number; y: number } | null {
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return null;
@@ -435,28 +446,25 @@ export class SimulatorScene {
     const magneticStandHeight = magneticSurfaceHeight(state.project.scene);
     const platformZ = platformHeight(state.project.scene);
     if (!this.teachingPlatform.parent) this.blockGroup.add(this.teachingPlatform);
-    const fixturePositions = [...cellBlocks.map(block => block.position), ...state.project.scene.initialBlocks.map(block => block.position), state.project.scene.block, state.project.scene.drop];
-    const minX = Math.min(170, ...fixturePositions.map(p => p.x - 25));
-    const maxX = Math.max(430, ...fixturePositions.map(p => p.x + 25));
-    const minY = Math.min(-160, ...fixturePositions.map(p => p.y - 25));
-    const maxY = Math.max(160, ...fixturePositions.map(p => p.y + 25));
-    this.teachingPlatform.name = "Shared teaching platform / 共用教學平台";
-    this.teachingPlatform.scale.set((maxX - minX) / 260, (maxY - minY) / 320, platformZ);
-    this.teachingPlatform.position.set((minX + maxX) / 2, (minY + maxY) / 2, platformZ / 2);
-    this.teachingPlatform.visible = platformZ > 0;
+    this.teachingPlatform.name = "Fixed 340×320×110 teaching platform / 固定教學平台";
+    this.teachingPlatform.scale.set(1, 1, 110);
+    this.teachingPlatform.position.set(TEACHING_PLATFORM.x, TEACHING_PLATFORM.y, TEACHING_PLATFORM.top/2);
+    this.teachingPlatform.visible = true;
     const baseBlock = cellBlocks.find((block) => !block.kind || block.kind === "block");
     const baseSize = cellBlockSize(baseBlock, state.project.tool.mode);
-    const useLocalForkBlock = isFork && Boolean(this.localForkBlockGeometry);
+    const useLocalForkBlock = Boolean(this.localForkBlockGeometry) && (isFork || baseBlock?.geometry === "body1");
     this.block.geometry = useLocalForkBlock ? this.localForkBlockGeometry! : baseSize.z === 4 ? this.magneticBlockGeometry : this.proceduralBlockGeometry;
     this.block.name = useLocalForkBlock ? "Grooved fork block / 槽積木 (Body1)" : `${baseSize.x} x ${baseSize.y} x ${baseSize.z} mm workpiece`;
     setWorkpieceColor(this.block, baseBlock?.color ?? "neutral");
     for (const marker of this.block.children) {
-      if (marker.name.includes("top")) marker.position.z = useLocalForkBlock ? 40.25 : baseSize.z / 2 + 0.25;
+      if (marker.name.includes("top")) marker.position.z = useLocalForkBlock ? 40.8 : baseSize.z / 2 + 0.8;
       else { marker.position.y = Math.sign(marker.position.y) * (baseSize.y / 2 + 0.25); marker.scale.y = Math.min(1, baseSize.z / 12); }
     }
-    this.forkFixtures.visible = isFork;
+    this.forkFixtures.visible = isFork && body1SupportHeight(state.project.scene) > 0;
+    this.pickupStand.visible = false;
+    this.dropStand.visible = false;
 
-    this.block.visible = Boolean(baseBlock);
+    this.block.visible = Boolean(baseBlock) && (baseBlock?.geometry !== "body1" || Boolean(this.localForkBlockGeometry));
     for (const [id, stand] of this.magnetStands) stand.visible = platformZ === 0 && cellBlocks.some((block) => block.id === id && cellBlockSize(block, state.project.tool.mode).z === 4);
     for (const block of cellBlocks.filter((block) => platformZ === 0 && cellBlockSize(block, state.project.tool.mode).z === 4)) {
       let stand = this.magnetStands.get(block.id);
@@ -474,7 +482,8 @@ export class SimulatorScene {
     }
     for (const block of cellBlocks.filter((block) => block.id !== baseBlock?.id)) {
       let mesh = this.additionalBlocks.get(block.id);
-      const kind = block.kind ?? state.project.tool.mode;
+      const kind = block.geometry === "body1" ? `body1-${Boolean(this.localForkBlockGeometry)}` : block.kind ?? state.project.tool.mode;
+      const body1 = block.geometry === "body1" && Boolean(this.localForkBlockGeometry);
       const size = cellBlockSize(block, state.project.tool.mode);
       if (mesh && mesh.userData.kind !== kind) {
         mesh.removeFromParent();
@@ -483,6 +492,12 @@ export class SimulatorScene {
       }
       if (!mesh) {
         mesh = createReferenceBlock(block.color, size);
+        if (body1) {
+          mesh.geometry.dispose();
+          mesh.geometry = this.localForkBlockGeometry!.clone();
+          mesh.name = "Supplied Body1 40×40×40 / 原裝槽積木";
+          for (const marker of mesh.children) if (marker.name.includes("top")) marker.position.z = 40.8;
+        }
         mesh.userData.kind = kind;
         mesh.userData.cellBlockId = block.id;
         mesh.castShadow = true;
@@ -490,10 +505,10 @@ export class SimulatorScene {
         this.additionalBlocks.set(block.id, mesh);
         this.blockGroup.add(mesh);
       }
-      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (size.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0)) + (block.stackLevel ?? 0) * size.z + size.z / 2);
-      mesh.rotation.z = rad(block.r);
+      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (size.z === 4 ? magneticStandHeight : platformZ + (isFork ? (block.geometry === "body1" ? body1SupportHeight(state.project.scene) : FORK_SUPPORT_HEIGHT_MM) : 0)) + (block.stackLevel ?? 0) * size.z + (body1 ? 0 : size.z / 2));
+      if (!(state.attached && state.attachedCellBlockId === block.id)) mesh.rotation.z = rad(block.r);
       if (!(state.attached && state.attachedCellBlockId === block.id) && mesh.parent !== this.blockGroup) this.blockGroup.add(mesh);
-      mesh.visible = true;
+      mesh.visible = block.geometry !== "body1" || Boolean(this.localForkBlockGeometry);
       setWorkpieceColor(mesh as Mesh<BufferGeometry, MeshStandardMaterial>, block.color);
     }
     for (const [id, mesh] of this.additionalBlocks) {
@@ -507,7 +522,7 @@ export class SimulatorScene {
       ? (baseBlock?.id === state.attachedCellBlockId ? this.block : this.additionalBlocks.get(state.attachedCellBlockId) ?? this.block)
       : this.block;
     if (baseBlock && attachedMesh !== this.block) {
-      this.block.position.set(baseBlock.position.x, baseBlock.position.y, (baseBlock.z ?? 0) + (baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0)) + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
+      this.block.position.set(baseBlock.position.x, baseBlock.position.y, (baseBlock.z ?? 0) + (baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? (useLocalForkBlock ? body1SupportHeight(state.project.scene) : FORK_SUPPORT_HEIGHT_MM) : 0)) + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     }
     if (state.attached) {
@@ -517,7 +532,7 @@ export class SimulatorScene {
         this.toolGroup.attach(attachedMesh);
       }
       const offset = activeTcpOffset(state.project.tool);
-      const localStl = isFork && attachedMesh === this.block && Boolean(this.localForkBlockGeometry);
+      const localStl = isFork && Boolean(this.localForkBlockGeometry) && (attachedMesh === this.block || cellBlocks.find(block => block.id === state.attachedCellBlockId)?.geometry === "body1");
       const carriedSize = cellBlockSize(cellBlocks.find((block) => block.id === state.attachedCellBlockId), state.project.tool.mode);
       const centerDelta = localStl ? (effectiveForkContactProfile(this.appliedLocalMeshes?.blockProfile ?? "reference", cellBlocks, state.attachedCellBlockId ?? baseBlock?.id) === "body1" ? -BODY1_FORK_CONTACT.bottomOffset : 0) : (isFork ? carriedSize.z / 2 : -carriedSize.z / 2);
       attachedMesh.position.set(offset.x, offset.y, offset.z + centerDelta);
@@ -526,7 +541,7 @@ export class SimulatorScene {
     } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       const position = baseBlock.position ?? state.blockPosition;
-      const supportHeight = baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? FORK_SUPPORT_HEIGHT_MM : 0);
+      const supportHeight = baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? (useLocalForkBlock ? body1SupportHeight(state.project.scene) : FORK_SUPPORT_HEIGHT_MM) : 0);
       this.block.position.set(position.x, position.y, (baseBlock.z ?? 0) + supportHeight + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     } else {
@@ -534,7 +549,7 @@ export class SimulatorScene {
     }
     if (state.target) {
       this.target.visible = true;
-      this.target.position.set(state.target.x, state.target.y, state.target.z);
+      this.target.position.set(state.target.x, state.target.y, state.target.z + 1);
     } else {
       this.target.visible = false;
     }

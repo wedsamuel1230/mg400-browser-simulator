@@ -17,7 +17,7 @@ const savedPoints: SavedPointDescriptor[] = [
 ];
 
 function toolModeForLesson(id: string): "magnet" | "fork" {
-  return id === "intermediate-passive-fork" ? "fork" : "magnet";
+  return ["intermediate-passive-fork","intermediate-rotate-carried-block","intermediate-three-layer-tower"].includes(id) ? "fork" : "magnet";
 }
 
 let lua: LuaEngine;
@@ -37,6 +37,13 @@ afterAll(() => {
 });
 
 describe("curriculum example verification", () => {
+  it("uses passive Body1 fork sequences for rotation and the 0/90/0 tower", () => {
+    for (const id of ["intermediate-rotate-carried-block", "intermediate-three-layer-tower"]) {
+      const lesson = LESSONS.find(item => item.id === id)!;
+      expect(lesson.evidenceProfile.en).toMatch(/fork/i);
+      for (const source of Object.values(lesson.examples)) expect(source).not.toMatch(/\b(?:DO|do)\s*\(/);
+    }
+  });
   it("parses every Lua lesson example and checks its simulator API, saved points, and tool mode", () => {
     for (const lesson of LESSONS) {
       expect(() => lua.global.loadString(lesson.examples.lua, `<${lesson.id}>`), `${lesson.id} Lua syntax`).not.toThrow();

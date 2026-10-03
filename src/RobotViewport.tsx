@@ -115,6 +115,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       {placementArmed && <div className="placement-hud" role="status"><strong>{uiLanguage === "zh-Hant" ? "工作台擺放模式" : "Table placement mode"}</strong><span>{uiLanguage === "zh-Hant" ? "點擊工作台放置；方向鍵移動，Enter 確認，Escape 取消。" : "Click the table to place; arrows move, Enter confirms, Escape cancels."}</span><button type="button" onClick={onTableCancel}>{uiLanguage === "zh-Hant" ? "取消／返回物件" : "Cancel / back to object"}</button></div>}
       <div className="viewport-hud viewport-hud-top">
         <div className="hud-chip"><span className="live-dot" /> {uiLanguage === "zh-Hant" ? "即時模擬" : "LIVE SIMULATION"}</div>
+        {!attached && project.scene.blocks.some(block => block.source === "output") && <button type="button" className="hud-chip viewport-focus-workpieces" onClick={() => sceneRef.current?.focusPlacedWorkpieces()}>{uiLanguage === "zh-Hant" ? "查看已放置工件" : "View placed workpieces"}</button>}
         <div className="hud-chip muted-chip">{uiLanguage === "zh-Hant" ? "毫米 · 度 · Z 向上" : "MM · DEG · Z-UP"}</div>
       </div>
       <details className="model-color-guide">

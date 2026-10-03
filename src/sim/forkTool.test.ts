@@ -108,8 +108,8 @@ describe("passive fork contact sequence", () => {
 describe("measured Body1 groove contact", () => {
   const block = { x: 300, y: -80, r: 0 }, drop = { x: 300, y: 80 };
   const step = (state: typeof EMPTY_PASSIVE_FORK_STATE, a: ReturnType<typeof pose>, b: ReturnType<typeof pose>, attached = false) => advancePassiveFork(state, a, b, attached, block, drop, tolerance, "body1");
-  const entry = pose(300, -20, BODY1_FORK_CONTACT.insertionZ, -90);
-  const contact = pose(300, -80, BODY1_FORK_CONTACT.insertionZ, -90);
+  const entry = pose(300, -20, BODY1_FORK_CONTACT.insertionZ + 20, -90);
+  const contact = pose(300, -80, BODY1_FORK_CONTACT.insertionZ + 20, -90);
   it("requires aligned forward insertion and the measured 2.5 mm load rise", () => {
     const approached = step(EMPTY_PASSIVE_FORK_STATE, entry, entry);
     const inserted = step(approached.state, entry, contact);

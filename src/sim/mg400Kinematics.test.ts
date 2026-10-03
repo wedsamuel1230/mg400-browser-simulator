@@ -152,3 +152,15 @@ describe("MG400 model kinematics", () => {
     });
   });
 });
+
+it("solves Body1 tower contacts within the measured release band without relaxing default accuracy",()=>{
+ const fork=DEFAULT_PROJECT.tool.tcpOffsets.fork, seed=[rad(0),rad(30),rad(45),rad(0)] as JointAngles;
+ for(const [z,r] of [[135,-90],[175,0],[215,-90],[295,-90]]){
+  const result=kinematics.solve({x:300,y:80,z,r},seed,flange,fork,0.01);
+  expect(result.ok).toBe(true);expect(result.positionErrorMm).toBeLessThanOrEqual(0.01);
+ }
+ const outside=kinematics.solve({x:1200,y:0,z:500,r:0},seed,flange,fork,0.01);expect(outside.ok).toBe(false);
+ const near=kinematics.forward([rad(160),rad(85),rad(45),0],flange,fork);
+ const result=kinematics.solve(near,[rad(159),rad(84),rad(44),0],flange,fork,0.01);
+ expect(result.ok).toBe(true);expect(result.positionErrorMm).toBeLessThanOrEqual(0.01);
+});

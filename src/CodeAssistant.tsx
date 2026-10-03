@@ -9,6 +9,7 @@ import {
   readChatCompletionReply,
   validateChatCompletionsEndpoint,
 } from "./coach/assistProtocol";
+import { localizeCoachTree, type CoachLanguage } from "./coach/coachLanguage";
 import type { StaticProgramReview } from "./coach/assistProtocol";
 
 type SetupCheck = { title: string; status: "pass" | "action" | "waiting" | "info"; detail: string };
@@ -16,6 +17,7 @@ type VerificationCheck = { label: string; value: string; status: "checked" | "pa
 type VerificationSummary = { title?: string; checks: VerificationCheck[]; findings?: Array<{ line: number; message: string }>; emptyMessage?: string };
 type CoachMessage = { role: "user" | "assistant"; content: string; includedProjectContext: boolean; language: ProgramLanguage; toolMode: ToolMode; programVerification?: VerificationSummary; verification?: VerificationSummary };
 type CodeAssistantProps = {
+  uiLanguage?: CoachLanguage;
   code: string;
   savedPoints: TeachPoint[];
   language: ProgramLanguage;
@@ -303,7 +305,7 @@ function renderCoachReply(content: string) {
     : <p className="ai-reply-text" key={index}>{block.value}</p>);
 }
 
-export function CodeAssistant({ code, savedPoints, language, toolMode, setupReady, setupChecks, recentRunLog, hasCurrentRun, onOpenControlFlowLesson }: CodeAssistantProps) {
+export function CodeAssistant({ uiLanguage = "zh-Hant", code, savedPoints, language, toolMode, setupReady, setupChecks, recentRunLog, hasCurrentRun, onOpenControlFlowLesson }: CodeAssistantProps) {
   const [apiKey, setApiKey] = useState("");
   const [endpoint, setEndpoint] = useState(DEFAULT_CHAT_COMPLETIONS_ENDPOINT);
   const [question, setQuestion] = useState("");
@@ -336,6 +338,8 @@ export function CodeAssistant({ code, savedPoints, language, toolMode, setupRead
       setError("Enter a valid model ID from the selected provider (up to 120 characters)." );
       return;
     }
+    if (uiLanguage === "zh-Hant" && prompt === REVIEW_PROMPT) prompt = "請以繁體中文檢視我的程式。先解釋本機靜態檢查及執行紀錄的結果，檢查語法、指令、點位和動作次序。先提供一個小提示，再提供短範例和讓我自行驗證的方法。請勿修改或執行程式。";
+    if (uiLanguage === "zh-Hant" && prompt === EXPLAIN_PROMPT) prompt = "請以繁體中文逐步解釋此程式的指令、變數、函式與執行次序，提供一個可嘗試的小改動和自行驗證方法。";
     setQuestion(prompt);
     setError("");
     setCopied(false);
@@ -351,6 +355,7 @@ export function CodeAssistant({ code, savedPoints, language, toolMode, setupRead
         ? await reviewSharedProgram(code, language, savedPoints, toolMode)
         : undefined;
       const requestInput = {
+          uiLanguage,
           question: prompt,
           code: includeProjectContext ? code : "",
           language,
@@ -433,7 +438,7 @@ export function CodeAssistant({ code, savedPoints, language, toolMode, setupRead
     }
   }
 
-  return (
+  return localizeCoachTree(
     <section className="ai-coach" aria-label="AI coding coach">
       <div className="ai-coach-heading">
         <div><Sparkles size={14} /><strong>AI coding coach · read-only</strong><span>OpenAI-compatible API</span></div>
@@ -505,10 +510,17 @@ export function CodeAssistant({ code, savedPoints, language, toolMode, setupRead
       <div className="ai-presets" role="group" aria-label="Suggested questions">
         <button type="button" onClick={() => void askCoach(REVIEW_PROMPT, "review")} disabled={!apiKey.trim() || !endpointCheck.ok || loading || !includeProjectContext || !code.trim()}><CheckCircle2 size={13} /> Review my code</button>
         <button type="button" onClick={() => void askCoach(EXPLAIN_PROMPT, "explain")} disabled={!apiKey.trim() || !endpointCheck.ok || loading || !includeProjectContext || !code.trim()}><BookOpen size={13} /> Explain code</button>
-        <button type="button" onClick={() => { if (onOpenControlFlowLesson) onOpenControlFlowLesson("if-else"); else setQuestion(language === "lua" ? "Teach me Lua if / elseif / else / end with a tiny simulator-related example." : "Teach me Python if / elif / else with a tiny simulator-related example."); }}><BookOpen size={13} /> If / else</button>
-        <button type="button" onClick={() => { if (onOpenControlFlowLesson) onOpenControlFlowLesson("loops"); else setQuestion(language === "lua" ? "Teach me Lua for and while loops with safe beginner-sized examples for this simulator." : "Teach me Python for and while loops with safe beginner-sized examples for this simulator."); }}><BookOpen size={13} /> Loops</button>
+        <button type="button" onClick={() => { if (onOpenControlFlowLesson) onOpenControlFlowLesson("if-else"); else setQuestion(uiLanguage === "zh-Hant" ? "請教我條件判斷，提供一個簡短完整的範例。" : language === "lua" ? "Teach me Lua if / elseif / else / end with a tiny simulator-related example." : "Teach me Python if / elif / else with a tiny simulator-related example."); }}><BookOpen size={13} /> If / else</button>
+        <button type="button" onClick={() => { if (onOpenControlFlowLesson) onOpenControlFlowLesson("loops"); else setQuestion(uiLanguage === "zh-Hant" ? "請教我 for 與 while 迴圈，使用有限次數的短範例。" : language === "lua" ? "Teach me Lua for and while loops with safe beginner-sized examples for this simulator." : "Teach me Python for and while loops with safe beginner-sized examples for this simulator."); }}><BookOpen size={13} /> Loops</button>
       </div>
 
+      <details className="ai-local-functions">
+        <summary>{uiLanguage === "zh-Hant" ? "函式與呼叫 · 免費導學" : "Functions and calls · free lesson"}</summary>
+        <p>{uiLanguage === "zh-Hant" ? "先定義函式，再呼叫它。函式可接收參數及回傳值；把函式放進清單後，可按選項呼叫。Python 學生程式毋須 await，內部會逐步等待動作完成。" : "Define a function, then call it. Functions accept arguments and return values. A list can select which function to call. Student Python needs no await; the simulator waits for motions internally."}</p>
+        <pre><code>{language === "python" ? "def task():\n    print('training')\n    return 1\n\nfunctions = [task]\nselected_value = functions[0]\nselected_value()" : "local function task()\n  print('training')\n  return 1\nend\n\nlocal functions = {task}\nlocal selected_value = functions[1]\nselected_value()"}</code></pre>
+        <p>{uiLanguage === "zh-Hant" ? "支援一般函式與有限迴圈；不支援呼叫式註解、next/iter/StopIteration 或迭代器協定。指令速查：需使用已儲存點位。以下只列出模擬器支援的子集；不是完整 Dobot SDK。被動叉工具只靠路徑拾放，不可使用 DO/pick/place。" : "Functions and finite loops are supported; callable annotations and next/iter/StopIteration iterator protocols are excluded. Command reference: use saved points. This is the simulator subset, not the full Dobot SDK. The passive fork uses its path and cannot use DO/pick/place."}</p>
+        <pre><code>{language === "python" ? "mov_j(P) / mov_l(P)\nrel_mov_l([x, y, z, r])\njoint_mov_j(J)\nsync() / wait(milliseconds)\nget_pose() / get_angle()\ndo(1, ON) / do(1, OFF)" : "MovJ(P) / MovL(P)\nRelMovL({x, y, z, r})\nJointMovJ(J)\nSync() / Wait(milliseconds)\nGetPose() / GetAngle()\nDO(1, ON) / DO(1, OFF)"}</code></pre>
+      </details>
       <label className="ai-question-label" htmlFor="ai-coach-question">What would you like help with?</label>
       <textarea
         id="ai-coach-question"
@@ -545,6 +557,6 @@ export function CodeAssistant({ code, savedPoints, language, toolMode, setupRead
           {message.role === "assistant" && index === messages.length - 1 && /```(?:lua|python|py)?\s*\n?([\s\S]*?)```/i.test(latestReply) && <button type="button" className="ai-copy-example" onClick={() => void copyExample()}><Clipboard size={12} />{copied ? "Copied example" : "Copy code example"}</button>}
         </article>)}
       </div>}
-    </section>
+    </section>, uiLanguage
   );
 }

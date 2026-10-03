@@ -212,6 +212,7 @@ export class MG400Kinematics {
     seed: JointAngles,
     flangeOffset: Pose,
     tcpOffset: Pose,
+    positionToleranceMm = 0.5,
   ): IkResult {
     const base = Math.atan2(target.y, target.x);
     const seeds: JointAngles[] = [
@@ -228,7 +229,7 @@ export class MG400Kinematics {
     };
 
     for (const candidate of seeds) {
-      const result = this.solveFromSeed(target, candidate, flangeOffset, tcpOffset);
+      const result = this.solveFromSeed(target, candidate, flangeOffset, tcpOffset, positionToleranceMm);
       if (result.positionErrorMm + result.angleErrorDeg < best.positionErrorMm + best.angleErrorDeg) {
         best = result;
       }
@@ -242,12 +243,12 @@ export class MG400Kinematics {
     seed: JointAngles,
     flangeOffset: Pose,
     tcpOffset: Pose,
+    toleranceMm: number,
   ): IkResult {
     const joints = seed.map((value, index) =>
       Math.max(RAD_LIMITS[index].min, Math.min(RAD_LIMITS[index].max, value)),
     ) as JointAngles;
     const orientationWeight = 100;
-    const toleranceMm = 0.5;
     const toleranceDeg = 0.1;
 
     for (let iteration = 0; iteration < 90; iteration += 1) {

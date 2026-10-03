@@ -54,7 +54,7 @@ function stubSyntaxWorker(
 
 describe("AI coding coach", () => {
   it("defaults to the requested model while leaving the provider key blank", () => {
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
 
     expect(screen.getByLabelText("Model ID at this provider")).toHaveValue("stealth/space-bunny-alpha");
@@ -69,7 +69,7 @@ describe("AI coding coach", () => {
       json: async () => completion("Try `MovL(PickPoint)` to move to the block, then check the simulation."),
     });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
 
     expect(screen.getByText("AI coding coach · read-only")).toBeVisible();
     expect(screen.getByText(/gives a hint first, checks code examples locally, and never edits or runs your program/i)).toBeVisible();
@@ -87,7 +87,7 @@ describe("AI coding coach", () => {
     const reply = "In Lua, `==` tests equality and `~=` means not equal. An `if` statement chooses a branch. If you do, the loop will run again.";
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => completion(reply) });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "What do these Lua operators mean?" } });
@@ -103,7 +103,7 @@ describe("AI coding coach", () => {
     vi.stubGlobal("fetch", fetchMock);
     const workerRequests: WorkerRequest[] = [];
     stubSyntaxWorker(true, workerRequests);
-    const { container } = render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    const { container } = render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Explain a Lua for loop" } });
@@ -126,7 +126,7 @@ describe("AI coding coach", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => completion(reply) });
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker();
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show an if example" } });
@@ -145,7 +145,7 @@ describe("AI coding coach", () => {
       json: async () => completion("Move to the saved target:\nMovL(PickPoint)"),
     });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "How do I move to a point?" } });
@@ -162,7 +162,7 @@ describe("AI coding coach", () => {
       json: async () => completion("Try this small pattern:\n```lua\nif ready then print('go') end\n```"),
     });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="MovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="fork" setupReady setupChecks={setupChecks} recentRunLog={["ERROR: Unsupported option SpeedJ"]} hasCurrentRun />);
+    render(<CodeAssistant uiLanguage="en" code="MovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="fork" setupReady setupChecks={setupChecks} recentRunLog={["ERROR: Unsupported option SpeedJ"]} hasCurrentRun />);
 
     const shareCode = screen.getByRole("checkbox", { name: /share current lua program/i });
     expect(shareCode).not.toBeChecked();
@@ -212,7 +212,7 @@ describe("AI coding coach", () => {
   it("supports a user-selected OpenAI-compatible URL and model without sending the key in the body", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => completion("Use a finite loop first.") });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "private-provider-key" } });
     fireEvent.change(screen.getByLabelText("OpenAI-compatible Chat Completions URL"), { target: { value: "https://api.example.test/v1/chat/completions" } });
@@ -262,7 +262,7 @@ describe("AI coding coach", () => {
       terminate() {}
     }
     vi.stubGlobal("Worker", OrderedSyntaxWorker);
-    render(<CodeAssistant code="DO(1, ON)\nMovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="fork" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="DO(1, ON)\nMovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="fork" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
 
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
@@ -289,7 +289,7 @@ describe("AI coding coach", () => {
   it("blocks an insecure non-local endpoint before sending the key", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "private-provider-key" } });
     fireEvent.change(screen.getByLabelText("OpenAI-compatible Chat Completions URL"), { target: { value: "http://provider.example.test/v1/chat/completions" } });
@@ -303,7 +303,7 @@ describe("AI coding coach", () => {
   it("clears the old conversation when the endpoint changes", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => completion("Provider one reply.") });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "First provider-only question" } });
@@ -325,7 +325,7 @@ describe("AI coding coach", () => {
   it("explains CORS and possible provider billing when a direct browser request fails", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Explain if" } });
@@ -337,7 +337,7 @@ describe("AI coding coach", () => {
   it("supports general Lua syntax lessons without including the editor buffer", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => completion("An if statement chooses between branches.") });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="local privateCode = true" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={["ERROR: secret from printed output"]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="local privateCode = true" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={["ERROR: secret from printed output"]} hasCurrentRun={false} />);
 
     expect(screen.getByRole("checkbox", { name: /share current lua program/i })).not.toBeChecked();
     expect(screen.getByText(/your program, saved point names, setup checks, and run log stay on this device/i)).toBeVisible();
@@ -371,7 +371,7 @@ describe("AI coding coach", () => {
 
   it("opens the requested no-key syntax lesson directly", () => {
     const onOpenControlFlowLesson = vi.fn();
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} onOpenControlFlowLesson={onOpenControlFlowLesson} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} onOpenControlFlowLesson={onOpenControlFlowLesson} />);
 
     fireEvent.click(screen.getByRole("button", { name: "If / else" }));
     fireEvent.click(screen.getByRole("button", { name: "Loops" }));
@@ -388,7 +388,7 @@ describe("AI coding coach", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker(true, undefined, [{ kind: "passive-fork-action", line: 1, message: "The unpowered fork cannot use “DO”." }]);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Give me a pickup example" } });
@@ -410,7 +410,7 @@ describe("AI coding coach", () => {
       { kind: "invalid-motion-option", line: 3, message: "Use the exact case-sensitive option name CP for this simulator command." },
       { kind: "invalid-relative-offset", line: 3, message: "RelMovL needs X, Y, and Z values in its offset table (or a positional X/Y/Z list); R is optional." },
     ]);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show a passive fork pickup example" } });
@@ -433,7 +433,7 @@ describe("AI coding coach", () => {
     const checked: WorkerRequest[] = [];
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker(true, checked, [{ kind: "unsupported-api", line: 1, message: "“MovR” is unsupported." }, { kind: "missing-point", line: 1, message: "Motion target “PikPoint” was not found in the shared saved points." }]);
-    render(<CodeAssistant code="" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show the move command" } });
@@ -458,7 +458,7 @@ describe("AI coding coach", () => {
     const checked: WorkerRequest[] = [];
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker(true, checked, [], 1);
-    render(<CodeAssistant code="MovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="MovL(PickPoint)" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show a small movement example" } });
@@ -484,7 +484,7 @@ describe("AI coding coach", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker(false);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Give me a condition example" } });
@@ -503,7 +503,7 @@ describe("AI coding coach", () => {
     const checked: WorkerRequest[] = [];
     vi.stubGlobal("fetch", fetchMock);
     stubSyntaxWorker(true, checked);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show both syntaxes" } });
@@ -523,7 +523,7 @@ describe("AI coding coach", () => {
       json: async () => completion("```javascript\nalert('unchecked')\n```"),
     });
     vi.stubGlobal("fetch", fetchMock);
-    render(<CodeAssistant code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
     fireEvent.click(screen.getByText("Connect AI for custom help"));
     fireEvent.change(screen.getByLabelText("Your provider API key"), { target: { value: "temporary-key" } });
     fireEvent.change(screen.getByLabelText("What would you like help with?"), { target: { value: "Show code" } });
@@ -532,4 +532,39 @@ describe("AI coding coach", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/unsupported code language “javascript”/i);
     expect(screen.queryByText("alert('unchecked')")).not.toBeInTheDocument();
   });
+});
+
+it("defaults all coach controls/privacy and free function teaching to Traditional Chinese and switches to English", async () => {
+  const props = { code: "", savedPoints: [], language: "python" as const, toolMode: "fork" as const, setupReady: true, setupChecks: [], recentRunLog: [], hasCurrentRun: false };
+  const { rerender, container } = render(<CodeAssistant {...props} />);
+  expect(screen.getByText("AI 程式教練 · 只提供建議")).toBeInTheDocument();
+  expect(screen.getByText("函式與呼叫 · 免費導學")).toBeInTheDocument();
+  expect(screen.getByText("私隱與建議檢查方式")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "詢問教練" })).toBeDisabled();
+  expect(screen.getByPlaceholderText("描述預期結果、實際情況，或想學習的概念…")).toBeInTheDocument();
+  expect(container.textContent).toContain("def task():");
+  expect(container.textContent).toContain("selected_value()");
+  expect(container.textContent).not.toContain("await mov_");
+  expect(container.textContent).not.toContain("Your provider API key");
+  rerender(<CodeAssistant {...props} uiLanguage="en" />);
+  expect(screen.getByText("AI coding coach · read-only")).toBeInTheDocument();
+  expect(screen.getByText("Functions and calls · free lesson")).toBeInTheDocument();
+  expect(screen.getByPlaceholderText("Describe what you expect, what happened, or a concept you want to learn…")).toBeInTheDocument();
+});
+
+it("sends the selected Chinese language instruction without leaking the key into context and shows Chinese checks/errors", async () => {
+  stubSyntaxWorker();
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => completion("請先試一個小改動。\n```python\ndef task():\n    print('測試')\ntask()\n```") });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<CodeAssistant code="" savedPoints={[]} language="python" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+  fireEvent.change(screen.getByLabelText("供應商 API key"), { target: { value: "private-test-key" } });
+  fireEvent.change(screen.getByLabelText("你想了解甚麼？"), { target: { value: "如何呼叫函式？" } });
+  fireEvent.click(screen.getByRole("button", { name: "詢問教練" }));
+  await waitFor(() => expect(screen.getByText("建議範例 · 本機靜態檢查")).toBeInTheDocument());
+  expect(screen.getByText("未執行程式")).toBeInTheDocument();
+  expect(screen.getByText("機械臂 API 名稱")).toBeInTheDocument();
+  const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+  expect(body.messages[0].content).toContain("Traditional Chinese (繁體中文)");
+  expect(body.messages[0].content).toContain("student code needs no await");
+  expect(JSON.stringify(body)).not.toContain("private-test-key");
 });

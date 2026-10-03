@@ -51,3 +51,10 @@ describe("local Python AST review", () => {
     runtime.globals.set("__ai_source", "");
   });
 });
+
+it("reviews no-await robot commands nested inside ordinary functions and branches without executing them", () => {
+  runtime.globals.set("__ai_source", "def task():\n    if True:\n        mov_l(Home)\n    else:\n        do(1, ON)\nfunctions=[task]\nselected_value=functions[0]\nselected_value()");
+  const inventory = JSON.parse(runtime.runPython(PYTHON_ANALYSIS) as string);
+  expect(inventory.calls.map((call: {name: string; line: number}) => [call.name, call.line])).toEqual([["mov_l", 3], ["do", 5]]);
+  expect(reviewRobotCalls("python", inventory.calls, new Set(inventory.definitions), [{name: "Home",kind: "cartesian"}], true, "fork").findings.map(({kind}) => kind)).toEqual(["passive-fork-action"]);
+});

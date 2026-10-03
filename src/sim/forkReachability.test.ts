@@ -14,7 +14,7 @@ for (const profile of ["reference", "body1"] as ForkContactProfile[]) {
     let state={...EMPTY_PASSIVE_FORK_STATE};let attached=false;let picks=0;let places=0;
     let location={...DEFAULT_PROJECT.scene.block,r:0};
     const solve=(pose:Pose)=>{
-      const result=model.solve(pose,joints,DEFAULT_PROJECT.tool.flangeOffset,DEFAULT_PROJECT.tool.tcpOffsets.fork);
+      const result=model.solve(pose,joints,DEFAULT_PROJECT.tool.flangeOffset,DEFAULT_PROJECT.tool.tcpOffsets.fork, profile === "body1" ? 0.01 : 0.5);
       expect(result.ok,JSON.stringify({profile,pose,error:result.positionErrorMm})).toBe(true);
       joints=result.joints;
       const actual=model.forward(joints,DEFAULT_PROJECT.tool.flangeOffset,DEFAULT_PROJECT.tool.tcpOffsets.fork);
@@ -35,7 +35,7 @@ for (const profile of ["reference", "body1"] as ForkContactProfile[]) {
     solve(entry);line(entry,pick);line(pick,lifted);solve(above);line(above,place);
     expect(picks).toBe(1);expect(places).toBe(1);expect(attached).toBe(false);
     if(profile==="body1") {
-      const clear={...place,z:BODY1_FORK_CONTACT.insertionZ};const exit=forkEntryPose(clear);
+      const clear={...place,z:place.z-(BODY1_FORK_CONTACT.loadZ-BODY1_FORK_CONTACT.insertionZ)};const exit=forkEntryPose(clear);
       line(place,clear);line(clear,exit);line(exit,{...exit,z:exit.z+80});
       expect(state.releasePose).toBeUndefined();
       const secondPick=forkContactPose(location,0,profile);const secondEntry=forkEntryPose(secondPick);

@@ -1,4 +1,4 @@
-import { BLOCK_SIZE_MM, type BlockColor, type CellBlock, type ProjectDocument } from "../domain";
+import { BLOCK_SIZE_MM, cellBlockSize, cellBlockTopZ, type BlockColor, type CellBlock, type ProjectDocument, type ToolMode } from "../domain";
 
 export const DEFAULT_CELL_BLOCKS: CellBlock[] = [
   { id: "tower-1", color: "neutral", source: "pickup", position: { x: 300, y: -80 }, r: 0 },
@@ -39,6 +39,25 @@ export function canAttachCellBlock(project: ProjectDocument, id: string, attache
   return Boolean(block && block.source !== "output");
 }
 
+export function cellBlockIsOccluded(target: CellBlock, blocks: CellBlock[], mode: ToolMode, standHeightMm: number, platformHeightMm: number): boolean {
+  const targetSize = cellBlockSize(target, mode);
+  const targetTop = cellBlockTopZ(target, mode, standHeightMm, platformHeightMm);
+  return blocks.some((block) => {
+    if (block.id === target.id || block.source === "unloaded") return false;
+    const size = cellBlockSize(block, mode);
+    const top = cellBlockTopZ(block, mode, standHeightMm, platformHeightMm);
+    const bottom = top - size.z;
+    if (bottom < targetTop - 1e-6 || top <= targetTop + 1e-6) return false;
+    const a = target.r * Math.PI / 180, b = block.r * Math.PI / 180;
+    return [a, a + Math.PI / 2, b, b + Math.PI / 2].every((angle) => {
+      const x = Math.cos(angle), y = Math.sin(angle);
+      const radius = (width: number, depth: number, rotation: number) => width / 2 * Math.abs(Math.cos(rotation - angle)) + depth / 2 * Math.abs(Math.sin(rotation - angle));
+      return Math.abs((block.position.x - target.position.x) * x + (block.position.y - target.position.y) * y)
+        < radius(targetSize.x, targetSize.y, a) + radius(size.x, size.y, b) - 1e-6;
+    });
+  });
+}
+
 export function setCellBlockColor(block: CellBlock, color: BlockColor): CellBlock {
   return { ...block, color };
 }
@@ -50,7 +69,8 @@ export function validateCellBlocks(blocks: CellBlock[], feederOrder: string[]): 
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(block.id) || ids.has(block.id)) throw new Error("Cell block IDs must be unique lowercase identifiers.");
     ids.add(block.id);
     if (!["block", "magnet", undefined].includes(block.kind) || !["neutral", "black", "white"].includes(block.color) || !["pickup", "feeder", "output", "unloaded"].includes(block.source)) throw new Error("Cell object kind, color or source is invalid.");
-    if (block.stackLevel !== undefined && (!Number.isInteger(block.stackLevel) || block.stackLevel < 0 || block.stackLevel > 2)) throw new Error("Cell block stack levels must be integer tower layers 0, 1, or 2.");
+    if (block.geometry !== undefined && block.geometry !== "body1") throw new Error("Unknown workpiece geometry.");
+    if (block.stackLevel !== undefined && (!Number.isInteger(block.stackLevel) || block.stackLevel < 0 || block.stackLevel > (block.geometry === "body1" ? 2 : block.kind === "magnet" ? 9 : 2))) throw new Error("Cell block stack levels must be valid integer layers for the selected workpiece.");
     if (![block.position.x, block.position.y, block.r, block.z ?? 0].every(Number.isFinite) || Math.abs(block.position.x) > 500 || Math.abs(block.position.y) > 500 || (block.z ?? 0) < 0 || (block.z ?? 0) > 300 || Math.abs(block.r) > 360) throw new Error("Cell object position is outside the supported reachable range.");
   }
   if (new Set(feederOrder).size !== feederOrder.length || feederOrder.some((id) => !ids.has(id) || blocks.find((block) => block.id === id)?.source !== "feeder")) throw new Error("Feeder order must reference feeder blocks exactly once.");

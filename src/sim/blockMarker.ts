@@ -38,11 +38,12 @@ export function createReferenceBlock(color: BlockColor = "neutral", size: { x: n
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
   });
 
   const top = new Mesh(geometry, material);
   top.name = "Block orientation arrow on top (+X)";
-  top.position.z = size.z / 2 + 0.25;
+  top.position.z = size.z / 2 + 0.8;
   top.userData.directionAxis = "+X";
   block.add(top);
 

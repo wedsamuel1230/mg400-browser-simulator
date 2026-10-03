@@ -5,6 +5,7 @@ import { MAGNET_SUPPORT_HEIGHT_MM, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContact
 import { SimulationController, type ControllerEvents, type RunStatus } from "./SimulationController";
 import type { MotionRequest } from "./luaTypes";
 import type { MG400Kinematics } from "./mg400Kinematics";
+import { createWorkpiecePile } from "./workpiecePile";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -59,6 +60,7 @@ function makeHarness(options: {
     attachedId: () => attachedId,
     block: () => ({ ...blockPosition }),
     cellBlocks: () => structuredClone(cellBlocks),
+    setCellBlocks: (next: ProjectDocument["scene"]["blocks"]) => { cellBlocks = structuredClone(next); },
   };
 }
 
@@ -299,4 +301,28 @@ it("uses the raised platform for an explicitly rectangular block in magnet mode"
  const pick=()=> (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
  harness.setJoints([300,-80,15,0]);expect(pick).toThrow(/no eligible/);
  harness.setJoints([300,-80,125,0]);expect(pick).not.toThrow();expect(harness.attachedId()).toBe("block");
+});
+
+it("only lets the passive fork pick the accessible top of a Body1 stack", () => {
+ const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.scene.platformHeightMm=110;project.scene.body1SupportHeightMm=0;
+ const pile=createWorkpiecePile("body1",3,300,-80,"body1-pile");project.scene.blocks=pile;project.scene.initialBlocks=structuredClone(pile);
+ const harness=makeHarness({project,profile:"body1"});
+ const step=(a:Pose,b:Pose)=>(harness.controller as unknown as {updatePassiveFork:(a:Pose,b:Pose)=>void}).updatePassiveFork(a,b);
+ const entry={x:300,y:-20,z:132.5,r:-90},contact={x:300,y:-80,z:132.5,r:-90};
+ step(entry,entry);step(entry,contact);step(contact,{...contact,z:135});
+ expect(harness.attached()).toBe(false);expect(harness.attachedId()).toBeNull();
+
+ harness.setCellBlocks(pile.slice(0,1));
+ const topEntry={...entry,z:132.5},topContact={...contact,z:132.5};
+ step(topEntry,topEntry);step(topEntry,topContact);step(topContact,{...topContact,z:135});
+ expect(harness.attached()).toBe(true);expect(harness.attachedId()).toBe("body1-pile-1");
+});
+
+it("rejects magnetic pickup through an upper plate and picks the top plate", () => {
+ const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="magnet";project.tool.pickupTolerance={xy:1,z:.5};
+ const pile=createWorkpiecePile("magnet",3,300,-80,"magnet-pile");project.scene.blocks=pile;project.scene.initialBlocks=structuredClone(pile);
+ const harness=makeHarness({project,initialJoints:[300,-80,114,0],forward:j=>({x:j[0],y:j[1],z:j[2],r:j[3]})});
+ const pick=()=> (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
+ expect(pick).toThrow(/no eligible/);
+ harness.setJoints([300,-80,122,0]);expect(pick).not.toThrow();expect(harness.attachedId()).toBe("magnet-pile-3");
 });

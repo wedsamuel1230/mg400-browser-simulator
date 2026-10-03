@@ -3,6 +3,7 @@ import type { ProgramLanguage, ToolMode } from "../domain";
 import { LuaFactory } from "wasmoon";
 import { loadPyodide } from "pyodide";
 import { reviewLuaSnippet, reviewRobotCalls, type CodeReviewFinding, type RobotCall, type SavedPointDescriptor } from "./codeReview";
+import { PYTHON_COMPILER_CHECK } from "../sim/pythonCompiler";
 import { PYTHON_ANALYSIS } from "./pythonAnalysis";
 
 const scope = self as DedicatedWorkerGlobalScope;
@@ -74,6 +75,8 @@ async function checkPython(
     return sources.map((source) => {
       try {
         runtime.globals.set("__ai_source", source);
+        runtime.globals.set("_student_source", source);
+        runtime.runPython(PYTHON_COMPILER_CHECK);
         const raw = runtime.runPython(PYTHON_ANALYSIS);
         if (typeof raw !== "string") throw new Error("Python AST review returned an invalid result.");
         const inventory = JSON.parse(raw) as { calls: RobotCall[]; definitions: string[] };
@@ -83,6 +86,7 @@ async function checkPython(
         return { ok: false, syntaxOk: false, error: errorText(error) };
       } finally {
         runtime.globals.set("__ai_source", "");
+        runtime.globals.set("_student_source", "");
       }
     });
   } finally {

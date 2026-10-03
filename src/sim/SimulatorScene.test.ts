@@ -122,8 +122,8 @@ it("uses one shared front platform and keeps explicit magnetic objects above it 
  expect(internals.teachingPlatform.scale.z).toBe(110);
  expect(internals.teachingPlatform.position.z).toBe(55);
  const geometry=internals.teachingPlatform.geometry as BoxGeometry;
- expect(geometry.parameters.width).toBe(260);expect(geometry.parameters.height).toBe(320);
- expect(internals.teachingPlatform.position.x+geometry.parameters.width*internals.teachingPlatform.scale.x/2).toBeGreaterThanOrEqual(505);
+ expect(geometry.parameters.width).toBe(340);expect(geometry.parameters.height).toBe(320);
+ expect(internals.teachingPlatform.position.x+geometry.parameters.width*internals.teachingPlatform.scale.x/2).toBe(440);
  expect(internals.magnetStands.size).toBe(0);
  expect(internals.additionalBlocks.get("magnet")?.position.z).toBe(137);
  view.dispose();
@@ -147,5 +147,37 @@ it("keeps the platform fixed while supply pieces move and projects placement ont
  internals.camera.lookAt(new Vector3(300,0,110));
  internals.camera.updateMatrixWorld(true);
  expect(view.tablePositionFromPointer(400,300)).toEqual({x:300,y:0});
+ view.dispose();
+});
+
+it("keeps the platform fixed and renders every Body1 layer from the supplied STL without support posts",async()=>{
+ vi.stubGlobal("fetch",async()=>new Response(stl));
+ const view=await SimulatorScene.create(document.createElement("canvas"),xml,()=>undefined);
+ const {prepareLessonProject}=await import("../training/practiceSetup");
+ const project=prepareLessonProject("intermediate-three-layer-tower");
+ const internals=view as unknown as {block:Mesh;additionalBlocks:Map<string,Mesh>;localForkBlockGeometry:BufferGeometry;teachingPlatform:Mesh;forkFixtures:Group;target:Group};
+ // Exact asset geometry, unlike the scene's generic procedural cube.
+ // @ts-expect-error Asset evidence uses the Node-only test runtime.
+ const {readFileSync}=await import("node:fs");
+ const bytes=readFileSync("public/models/tools/Body1.stl");internals.localForkBlockGeometry=new STLLoader().parse(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+ internals.localForkBlockGeometry.computeBoundingBox();const bounds=internals.localForkBlockGeometry.boundingBox!;internals.localForkBlockGeometry.translate(-(bounds.min.x+bounds.max.x)/2,-(bounds.min.y+bounds.max.y)/2,-bounds.min.z);
+ project.scene.blocks.forEach((block,i)=>{block.source="output";block.position={x:300,y:80};block.stackLevel=i;block.r=i===1?90:0;});
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:{x:300,y:80,z:150,r:0}});
+ expect(internals.block.geometry).toBe(internals.localForkBlockGeometry);
+ expect(internals.block.position.z).toBe(110);
+ expect([...internals.additionalBlocks.values()].map(mesh=>mesh.position.z)).toEqual([150,190]);
+ expect([...internals.additionalBlocks.values()].every(mesh=>mesh.geometry.getAttribute("position").count===internals.localForkBlockGeometry.getAttribute("position").count)).toBe(true);
+ expect(internals.forkFixtures.visible).toBe(false);
+ expect(internals.target.position.z).toBeGreaterThan(150);
+ expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ project.tool.mode="magnet";
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
+ expect(internals.block.geometry).toBe(internals.localForkBlockGeometry);
+ expect(internals.block.position.z).toBe(110);
+ expect([...internals.additionalBlocks.values()].every(mesh=>mesh.geometry.getAttribute("position").count===132)).toBe(true);
+ expect([...internals.additionalBlocks.values()].map(mesh=>mesh.position.z)).toEqual([150,190]);
+ project.scene.blocks[0].position={x:480,y:220};project.scene.platformHeightMm=0;
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
+ expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
  view.dispose();
 });

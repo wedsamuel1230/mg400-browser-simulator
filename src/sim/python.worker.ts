@@ -2,6 +2,7 @@
 import type { JointAngles, TeachPoint } from "../domain";
 import type { LuaWorkerMessage } from "./luaTypes";
 import { loadPyodide } from "pyodide";
+import { PYTHON_COMPILER } from "./pythonCompiler";
 
 const scope = self as DedicatedWorkerGlobalScope;
 const MAX_ACTIONS = 2000;
@@ -216,6 +217,10 @@ async function execute(script: string, points: TeachPoint[]) {
     const runtime = await loadPyodide({ indexURL: "/pyodide/" });
     pyodide = runtime;
     loadingRuntime = false;
+    const networkDisabled = () => { throw new Error("Python network access is disabled in this local simulator."); };
+    for (const name of ["XMLHttpRequest", "WebSocket", "EventSource", "importScripts"]) {
+      Reflect.set(scope, name, networkDisabled);
+    }
 
     const log = (message: string, level: "info" | "error" = "info") => {
       printCount += 1;
@@ -228,12 +233,14 @@ async function execute(script: string, points: TeachPoint[]) {
     runtime.globals.set("__queue_relative", queueRelative);
     runtime.globals.set("__queue_joint", queueJoint);
     runtime.globals.set("__wait_motion", waitMotion);
-    runtime.globals.set("__clock", (mode: "sleep" | "wait" | "sync", milliseconds: number) => askMain("clock", { mode, milliseconds }));
-    runtime.globals.set("__read_state", (state: "pose" | "angles") => askMain("state", { state }));
+    runtime.globals.set("__clock", (mode: "sleep" | "wait" | "sync", milliseconds: number) => (reserveAction(), askMain("clock", { mode, milliseconds })));
+    runtime.globals.set("__read_state", (state: "pose" | "angles") => (reserveAction(), askMain("state", { state })));
     runtime.globals.set("__digital_output", queueOutput);
     runtime.globals.set("__tool_action", queueToolAction);
 
-    await runtime.runPythonAsync([API_SOURCE, pointSource(points), script].filter(Boolean).join("\n"));
+    await runtime.runPythonAsync([API_SOURCE, pointSource(points)].filter(Boolean).join("\n"));
+    runtime.globals.set("_student_source", script);
+    await runtime.runPythonAsync(PYTHON_COMPILER);
     send({ type: "script-complete" });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

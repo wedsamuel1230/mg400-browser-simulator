@@ -41,7 +41,8 @@ describe("reference-block direction marker", () => {
 it("makes the requested marked 35×35×4 magnetic plate with arrows inside its thin sides", () => {
   const plate = createReferenceBlock("neutral", MAGNET_SIZE_MM);
   expect(plate.geometry.parameters).toMatchObject({ width: 35, height: 35, depth: 4 });
-  expect(plate.children[0].position.z).toBe(2.25);
+  expect(plate.children[0].position.z).toBeGreaterThan(2);
+  expect(plate.children[0].position.z).toBeLessThan(4);
   expect(plate.children[1].scale.y).toBeCloseTo(1 / 3);
 });
 

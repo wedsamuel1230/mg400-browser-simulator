@@ -1,4 +1,5 @@
-import { FORK_SUPPORT_HEIGHT_MM } from "../domain";
+import { body1LessonProgram, sortingProgram } from "./practiceSetup";
+import { authoredPythonProgram } from "../domain";
 
 export type CourseLanguage = "en" | "zh-Hant";
 export type TrackId = "foundation" | "intermediate" | "advanced";
@@ -51,7 +52,7 @@ export const TRACKS: Track[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = [
+const RAW_LESSONS: Lesson[] = [
   {
     id: "foundation-first-program",
     track: "foundation",
@@ -61,6 +62,7 @@ export const LESSONS: Lesson[] = [
     outcome: { en: "Use the selected language's comment, named value, and print statement without moving the robot.", "zh-Hant": "學會所選語言的註解、命名變數及 print 指令，全程不會移動機械臂。" },
     prerequisite: { en: "None. Start here if this is your first time coding.", "zh-Hant": "無。如果你第一次寫程式，請由此開始。" },
     explanation: [
+      {en:"Python defines a normal function with def task():, indents its body, then calls task(). Robot calls use millimetres/degrees and do not need authored await. Lua defines local function task() ... end then calls task().", "zh-Hant":"Python 用 def task(): 定義一般函式，內文縮排，再以 task() 呼叫。機械臂指令使用毫米／角度，不需手寫 await；Lua 用 local function task() ... end 定義，再以 task() 呼叫。"},
       { en: "A program runs from top to bottom. A comment is a note for people that the language skips: Lua starts one with `--`; Python starts one with `#`. The next line gives text a name (`local greeting = ...` in Lua; `greeting = ...` in Python), and `print(greeting)` shows it in the Run output.", "zh-Hant": "程式會由上而下執行。註解是給人看的提示，程式會略過：Lua 用 `--` 開始註解；Python 用 `#`。下一行為文字命名（Lua 寫 `local greeting = ...`；Python 寫 `greeting = ...`），而 `print(greeting)` 會在 執行記錄區顯示文字。" },
       { en: "In both examples, `=` stores a value. Both languages later use `==` to compare values; Lua closes `if` and loop blocks with `end`, while Python uses indentation. You do not need those ideas to run this first example.", "zh-Hant": "兩個範例都用 `=` 儲存數值。兩種語言之後都會用 `==` 比較數值；Lua 用 `end` 結束 `if` 和迴圈區塊，Python 則用縮排。本範例暫時不需要這些概念。" },
       { en: "In this simulator, Lua is the MG400 training language, limited to the documented simulator subset. Python is for this simulator only; its code cannot run on a physical Dobot controller. Lua and Python keep separate editor programs, and the lesson example always follows the selected language tab.", "zh-Hant": "本模擬器以 Lua 作 MG400 訓練語言，但只支援已列明的模擬器子集。Python 只供本模擬器使用，程式不能在實體 Dobot 控制器執行。Lua 和 Python 的編輯器程式分開儲存；課程範例會跟隨目前選取的語言分頁。" },
@@ -74,7 +76,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "After loading the lesson example, change the message to introduce yourself, run it, and explain in one sentence what `print` did.", "zh-Hant": "載入課堂範例後，把訊息改成自我介紹，再執行並用一句話說明 `print` 做了甚麼。" },
     examples: {
       lua: "-- A comment is a note for people\nlocal greeting = \"Hello, robot!\"\nprint(greeting)",
-      python: "# A comment is a note for people\ngreeting = \"Hello, robot!\"\nprint(greeting)",
+      python: "def task():\n    # A comment is a note for people\n    greeting = \"Hello, robot!\"\n    print(greeting)\ntask()",
     },
     questions: [
       {
@@ -108,7 +110,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Run the example once in each tool mode. Record the TCP X/Y/Z values at PickApproach and explain why the two approaches differ. Do not add pickup, release, or DO commands.", "zh-Hant": "在兩種工具模式各執行一次範例，記錄 TCP 到達 PickApproach 時的 X／Y／Z 數值，並解釋兩個接近位置為何不同。不要加入拾取、釋放或 DO 指令。" },
     examples: {
       lua: "-- First robot move: go to a saved approach point\nMovJ(PickApproach, {CP=0})\nSync()",
-      python: "# First robot move: go to a saved approach point\nawait mov_j(PickApproach, cp=0)\nawait sync()",
+      python: "def task():\n    # First robot move: go to a saved approach point\n    mov_j(PickApproach, cp=0)\n    sync()\ntask()",
     },
     questions: [
       {
@@ -140,7 +142,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Write an if/else that prints “ready” when blockHeight is at least 10 and “check height” otherwise. Test both results with print-only code.", "zh-Hant": "寫一個 if／else：blockHeight 大於或等於 10 時輸出「ready」，否則輸出「check height」。用只含 print 的程式測試兩個結果。" },
     examples: {
       lua: "local blockHeight = 15\nif blockHeight > 10 then\n  print(\"Review the height\")\nelseif blockHeight == 10 then\n  print(\"Use the example\")\nelse\n  print(\"Check the height\")\nend",
-      python: "block_height = 15\nif block_height > 10:\n    print(\"Review the height\")\nelif block_height == 10:\n    print(\"Use the example\")\nelse:\n    print(\"Check the height\")",
+      python: "def task():\n    block_height = 15\n    if block_height > 10:\n        print(\"Review the height\")\n    elif block_height == 10:\n        print(\"Use the example\")\n    else:\n        print(\"Check the height\")\ntask()",
     },
     questions: [
       {
@@ -179,7 +181,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Write a for loop that prints steps 1 through 3, then a while loop that counts down from 3 to 1. Do not add robot commands yet.", "zh-Hant": "寫一個 for 迴圈輸出步驟 1 至 3，再寫一個 while 迴圈由 3 倒數至 1；暫時不要加入機械臂指令。" },
     examples: {
       lua: "for step = 1, 3 do\n  print(\"Practice step\", step)\nend\n\nlocal count = 0\nwhile count < 3 do\n  count = count + 1\n  print(\"Repeat\", count)\nend",
-      python: "for step in range(1, 4):\n    print(\"Practice step\", step)\n\ncount = 0\nwhile count < 3:\n    count += 1\n    print(\"Repeat\", count)",
+      python: "def task():\n    for step in range(1, 4):\n        print(\"Practice step\", step)\n    \n    count = 0\n    while count < 3:\n        count += 1\n        print(\"Repeat\", count)\ntask()",
     },
     questions: [
       {
@@ -209,7 +211,7 @@ export const LESSONS: Lesson[] = [
     explanation: [
       { en: "J1 to J4 are the robot's four joints. X, Y, and Z describe the configured TCP (Tool Center Point: the tool-tip reference point used by motion commands); R is its rotation about the vertical axis. The user-requested +60 mm X tool offset is a simulator setting, not a physical calibration measurement.", "zh-Hant": "J1 至 J4 是機械臂的四個關節。X、Y、Z 表示已設定的 TCP（Tool Center Point，工具中心點：移動指令使用的工具端參考點）；R 表示它繞垂直軸旋轉的角度。使用者指定的工具 X 軸 +60 mm 偏移只屬模擬器設定，並非實體校準量度。" },
       { en: "A taught point saves a TCP pose or four joint angles under a name, so a program can refer to `PickPoint` instead of repeating numbers.", "zh-Hant": "教點會把 TCP 姿態或四個關節角度以名稱儲存，程式便可引用 `PickPoint`，不必反覆輸入數字。" },
-      { en: "The magnetic plate measures 35 × 35 × 4 mm: its bottom is supported by a visible shared 110 mm teaching platform in front of the robot: bottom Z110, centre Z112 and top contact Z114. The generic fork block is 40 × 40 × 15 mm, supported with its bottom at Z=130 and centre at Z=137.5. The bundled Body1 grooved block is 40 × 40 × 40 mm; its fork insertion is Z152.5 and load/release is Z155. The magnet targets the top face; the passive fork targets the support plane beneath the block.", "zh-Hant": "磁吸片為 35 × 35 × 4 mm：由機械臂前方共用的 110 mm 教學平台承托，底面 Z110、中心 Z112、頂面接觸 Z114。通用叉臂方塊為 40 × 40 × 15 mm，底面架高至 Z=130、中心 Z=137.5。內置 Body1 槽積木為 40 × 40 × 40 mm；叉臂插入 Z152.5、承托／釋放 Z155。磁吸工具對準頂面；無動力叉臂則對準方塊下方的承托平面。" },
+      { en: "The magnetic plate measures 35 × 35 × 4 mm: its bottom is supported by a visible shared 110 mm teaching platform in front of the robot: bottom Z110, centre Z112 and top contact Z114. The generic fork block is 40 × 40 × 15 mm, supported with its bottom at Z=130 and centre at Z=137.5. The bundled Body1 grooved block is 40 × 40 × 40 mm; its bottom is Z110, fork insertion is Z132.5 and load/release is Z135. The magnet targets the top face; the passive fork targets the support plane beneath the block.", "zh-Hant": "磁吸片為 35 × 35 × 4 mm：由機械臂前方共用的 110 mm 教學平台承托，底面 Z110、中心 Z112、頂面接觸 Z114。通用叉臂方塊為 40 × 40 × 15 mm，底面架高至 Z=130、中心 Z=137.5。內置 Body1 槽積木為 40 × 40 × 40 mm；底面 Z110，叉臂插入 Z132.5、承托／釋放 Z135。磁吸工具對準頂面；無動力叉臂則對準方塊下方的承托平面。" },
     ],
     guidedSteps: [
       { en: "Find TCP POSITION under the 3D view and note the unit labels.", "zh-Hant": "在 3D 視窗下方找出 TCP POSITION，留意各欄的單位。" },
@@ -219,7 +221,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "For each tool mode, state the block-centre height and the correct pickup/contact height. Explain why the magnet and passive fork use different target heights.", "zh-Hant": "分別寫出兩種工具模式下的方塊中心高度及取件／接觸高度，並解釋磁吸工具與無動力叉臂為何使用不同目標高度。" },
     examples: {
       lua: "-- Units: mm and degrees; Z points up\nlocal Current = GetPose()\nprint(Current.coordinate.x, Current.coordinate.y, Current.coordinate.z, Current.coordinate.r)",
-      python: "# Units: millimetres and degrees; Z points up\npose = await get_pose()\nprint(pose)",
+      python: "def task():\n    # Units: millimetres and degrees; Z points up\n    pose = get_pose()\n    print(pose)\ntask()",
     },
     questions: [
       {
@@ -258,7 +260,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Teach a point named SafeAbove, set its Z above the block, and describe why a straight-line approach is useful before pickup.", "zh-Hant": "教一個名為 SafeAbove 的點，將 Z 設於方塊上方，並說明取件前採用直線接近的好處。" },
     examples: {
       lua: "-- Named Cartesian targets are stored in the Teach points panel\nMovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})",
-      python: "# Reuse the named targets from Teach points\nawait mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)",
+      python: "def task():\n    # Reuse the named targets from Teach points\n    mov_j(PickApproach, cp=0)\n    mov_l(PickPoint, cp=0)\ntask()",
     },
     questions: [
       {
@@ -297,7 +299,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Move the TCP upward by 20 mm, then sideways by 15 mm in the base frame. Explain why each offset must be evaluated at execution time in a queued program.", "zh-Hant": "先令 TCP 向上移 20 mm，再沿基座座標側移 15 mm。解釋為何佇列程式應在執行當刻計算偏移目標。" },
     examples: {
       lua: "-- Offset order: X, Y, Z (mm), R (degrees)\nRelMovL({0, 0, 20, 0}, {CP=0, SpeedL=50, AccL=20})\nRelMovL({15, 0, 0, 0}, {CP=0})\nSync()",
-      python: "# Simulator Python offsets: [x, y, z, r]\nawait rel_mov_l([0, 0, 20, 0], cp=0, speed_l=50, acc_l=20)\nawait rel_mov_l([15, 0, 0, 0], cp=0)\nawait sync()",
+      python: "def task():\n    # Simulator Python offsets: [x, y, z, r]\n    rel_mov_l([0, 0, 20, 0], cp=0, speed_l=50, acc_l=20)\n    rel_mov_l([15, 0, 0, 0], cp=0)\n    sync()\ntask()",
     },
     questions: [
       {
@@ -336,7 +338,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Move the drop point, regenerate its taught pair, then describe which action actually attaches the block and which merely moves it.", "zh-Hant": "移動放置位置、重新教出放置點組合，再說明哪個指令會附上方塊，哪些指令只負責移動。" },
     examples: {
       lua: "MovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})\nDO(1, ON)\nRelMovL({0, 0, 80, 0}, {CP=0})\nMovJ(PlaceApproach, {CP=0})\nMovL(PlacePoint, {CP=0})\nDO(1, OFF)\nSync()",
-      python: "await mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)\ndo(1, ON)\nawait rel_mov_l([0, 0, 80, 0], cp=0)\nawait mov_j(PlaceApproach, cp=0)\nawait mov_l(PlacePoint, cp=0)\ndo(1, OFF)\nawait sync()",
+      python: "def task():\n    mov_j(PickApproach, cp=0)\n    mov_l(PickPoint, cp=0)\n    do(1, ON)\n    rel_mov_l([0, 0, 80, 0], cp=0)\n    mov_j(PlaceApproach, cp=0)\n    mov_l(PlacePoint, cp=0)\n    do(1, OFF)\n    sync()\ntask()",
     },
     questions: [
       {
@@ -356,150 +358,48 @@ export const LESSONS: Lesson[] = [
     ],
   },
   {
-    id: "intermediate-rotate-carried-block",
-    track: "intermediate",
-    durationMinutes: 15,
-    evidenceProfile: { en: "Magnet mode · simulated carried-block R-axis turn", "zh-Hant": "磁吸模式 · 模擬攜件 R 軸旋轉" },
-    title: { en: "Pick first, then rotate the carried block 90°", "zh-Hant": "先取件，再把攜帶中的方塊旋轉 90°" },
-    outcome: { en: "Pick the square block, lift it safely, rotate the wrist/tool and carried block by +90°, then place it in the rotated orientation.", "zh-Hant": "先拾起正方形方塊並安全抬高，再把手腕／工具及攜帶中的方塊轉 +90°，最後以旋轉後的方向放下。" },
-    prerequisite: { en: "Complete the magnet pick-and-place lesson and Relative linear motion.", "zh-Hant": "先完成磁吸取放課及「RelMovL 相對直線移動」。" },
-    explanation: [
-      { en: "The block stays 35 × 35 × 4 mm. A dark arrow on its top face points along the block's local +X direction, so you can see the quarter-turn even though the square outline looks the same.", "zh-Hant": "方塊尺寸保持 35 × 35 × 4 mm。頂面的深色箭嘴指向方塊本身的 +X 方向；即使正方形外框看起來一樣，你仍能看見它轉了四分之一圈。" },
-      { en: "The order matters: move down, use DO(1, ON) to attach the block in this simulator, lift 80 mm in base-frame +Z, and only then command a +90° R-axis turn. The attached block inherits the animated flange/tool transform and turns with the wrist.", "zh-Hant": "次序很重要：先向下移動，在本模擬器用 DO(1, ON) 附上方塊，沿基座座標 +Z 抬高 80 mm，然後才命令 R 軸轉 +90°。已附上的方塊會跟隨動畫中的 flange／工具變換，與手腕一同轉動。" },
-      { en: "The zero-X/Y/Z RelMovL changes R while holding the TCP position at the safe height. The example makes copies of the taught place points with R increased by 90°, so the robot carries that orientation to the destination without changing the original saved points.", "zh-Hant": "X、Y、Z 為零的 RelMovL 會在安全高度維持 TCP 位置並改變 R。範例會複製已教的放置點並把 R 加 90°，讓機械臂把該方向帶到目的地，同時不修改原有教點。" },
-      { en: "This is a software simulation rule: the block is rigidly attached in the scene. It does not calculate magnetic force, slipping, collisions, or a real robot's tool calibration.", "zh-Hant": "這是軟件模擬規則：場景中的方塊會以剛性方式附在工具上。本模擬不計算磁力、滑動、碰撞或實體機械臂的工具校準。" },
-    ],
-    guidedSteps: [
-      { en: "Select Magnet pickup and confirm that PickPoint/PickApproach and PlacePoint/PlaceApproach are taught for the current cell.", "zh-Hant": "選擇 「磁吸拾取」，並確認 PickPoint／PickApproach 及 PlacePoint／PlaceApproach 已按目前工作站教好。" },
-      { en: "Load the example for the selected language. Read it from top to bottom: the block attaches first, then rises, then the tool turns +90° while carrying the block.", "zh-Hant": "載入所選語言的範例，由上而下閱讀：先附上方塊，再抬高，然後才攜帶方塊把工具轉 +90°。" },
-      { en: "Run the simulation and watch the dark arrow. It should turn while the block is attached, remain turned on the travel to PlacePoint, and stop changing when DO1 releases the block.", "zh-Hant": "執行模擬並觀察深色箭嘴。方塊附在工具上時箭嘴應隨工具旋轉；移往 PlacePoint 時保持轉後方向；DO1 釋放後則不再跟隨手腕改變。" },
-    ],
-    practice: { en: "Change the R offset from 90° to 45°, predict how the arrow will point, then restore +90° and explain why the lift comes before the turn.", "zh-Hant": "把 R 偏移由 90° 改成 45°，先預測箭嘴方向，再還原 +90°，並解釋為何要先抬高才旋轉。" },
-    examples: {
-      lua: "-- The block arrow points along its local +X direction.\nMovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})\nDO(1, ON)\nRelMovL({0, 0, 80, 0}, {CP=0}) -- lift in base-frame +Z\nRelMovL({0, 0, 0, 90}, {CP=0}) -- turn wrist +90 while holding the block\nlocal RotatedPlaceApproach = { coordinate = { x=PlaceApproach.coordinate.x, y=PlaceApproach.coordinate.y, z=PlaceApproach.coordinate.z, r=PlaceApproach.coordinate.r + 90 } }\nlocal RotatedPlacePoint = { coordinate = { x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=PlacePoint.coordinate.z, r=PlacePoint.coordinate.r + 90 } }\nMovJ(RotatedPlaceApproach, {CP=0})\nMovL(RotatedPlacePoint, {CP=0})\nDO(1, OFF)\nSync()",
-      python: "# The block arrow points along its local +X direction.\nawait mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)\ndo(1, ON)\nawait rel_mov_l([0, 0, 80, 0], cp=0)  # lift in base-frame +Z\nawait rel_mov_l([0, 0, 0, 90], cp=0)  # turn wrist +90 while holding the block\nRotatedPlaceApproach = {\"coordinate\": {\"x\": PlaceApproach[\"coordinate\"][\"x\"], \"y\": PlaceApproach[\"coordinate\"][\"y\"], \"z\": PlaceApproach[\"coordinate\"][\"z\"], \"r\": PlaceApproach[\"coordinate\"][\"r\"] + 90}}\nRotatedPlacePoint = {\"coordinate\": {\"x\": PlacePoint[\"coordinate\"][\"x\"], \"y\": PlacePoint[\"coordinate\"][\"y\"], \"z\": PlacePoint[\"coordinate\"][\"z\"], \"r\": PlacePoint[\"coordinate\"][\"r\"] + 90}}\nawait mov_j(RotatedPlaceApproach, cp=0)\nawait mov_l(RotatedPlacePoint, cp=0)\ndo(1, OFF)\nawait sync()",
-    },
-    questions: [
-      {
-        en: "When does the wrist turn +90° in this task?",
-        "zh-Hant": "本任務的手腕何時轉 +90°？",
-        options: { en: ["After the magnet attaches the block and it has been lifted to safe height", "Before moving to PickPoint", "After DO1 releases the block"], "zh-Hant": ["磁吸工具附上方塊並抬至安全高度之後", "移到 PickPoint 之前", "DO1 釋放方塊之後"] },
-        answer: 0,
-        explanation: { en: "The block must already be attached before the wrist turns, and it is lifted clear before changing R.", "zh-Hant": "手腕旋轉前必須先附上方塊，並先抬高離開工作面才改變 R。" },
-      },
-      {
-        en: "What does the dark arrow on the block show?",
-        "zh-Hant": "方塊上的深色箭嘴代表甚麼？",
-        options: { en: ["The block's local +X direction", "The robot's home position", "A color sensor's reading"], "zh-Hant": ["方塊本身的 +X 方向", "機械臂的 Home 位置", "顏色感測器的讀數"] },
-        answer: 0,
-        explanation: { en: "The arrow is a visual orientation mark; the simulator does not include a color sensor.", "zh-Hant": "箭嘴是顯示方向的標記；模擬器沒有顏色感測器。" },
-      },
-    ],
+    id: "intermediate-rotate-carried-block", track: "intermediate", durationMinutes: 20,
+    evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
+    title: {"en": "Body1 pickup then carried 90° turn", "zh-Hant": "Body1 取件後旋轉 90°"}, outcome: {"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"},
+    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    explanation: [{"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
+    examples: {lua: body1LessonProgram("lua", "intermediate-rotate-carried-block"), python: body1LessonProgram("python", "intermediate-rotate-carried-block")},
+    questions: [{en:"What must happen before a carried turn?", "zh-Hant":"攜件旋轉之前要做甚麼？", options:{en:["Pickup and an80mm lift", "Before pickup", "At any height"], "zh-Hant":["先取件及抬高80", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"}}],
   },
   {
-    id: "intermediate-three-layer-tower",
-    track: "intermediate",
-    durationMinutes: 20,
-    evidenceProfile: { en: "Magnet mode · deterministic three-layer tower", "zh-Hant": "磁吸模式 · 確定性三層方塊塔" },
-    title: { en: "Build a three-layer rotated tower", "zh-Hant": "建立三層旋轉方塊塔" },
-    outcome: { en: "Repeat a finite pick, lift, +90° rotate, and release cycle for three 35 × 35 × 4 mm blocks.", "zh-Hant": "以有限次循環為三個 35 × 35 × 4 mm 方塊重複取件、抬高、+90° 旋轉及釋放流程。" },
-    prerequisite: { en: "Complete Pick first, then rotate the carried block 90°.", "zh-Hant": "先完成「先取件，再把攜帶中的方塊旋轉 90°」。" },
-    explanation: [
-      { en: "Each loop picks one source block, lifts it clear, turns the attached tool and arrow by +90°, then releases at the tower zone. The simulator assigns successive releases to layers 0, 1, and 2 using the 4 mm plate thickness.", "zh-Hant": "每次循環取一個來源方塊、抬高離開工作面、把已附上的工具及箭嘴轉 +90°，再於方塔區釋放。模擬器按 4 mm 磁吸片厚度，把連續釋放分配到第 0、1、2 層。" },
-      { en: "This is a deterministic scene rule for training. It does not simulate collision, contact, magnetic force, or physical tower stability.", "zh-Hant": "這是教學用的確定性場景規則，不會模擬碰撞、接觸、磁力或實體方塔穩定性。" },
-    ],
-    guidedSteps: [
-      { en: "Configure three pickup blocks and teach PickPoint, PlaceApproach, and PlacePoint at the tower zone.", "zh-Hant": "設定三個取件方塊，並在方塔區教 PickPoint、PlaceApproach 及 PlacePoint。" },
-      { en: "Load the finite-loop example and verify DO1 turns on only after the descent and off after each release.", "zh-Hant": "載入有限循環範例，確認 DO1 只在下降後開啟，並在每次釋放後關閉。" },
-      { en: "Run and watch each arrow rotate while attached; Reset robot restores the source arrangement.", "zh-Hant": "執行並觀察每支箭嘴在附著期間旋轉；「重設機械臂」 會還原來源排列。" },
-    ],
-    practice: { en: "Change the loop count to two, predict the highest layer, then restore three.", "zh-Hant": "把循環次數改為兩次，預測最高層，再還原為三次。" },
-    examples: {
-      lua: "-- 35×35×4 mm magnetic plates. Pick, lift, then rotate the carried tool.\nlocal blockHeight = 4\nlocal sourceX = {300, 340, 360}\nfor layer = 1, 3 do\n  MovJ({coordinate={x=sourceX[layer], y=-80, z=110 + blockHeight, r=0}}, {CP=0, SYNC=1})\n  DO(1, ON)\n  RelMovL({0, 0, 80, 0}, {CP=0, SYNC=1})\n  RelMovL({0, 0, 0, 90}, {CP=0, SYNC=1})\n  local target = {coordinate={x=PlacePoint.coordinate.x, y=PlacePoint.coordinate.y, z=110 + blockHeight * layer, r=90}}\n  MovJ({coordinate={x=target.coordinate.x, y=target.coordinate.y, z=194, r=90}}, {CP=0, SYNC=1})\n  MovL(target, {CP=0, SYNC=1})\n  DO(1, OFF)\n  RelMovL({0, 0, 80, 0}, {CP=0, SYNC=1})\nend\nJointMovJ(Home, {CP=0})\nSync()",
-      python: "# 35×35×4 mm magnetic plates. Lift before rotating the carried tool.\nblock_height = 4\nfor layer, source_x in enumerate([300, 340, 360], start=1):\n    await mov_j({\"coordinate\": {\"x\": source_x, \"y\": -80, \"z\": 110 + block_height, \"r\": 0}}, cp=0)\n    do(1, ON)\n    await rel_mov_l([0, 0, 80, 0], cp=0)\n    await rel_mov_l([0, 0, 0, 90], cp=0)\n    target = {\"coordinate\": {\"x\": PlacePoint[\"coordinate\"][\"x\"], \"y\": PlacePoint[\"coordinate\"][\"y\"], \"z\": 110 + block_height * layer, \"r\": 90}}\n    await mov_j({\"coordinate\": {\"x\": target[\"coordinate\"][\"x\"], \"y\": target[\"coordinate\"][\"y\"], \"z\": 194, \"r\": 90}}, cp=0)\n    await mov_l(target, cp=0)\n    do(1, OFF)\n    await rel_mov_l([0, 0, 80, 0], cp=0)\nawait joint_mov_j(Home, cp=0)\nawait sync()",
-    },
-    questions: [{
-      en: "Why does the lift happen before the +90° turn?",
-      "zh-Hant": "為甚麼要先抬高才轉 +90°？",
-      options: { en: ["It keeps the carried block at the deterministic safe height before the turn", "It activates a physical force sensor", "It changes the block thickness"], "zh-Hant": ["先把攜件帶到模擬的安全高度再旋轉", "啟動實體力度感測器", "改變方塊厚度"] },
-      answer: 0,
-      explanation: { en: "The simulator requires the visible lift-before-turn sequence; it is a training rule, not a physical contact proof.", "zh-Hant": "模擬器要求可見的先抬高後旋轉次序；這是教學規則，不是實體接觸證明。" },
-    }],
+    id: "intermediate-three-layer-tower", track: "intermediate", durationMinutes: 20,
+    evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
+    title: {"en": "Body1 three-layer tower 0° / 90° / 0°", "zh-Hant": "Body1 三層塔 0°／90°／0°"}, outcome: {"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"},
+    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    explanation: [{"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
+    examples: {lua: body1LessonProgram("lua", "intermediate-three-layer-tower"), python: body1LessonProgram("python", "intermediate-three-layer-tower")},
+    questions: [{en:"When does the middle layer turn90\u00b0?", "zh-Hant":"中層何時轉90°？", options:{en:["After pickup and an80mm lift; outer layers remain0\u00b0", "Before pickup", "At any height"], "zh-Hant":["先取件及抬高80；上下層保持0°", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"}}],
   },
   {
-    id: "intermediate-black-white-sort",
-    track: "intermediate",
-    durationMinutes: 20,
-    evidenceProfile: { en: "Magnet mode · ordered parity sorter and unload", "zh-Hant": "磁吸模式 · 有序奇偶分類及卸載" },
-    title: { en: "Sort black and white blocks by parity", "zh-Hant": "按奇偶次序分類黑白方塊" },
-    outcome: { en: "Use the disclosed feeder order, route odd/even items to black/white bins, rotate white blocks +45° while held, then unload every sorted block.", "zh-Hant": "使用已披露的供料次序，按奇偶次序把方塊送往黑／白箱，白色方塊附著時旋轉 +45°，最後卸載全部已分類方塊。" },
-    prerequisite: { en: "Complete the three-layer tower lesson and review if/else and loops.", "zh-Hant": "先完成三層方塔課，並重溫 if/else 及循環。" },
-    explanation: [
-      { en: "The cell shows a deterministic feeder order (black, white, black, white). The program uses the item index and modulo parity to choose bins; it does not read a color sensor.", "zh-Hant": "工作站會顯示確定性的供料次序（黑、白、黑、白）。程式使用項目索引及 modulo 奇偶來選擇箱，不會讀取顏色感測器。" },
-      { en: "Every DO1 ON follows pickup alignment and every white turn follows the safe lift. After sorting, the unload pass picks stored output blocks and places them in the unload zone.", "zh-Hant": "每次 DO1 ON 都在對準取件後執行，白色旋轉必須在安全抬高後執行。分類後，卸載流程會拾取已存放的輸出方塊並放到卸載區。" },
-    ],
-    guidedSteps: [
-      { en: "Read Feeder order in Tool & pickup and keep four feeder blocks configured as black → white → black → white.", "zh-Hant": "閱讀 「工具與取件」 的 Feeder order，並保持四個供料方塊為黑 → 白 → 黑 → 白。" },
-      { en: "Use index % 2 to select the black or white bin; rotate only the white branch after lifting the attached block.", "zh-Hant": "用 index % 2 選擇黑箱或白箱；只在附著方塊抬高後於白色分支旋轉。" },
-      { en: "Run the unload pass and Reset robot to restore all four feeder blocks.", "zh-Hant": "執行卸載流程，再按 「重設機械臂」 還原四個供料方塊。" },
-    ],
-    practice: { en: "Swap the two bin coordinates and predict the final positions without changing the feeder order.", "zh-Hant": "交換兩個箱的座標，預測最終位置而不改變供料次序。" },
-    examples: {
-      lua: "-- Feeder order is disclosed: black, white, black, white.\nlocal BlackBin = { coordinate = { x=320, y=80, z=114, r=0 } }\nlocal WhiteBin = { coordinate = { x=340, y=80, z=114, r=45 } }\nlocal Unload = { coordinate = { x=300, y=180, z=114, r=0 } }\nlocal function sortOne(x, y, white, bin)\n  MovJ({ coordinate = { x=x, y=y, z=114, r=0 } }, {CP=0, SYNC=1})\n  DO(1, ON)\n  RelMovL({0, 0, 80, 0}, {CP=0, SYNC=1})\n  if white then RelMovL({0, 0, 0, 45}, {CP=0, SYNC=1}) end\n  MovJ(bin, {CP=0, SYNC=1})\n  MovL(bin, {CP=0, SYNC=1})\n  DO(1, OFF)\n  Sync()\nend\nsortOne(300, -180, false, BlackBin)\nsortOne(310, -180, true, WhiteBin)\nsortOne(320, -180, false, BlackBin)\nsortOne(315, -180, true, WhiteBin)\nlocal function unloadOne(bin)\n  MovJ(bin, {CP=0, SYNC=1})\n  DO(1, ON)\n  RelMovL({0, 0, 80, 0}, {CP=0, SYNC=1})\n  MovJ(Unload, {CP=0, SYNC=1})\n  MovL(Unload, {CP=0, SYNC=1})\n  DO(1, OFF)\n  Sync()\nend\nunloadOne(BlackBin)\nunloadOne(WhiteBin)\nunloadOne(BlackBin)\nunloadOne(WhiteBin)",
-      python: "# Feeder order is disclosed: black, white, black, white.\nBlackBin = {\"coordinate\": {\"x\": 320, \"y\": 80, \"z\": 114, \"r\": 0}}\nWhiteBin = {\"coordinate\": {\"x\": 340, \"y\": 80, \"z\": 114, \"r\": 45}}\nUnload = {\"coordinate\": {\"x\": 300, \"y\": 180, \"z\": 114, \"r\": 0}}\nasync def sort_one(x, y, white, bin):\n    await mov_j({\"coordinate\": {\"x\": x, \"y\": y, \"z\": 114, \"r\": 0}}, cp=0)\n    do(1, ON)\n    await rel_mov_l([0, 0, 80, 0], cp=0)\n    if white: await rel_mov_l([0, 0, 0, 45], cp=0)\n    await mov_j(bin, cp=0)\n    await mov_l(bin, cp=0)\n    do(1, OFF)\n    await sync()\nawait sort_one(300, -180, False, BlackBin)\nawait sort_one(310, -180, True, WhiteBin)\nawait sort_one(320, -180, False, BlackBin)\nawait sort_one(315, -180, True, WhiteBin)\nasync def unload_one(bin):\n    await mov_j(bin, cp=0)\n    do(1, ON)\n    await rel_mov_l([0, 0, 80, 0], cp=0)\n    await mov_j(Unload, cp=0)\n    await mov_l(Unload, cp=0)\n    do(1, OFF)\n    await sync()\nawait unload_one(BlackBin)\nawait unload_one(WhiteBin)\nawait unload_one(BlackBin)\nawait unload_one(WhiteBin)",
-    },
-    questions: [{
-      en: "What decides the bin in this lesson?",
-      "zh-Hant": "本課由甚麼決定方塊箱？",
-      options: { en: ["The disclosed feeder index and modulo parity", "A camera color sensor", "A random choice"], "zh-Hant": ["已披露的供料索引及 modulo 奇偶", "相機顏色感測器", "隨機選擇"] },
-      answer: 0,
-      explanation: { en: "This simulator uses configured order and program branching; it makes no color-sensing claim.", "zh-Hant": "本模擬器使用已設定次序及程式分支，沒有顏色感測器能力聲稱。" },
-    }],
+    id: "intermediate-black-white-sort", track: "intermediate", durationMinutes: 20,
+    evidenceProfile: {"en": "Magnet · two independent stacks", "zh-Hant": "磁吸工具 · 兩個獨立堆疊"},
+    title: {"en": "Black and white magnetic plate stacks", "zh-Hant": "黑白磁吸片獨立堆疊"}, outcome: {"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"},
+    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    explanation: [{"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
+    examples: {lua: sortingProgram("lua"), python: sortingProgram("python")},
+    questions: [{en:"How are the final stacks arranged?", "zh-Hant":"最終堆疊如何排列？", options:{en:["Two separate2-plate stacks at different XY", "Before pickup", "At any height"], "zh-Hant":["不同XY的兩個獨立兩層堆疊", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"}}],
   },
   {
-    id: "intermediate-passive-fork",
-    track: "intermediate",
-    durationMinutes: 15,
-    evidenceProfile: { en: "Fork mode · passive insertion and lift logic", "zh-Hant": "叉臂模式 · 被動插入及抬升邏輯" },
-    title: { en: "Pick and place with the unpowered fork", "zh-Hant": "使用無動力叉臂取放方塊" },
-    outcome: { en: "Pick up and release the 40 × 40 × 15 mm block by sliding the passive fork beneath it and lifting, without digital output commands.", "zh-Hant": "以被動叉臂滑入 40 × 40 × 15 mm 方塊下方並抬起取件，再下降釋放，全程毋須數碼輸出指令。" },
-    prerequisite: { en: "Complete the Foundation track and Relative linear motion.", "zh-Hant": "先完成初階課程及「RelMovL 相對直線移動」。" },
-    explanation: [
-      { en: `The fork is unpowered. The 40 × 40 × 15 mm reference block sits at Z=${FORK_SUPPORT_HEIGHT_MM} mm on three visible pads so the fork can enter beneath it. Approach from outside, slide under, and lift. The simulator attaches the block when it detects that insertion-and-lift sequence.`, "zh-Hant": `叉臂沒有動力。40 × 40 × 15 mm 示範方塊由三個可見承托墊架高至 Z=${FORK_SUPPORT_HEIGHT_MM} mm，留出叉臂插入空間。由外側接近、滑入方塊下方，再向上抬起；模擬器偵測到這個次序才會附上方塊。` },
-      { en: "Lowering the supported block back onto the three pads at the drop zone releases it. DO1 is an ordinary virtual output and does not control the fork or the block.", "zh-Hant": "在放置區把方塊降回三個承托墊便會釋放。DO1 只是一般虛擬輸出，不會控制叉臂或方塊。" },
-    ],
-    guidedSteps: [
-      { en: `Select Fork pickup. Teach PickPoint at the block centre on the ${FORK_SUPPORT_HEIGHT_MM} mm support plane, use block R−90° for pickup and R+90° for placement, then teach PickApproach 60 mm before it along tool -X at the same height.`, "zh-Hant": `選擇 「叉臂拾取」。在方塊承托面 Z=${FORK_SUPPORT_HEIGHT_MM} mm 教 PickPoint，通用拾取方向用方塊 R−90°、放置用 R+90°，再沿工具 -X、同一高度、於其前方 60 mm 教 PickApproach。` },
-      { en: "Use MovL from PickApproach to PickPoint to slide beneath the block. Then lift in +Z; the fork picks the block automatically.", "zh-Hant": "用 MovL 從 PickApproach 水平滑至 PickPoint，再沿 +Z 抬起；叉臂會自動拾起方塊。" },
-      { en: "Move to PlaceApproach, lower with MovL until the block rests on the support pads, then lift clear. Watch it release without any DO command.", "zh-Hant": "移至 PlaceApproach，再用 MovL 降至方塊放回承托墊的位置，然後向上離開；觀察方塊在沒有任何 DO 指令下釋放。" },
-    ],
-    practice: { en: "Change the block or drop location and re-teach the pair. Predict which motion creates insertion, which motion picks the block up, and which motion releases it.", "zh-Hant": "改變方塊或放置位置後重新教點。預測哪段移動會插入叉臂、哪段會拾起方塊，以及哪段會釋放方塊。" },
-    examples: {
-      lua: "JointMovJ(Home, {CP=0})\nMovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0}) -- slide under the block\nRelMovL({0, 0, 80, 0}, {CP=0}) -- X, Y, Z mm; R degrees; lift to pick, no DO\nMovJ(PlaceApproach, {CP=0})\nMovL(PlacePoint, {CP=0}) -- lower to release\nMovL(PlaceApproach, {CP=0})\nJointMovJ(Home, {CP=0})\nSync()",
-      python: "await joint_mov_j(Home, cp=0)\nawait mov_j(PickApproach, cp=0)\nawait mov_l(PickPoint, cp=0)  # slide under the block\nawait rel_mov_l([0, 0, 80, 0], cp=0)  # lift to pick; no DO\nawait mov_j(PlaceApproach, cp=0)\nawait mov_l(PlacePoint, cp=0)  # lower to release\nawait mov_l(PlaceApproach, cp=0)\nawait joint_mov_j(Home, cp=0)\nawait sync()",
-    },
-    questions: [
-      {
-        en: "What makes the unpowered fork pick up the block in this simulator?",
-        "zh-Hant": "在本模擬器中，無動力叉臂如何拾起方塊？",
-        options: {
-          en: [`Slide beneath it at Z=${FORK_SUPPORT_HEIGHT_MM} mm, then lift`, "Turn DO1 on", "Move vertically down from above"],
-          "zh-Hant": [`在 Z=${FORK_SUPPORT_HEIGHT_MM} mm 滑入方塊下方，再向上抬起`, "開啟 DO1", "從上方垂直向下移動"],
-        },
-        answer: 0,
-        explanation: { en: "The passive tool has no actuator. The simulator recognizes entry from outside at the fork support plane followed by an upward lift.", "zh-Hant": "被動工具沒有致動器。模擬器會識別叉臂在承托高度由外側滑入，再向上抬起的動作。" },
-      },
-      {
-        en: "When does the fork release the supported block?",
-        "zh-Hant": "叉臂何時釋放托住的方塊？",
-        options: {
-          en: ["When it is lowered onto the support pads at the drop zone", "When DO1 turns off", "After a fixed Wait(150)"],
-          "zh-Hant": ["在放置區下降到承托墊上", "DO1 關閉時", "固定 Wait(150) 之後"],
-        },
-        answer: 0,
-        explanation: { en: "Placement is driven by lowering the carried block onto its support pads; the fork has no powered release command.", "zh-Hant": "放置是靠把方塊降回承托墊；叉臂沒有電動釋放指令。" },
-      },
-    ],
+    id: "intermediate-passive-fork", track: "intermediate", durationMinutes: 20,
+    evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
+    title: {"en": "Body1 passive fork pickup", "zh-Hant": "Body1 被動叉臂取放"}, outcome: {"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"},
+    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    explanation: [{"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
+    examples: {lua: body1LessonProgram("lua", "intermediate-passive-fork"), python: body1LessonProgram("python", "intermediate-passive-fork")},
+    questions: [{en:"How does Body1 release and clear the fork?", "zh-Hant":"Body1 如何釋放及退出叉臂？", options:{en:["Lower to135, then132.5 and withdraw60 horizontally", "Before pickup", "At any height"], "zh-Hant":["降至135，再降至132.5及水平退出60", "取件前", "任何高度"]}, answer:0, explanation:{"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"}}],
   },
   {
     id: "advanced-queues-and-synchronization",
@@ -521,7 +421,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Place a print after two asynchronous moves and then after Sync(). Predict which print should wait for the motion queue to empty.", "zh-Hant": "在兩個非同步移動後，以及 Sync() 後各放一個 print。預測哪個 print 會等到佇列清空才執行。" },
     examples: {
       lua: "MovJ(PickApproach, {CP=0, SYNC=0})\nMovL(PickPoint, {CP=0, SYNC=0})\nSync()\nprint('Queue is idle')",
-      python: "# Await the queue calls; sync=False lets them overlap queued execution\nawait mov_j(PickApproach, cp=0, sync=False)\nawait mov_l(PickPoint, cp=0, sync=False)\nawait sync()\nprint('Queue is idle')",
+      python: "def task():\n    # Queue both moves, then wait for the queue to finish\n    mov_j(PickApproach, cp=0, sync=False)\n    mov_l(PickPoint, cp=0, sync=False)\n    sync()\n    print('Queue is idle')\ntask()",
     },
     questions: [
       {
@@ -560,7 +460,7 @@ export const LESSONS: Lesson[] = [
     practice: { en: "Write a three-item commissioning checklist for a real robot that includes TCP measurement, limits/safety review, and a supervised low-speed test. State that this simulator cannot perform those checks.", "zh-Hant": "為實體機械臂寫三項試運行檢查，包括 TCP 測量、限位／安全檢查及監督下低速測試，並註明本模擬器不能代做。" },
     examples: {
       lua: "-- Deliberately invalid: diagnose before restoring a valid point\nMovL({coordinate={x=1200, y=0, z=500, r=0}}, {CP=0})\n-- Use Stop if a run does not behave as expected",
-      python: "# Deliberately unreachable: inspect the diagnostic and press Stop if needed\nawait mov_l({\"coordinate\": {\"x\": 1200, \"y\": 0, \"z\": 500, \"r\": 0}}, cp=0)",
+      python: "def task():\n    # Deliberately unreachable: inspect the diagnostic and press Stop if needed\n    mov_l({\"coordinate\": {\"x\": 1200, \"y\": 0, \"z\": 500, \"r\": 0}}, cp=0)\ntask()",
     },
     questions: [
       {
@@ -580,6 +480,8 @@ export const LESSONS: Lesson[] = [
     ],
   },
 ];
+
+export const LESSONS: Lesson[] = RAW_LESSONS.map(lesson=>({...lesson, examples:{...lesson.examples, python: authoredPythonProgram(lesson.examples.python)}}));
 
 export const LESSON_BY_ID = new Map(LESSONS.map((lesson) => [lesson.id, lesson]));
 
