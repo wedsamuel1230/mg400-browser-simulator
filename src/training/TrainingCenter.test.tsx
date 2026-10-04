@@ -14,7 +14,7 @@ describe("TrainingCenter example replacement", () => {
       value(this: HTMLDialogElement) { this.open = false; this.removeAttribute("open"); },
     });
     localStorage.clear();
-    localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.5", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
+  localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.6", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
   });
 
   afterEach(() => {
@@ -142,7 +142,7 @@ it("shows and loads the calibrated Body1 no-output withdrawal example", async ()
   await waitFor(()=>expect(document.querySelector(".lesson-code")?.textContent).toContain("z=z-2.5"));
   expect(document.querySelector(".lesson-code")?.textContent).toContain("z=132.5");
   expect(document.querySelector(".lesson-code")?.textContent).not.toMatch(/\b(?:DO|Pick|Place)\s*\(/);
-  expect(screen.getByText(/Prepare the practice, read the sequence/)).toBeInTheDocument();
+  expect(screen.getByText("Confirm the supplied Body1 is on the common Z = 110 mm platform.")).toBeInTheDocument();
   expect(screen.queryByText(/Import Body1 and select/)).not.toBeInTheDocument();
 });
 
@@ -152,9 +152,9 @@ it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
  const user=userEvent.setup();
  await user.click(screen.getByRole("button",{name:"EN"}));
  await user.click(screen.getByText("Check your learning · 1 questions"));
- await user.click(screen.getByRole("radio",{name:"Lower to135, then132.5 and withdraw60 horizontally"}));
- expect(screen.getAllByText(/One supplied 40×40×40 Body1 rests directly/).length).toBeGreaterThan(0);
- expect(screen.queryByText("Slide beneath it at Z=20 mm, then lift")).not.toBeInTheDocument();
+ await user.click(screen.getByRole("radio",{name:"Lower to Z = 135 mm, then Z = 132.5 mm, and withdraw 60 mm horizontally"}));
+ expect(screen.getAllByText(/One supplied 40 × 40 × 40 Body1 rests directly/).length).toBeGreaterThan(0);
+ expect(screen.queryByText(/Z ?= ?20 mm/)).not.toBeInTheDocument();
 });
 
 it("keeps completion progress and next-lesson navigation available after the folded quiz", async () => {

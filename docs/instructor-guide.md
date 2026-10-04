@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Instructor Guide
 
-**Course release:** 1.3.5  
+**Course release:** 1.3.6
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 29 September 2026
+**Last checked against the app:** 4 October 2026
 
 ## Purpose and boundary
 
@@ -22,7 +22,7 @@ Before learners begin:
 4. Explain the **Load this example…** confirmation. Lesson code is a preview until deliberately loaded; **Run editor code** runs the current editor buffer.
 5. Have learners select Magnet or Fork before teaching or refreshing point pairs.
 
-The 12 current lessons total about 161 minutes of stated lesson time. Actual class time depends on discussion and practice.
+The 14 current lessons total about 211 minutes of stated lesson time. Actual class time depends on discussion and practice.
 
 ## Current lesson sequence
 
@@ -36,8 +36,10 @@ The 12 current lessons total about 161 minutes of stated lesson time. Actual cla
 | Foundation | Taught points and two kinds of move | 15 min | Named points, `MovJ`, and `MovL` |
 | Intermediate | Relative linear motion with RelMovL | 18 min | Bounded base-frame relative motion |
 | Intermediate | Pick and place with the magnet | 18 min | Simulated `DO` attach/release sequence |
-| Intermediate | Pick first, then rotate the carried block 90° | 15 min | Visible local +X arrow, safe lift, carried wrist R rotation, rotated place targets |
-| Intermediate | Pick and place with the unpowered fork | 15 min | Passive slide-under, lift, lower-to-support; no `DO` |
+| Intermediate | Pick and place the grooved Body1 with the passive fork | 20 min | Slide into the supplied block, lift, lower to support, and withdraw; no `DO` |
+| Intermediate | Pick up Body1, then rotate it +90° while carrying | 20 min | Lift the picked block +80 mm before turning; keep the fork unpowered |
+| Intermediate | Stack three Body1 blocks (0° / 90° / 0°) | 20 min | Build vertically at one XY; rotate only the middle layer after pickup and lift |
+| Intermediate | Sort and stack black/white magnetic plates | 20 min | Keep two separate stacks and per-colour counts; turn white plates +45° after lift |
 | Advanced | Queued motion, SYNC, and timing | 18 min | Queue completion and simulated timing |
 | Advanced | Debugging and knowing the boundary | 20 min | Diagnostics, unsupported behavior, and simulation limits |
 
@@ -60,13 +62,13 @@ Have learners select a tool, teach or refresh the pick pair, then run the single
 Fresh exercises use the front 110 mm teaching platform:
 
 - **Magnet:** the 35 × 35 × 4 mm plate rests on the platform. The magnetic tool targets its top face at Z114. `DO(1, ON/OFF)` is only a simulator attach/release action; it does not represent connected hardware I/O.
-- **Fork:** support pads hold the supplied Body1 bottom at Z130; insertion is Z152.5 and load/release is Z155. The unpowered tool must approach, slide beneath the block, lift, travel, and lower onto the destination pads. No `DO`, `Pick()`, or `Place()` call is required.
+- **Fork:** the supplied Body1 rests directly on the shared platform at Z = 110 mm. Fork insertion is TCP Z = 132.5 mm and support/release is Z = 135 mm. The unpowered tool must approach, slide into the groove, lift, travel, lower to release, then clear and withdraw. No `DO`, `Pick()`, or `Place()` call is required.
 
 Ask learners to explain why the two modes use different contact geometry and why an approach point is useful. The fork support and release rules are deterministic simulation logic, not a physics or force model.
 
 ### Make the carried wrist rotation visible
 
-Point out the asymmetric dark arrow on the block; it marks the block's local +X direction while its square dimensions stay unchanged. In the Magnet rotation lesson, have learners observe and say the sequence: move to PickPoint, DO1 ON, lift in base-frame +Z, turn R +90° while the block remains attached, travel to the rotated place points, lower, then release. Ask them to predict the arrow's final direction before running. This is a rigid-attachment simulation rule, not magnetic-force or anti-slip physics.
+Point out the asymmetric dark arrow on the block; it marks the block's local +X direction while its square dimensions stay unchanged. In the Body1 fork-rotation lesson, have learners observe and say the sequence: slide the passive fork into the groove, lift the block, raise it another 80 mm, then turn the carried tool +90°. The block stays carried during the turn; lower it onto the destination before clearing and withdrawing the fork. No `DO`, `Pick()`, or `Place()` command is involved. Ask learners to predict the +X arrow's final direction before running. This is a deterministic attachment rule, not rigid-body contact or force physics.
 
 ### Control flow and relative motion
 
@@ -94,7 +96,7 @@ For OpenRouter Space Bunny Alpha, the model listing says its third-party provide
 
 Keep these identities separate when presenting the product:
 
-- **Course release:** 1.3.5, the version of the bilingual lesson content.
+- **Course release:** 1.3.6, the version of the bilingual lesson content.
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
@@ -128,7 +130,7 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 4. 說明 **Load this example…** 的確認步驟。課程程式碼只是預覽；**Run editor code** 執行的是目前編輯器內容。
 5. 提醒學生先選 Magnet 或 Fork，再建立或更新教點組合。
 
-目前 12 課標示時間合共約 161 分鐘。實際課堂時間會視乎討論和練習而變。
+目前 14 課標示時間合共約 211 分鐘。實際課堂時間會視乎討論和練習而變。
 
 ### 目前課程次序
 
@@ -142,8 +144,10 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 | 初階 | 教點與兩種移動 | 15 分鐘 | 具名教點、MovJ 和 MovL |
 | 中階 | RelMovL 相對直線移動 | 18 分鐘 | 有界限的基座座標系相對移動 |
 | 中階 | 使用磁吸工具取放方塊 | 18 分鐘 | 模擬 DO 吸附及釋放流程 |
-| 中階 | 先取件，再把攜帶中的方塊旋轉 90° | 15 分鐘 | 可見 +X 箭嘴、安全抬高、攜件 R 軸旋轉、轉後放置教點 |
-| 中階 | 使用無動力叉臂取放方塊 | 15 分鐘 | 被動滑入、抬起、放回承托墊；不需 DO |
+| 中階 | 使用無動力叉臂取放 Body1 槽積木 | 20 分鐘 | 沿槽滑入、抬起、放至承托面及退出；不需 DO |
+| 中階 | 先叉起 Body1，再攜件旋轉 +90° | 20 分鐘 | 取件後先抬高 80 mm，再轉動仍由叉臂承托的方塊 |
+| 中階 | 建立三層 Body1 方塊塔（0°／90°／0°） | 20 分鐘 | 同一 XY 垂直堆疊；只有中層在取件及抬高後旋轉 |
+| 中階 | 黑白磁吸片分類並分開堆疊 | 20 分鐘 | 兩個不同位置，各自計層；白片抬高後轉 +45° |
 | 進階 | 移動佇列、SYNC 與時間 | 18 分鐘 | 指令佇列完成和模擬時間 |
 | 進階 | 診斷錯誤與理解模擬界線 | 20 分鐘 | 錯誤訊息、不支援行為及模擬限制 |
 
@@ -166,13 +170,13 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 新練習使用前方 110 mm 教學平台：
 
 - **Magnet：**35 × 35 × 4 mm 磁吸片放在平台上，磁吸工具對準 Z114 頂面。**DO(1, ON/OFF)** 只在模擬器內代表吸附／釋放，沒有連接實體 I/O。
-- **Fork：**承托墊把隨附 Body1 底面托至 Z130；插入為 Z152.5，承托／釋放為 Z155。無動力工具需接近、滑入方塊底下、抬起、移動，再放低至目的地承托墊上。毋須 **DO**、**Pick()** 或 **Place()**。
+- **Fork：**隨附 Body1 直接放在頂面 Z = 110 mm 的共用平台上。叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。無動力工具需接近、沿槽滑入、抬起及移動，再降下釋放、恢復間隙並退出。毋須 **DO**、**Pick()** 或 **Place()**。
 
 請學生解釋兩種模式為何有不同接觸幾何，以及接近點有甚麼作用。叉臂承托和釋放屬確定性模擬規則，不是物理或受力模型。
 
 #### 讓學生看見攜件手腕旋轉
 
-指出方塊上的深色不對稱箭嘴；它標示方塊本身的 +X 方向，而不是改變方塊尺寸。在磁吸旋轉課中，請學生先觀察和說出次序：移至 PickPoint、DO1 ON、沿基座座標 +Z 抬高、方塊仍附著時令 R 軸轉 +90°、以轉後姿態前往放置點、下降並釋放。執行前先問箭嘴最後會指向哪一邊。這是剛性附著的模擬規則，不代表磁力或防滑模擬。
+指出方塊上的深色不對稱箭嘴；它標示方塊本身的 +X 方向，而不是改變方塊尺寸。在 Body1 叉臂旋轉課中，請學生觀察並說出次序：把無動力叉臂滑入槽內、抬起方塊、再上升 80 mm，然後讓叉臂承托著的方塊旋轉 +90°。把方塊降到目的承托面後，先恢復槽口間隙，再水平退出；不需要 `DO`、`Pick()` 或 `Place()`。執行前先問箭嘴最後會指向哪一邊。這是確定性的模擬附著規則，不代表剛體接觸或力學模擬。
 
 #### 控制流程及相對移動
 
@@ -200,7 +204,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 向學生介紹產品時，請分清以下身分：
 
-- **課程版本：**1.3.5，代表雙語教材版本。
+- **課程版本：**1.3.6，代表雙語教材版本。
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。

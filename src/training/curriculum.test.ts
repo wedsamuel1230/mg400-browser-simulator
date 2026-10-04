@@ -4,7 +4,7 @@ import { CURRICULUM_VERSION, LESSONS, TRACKS } from "./curriculum";
 describe("beginner curriculum entry", () => {
   it("starts with a bilingual text-only program instead of a robot command", () => {
     const first = LESSONS[0];
-    expect(CURRICULUM_VERSION).toBe("1.3.5");
+    expect(CURRICULUM_VERSION).toBe("1.3.6");
     expect(first.id).toBe("foundation-first-program");
     expect(first.track).toBe("foundation");
     expect(first.title.en).toBeTruthy();
@@ -87,6 +87,17 @@ describe("beginner curriculum entry", () => {
     expect(loops.examples.python).not.toMatch(/\b(?:mov_j|mov_l|joint_mov_j|rel_mov_l|do|pick|place|get_pose)\s*\(/);
   });
 
+  it("keeps the six Intermediate lessons in the authored teaching order", () => {
+    expect(LESSONS.filter(({ track }) => track === "intermediate").map(({ id }) => id)).toEqual([
+      "intermediate-relative-linear-motion",
+      "intermediate-pick-and-place",
+      "intermediate-passive-fork",
+      "intermediate-rotate-carried-block",
+      "intermediate-three-layer-tower",
+      "intermediate-black-white-sort",
+    ]);
+  });
+
   it("keeps every lesson bilingual, assessed, and consistent with the current course release", () => {
     expect(LESSONS).toHaveLength(14);
     for (const lesson of LESSONS) {
@@ -131,7 +142,7 @@ describe("beginner curriculum entry", () => {
     expect(rotation.examples.lua).not.toMatch(/\bDO\s*\(/);
     expect(rotation.examples.python).not.toMatch(/\bdo\s*\(|\bawait\b/);
     expect(rotation.explanation.map((copy) => copy.en).join(" ")).toContain("held tool +90°");
-    expect(rotation.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("先抬高80");
+    expect(rotation.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("先抬高 80 mm");
   });
 
   it("separates RelMovL offsets from the CP path-blending option", () => {

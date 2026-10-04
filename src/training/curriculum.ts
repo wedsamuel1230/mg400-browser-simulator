@@ -32,7 +32,7 @@ export type Track = {
   summary: LocalizedText;
 };
 
-export const CURRICULUM_VERSION = "1.3.5";
+export const CURRICULUM_VERSION = "1.3.6";
 
 export const TRACKS: Track[] = [
   {
@@ -360,46 +360,46 @@ const RAW_LESSONS: Lesson[] = [
   {
     id: "intermediate-rotate-carried-block", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
-    title: {"en": "Body1 pickup then carried 90° turn", "zh-Hant": "Body1 取件後旋轉 90°"}, outcome: {"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"},
+    title: {"en": "Body1 pickup then carried 90° turn", "zh-Hant": "Body1 取件後旋轉 90°"}, outcome: {"en": "Use the passive fork with the supplied 40 × 40 × 40 Body1. Pick up at 135 mm, lift 80 mm, turn the held tool +90°, lower to 135 mm, then clear at 132.5 mm and withdraw 60 mm horizontally.", "zh-Hant": "以被動叉臂取起原裝 40 × 40 × 40 Body1：在 135 mm 承托，先抬高 80 mm，攜件工具才轉 +90°；降至 135 mm 放置，降回 132.5 mm，再水平退出 60 mm。"},
     prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
-    explanation: [{"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
-    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    explanation: [{"en": "Use the passive fork with the supplied 40 × 40 × 40 Body1. Pick up at 135 mm, lift 80 mm, turn the held tool +90°, lower to 135 mm, then clear at 132.5 mm and withdraw 60 mm horizontally.", "zh-Hant": "以被動叉臂取起原裝 40 × 40 × 40 Body1：在 135 mm 承托，先抬高 80 mm，攜件工具才轉 +90°；降至 135 mm 放置，降回 132.5 mm，再水平退出 60 mm。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Confirm that the supplied Body1 and passive fork are in the source cell.", "zh-Hant": "確認來源工作格內有原裝 Body1 及被動叉臂。"}, {"en": "Insert the fork at TCP Z = 132.5 mm and support the block at Z = 135 mm.", "zh-Hant": "在 TCP Z = 132.5 mm 沿槽插入叉臂，並在 Z = 135 mm 承托方塊。"}, {"en": "Lift 80 mm, turn the held tool +90°, and lower to Z = 135 mm to place the block.", "zh-Hant": "抬高 80 mm，攜件工具轉 +90°，再降至 Z = 135 mm 放置方塊。"}, {"en": "Lower to Z = 132.5 mm, withdraw 60 mm horizontally, and inspect the result. Do not use DO.", "zh-Hant": "降回 Z = 132.5 mm，水平退出 60 mm，再檢查結果；不要使用 DO。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
     examples: {lua: body1LessonProgram("lua", "intermediate-rotate-carried-block"), python: body1LessonProgram("python", "intermediate-rotate-carried-block")},
-    questions: [{en:"What must happen before a carried turn?", "zh-Hant":"攜件旋轉之前要做甚麼？", options:{en:["Pickup and an80mm lift", "Before pickup", "At any height"], "zh-Hant":["先取件及抬高80", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Use the passive fork with the supplied 40×40×40 Body1. Pick at135, lift80, turn the held tool +90°, lower to135 then clear at132.5 and withdraw60 horizontally.", "zh-Hant": "以被動叉臂取起原裝 40×40×40 Body1：135承托，先抬高80，攜件工具才轉+90°；降至135放置，降回132.5並水平退出60。"}}],
+    questions: [{en:"What must happen before a carried turn?", "zh-Hant":"攜件旋轉之前要做甚麼？", options:{en:["Pick up the block and lift it 80 mm", "Before pickup", "At any height"], "zh-Hant":["先取件，再抬高 80 mm", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Use the passive fork with the supplied 40 × 40 × 40 Body1. Pick up at 135 mm, lift 80 mm, turn the held tool +90°, lower to 135 mm, then clear at 132.5 mm and withdraw 60 mm horizontally.", "zh-Hant": "以被動叉臂取起原裝 40 × 40 × 40 Body1：在 135 mm 承托，先抬高 80 mm，攜件工具才轉 +90°；降至 135 mm 放置，降回 132.5 mm，再水平退出 60 mm。"}}],
   },
   {
     id: "intermediate-three-layer-tower", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
-    title: {"en": "Body1 three-layer tower 0° / 90° / 0°", "zh-Hant": "Body1 三層塔 0°／90°／0°"}, outcome: {"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"},
+    title: {"en": "Body1 three-layer tower 0° / 90° / 0°", "zh-Hant": "Body1 三層塔 0°／90°／0°"}, outcome: {"en": "Stack three supplied 40 × 40 × 40 Body1 blocks vertically at one XY position. Their bottom heights are 110, 150, and 190 mm; TCP release heights are 135, 175, and 215 mm. Only the middle layer turns +90° after pickup and an 80 mm lift; the outer layers stay at 0°. Restore slot clearance and withdraw 60 mm after each release.", "zh-Hant": "把三件原裝 40 × 40 × 40 Body1 置於同一 XY 位置垂直堆疊。底面高度為 110、150、190 mm；TCP 釋放高度為 135、175、215 mm。只有中層先取件及抬高 80 mm，再轉 +90°；上下層保持 0°。每次放置後恢復槽內間隙，再水平退出 60 mm。"},
     prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
-    explanation: [{"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
-    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    explanation: [{"en": "Stack three supplied 40 × 40 × 40 Body1 blocks vertically at one XY position. Their bottom heights are 110, 150, and 190 mm; TCP release heights are 135, 175, and 215 mm. Only the middle layer turns +90° after pickup and an 80 mm lift; the outer layers stay at 0°. Restore slot clearance and withdraw 60 mm after each release.", "zh-Hant": "把三件原裝 40 × 40 × 40 Body1 置於同一 XY 位置垂直堆疊。底面高度為 110、150、190 mm；TCP 釋放高度為 135、175、215 mm。只有中層先取件及抬高 80 mm，再轉 +90°；上下層保持 0°。每次放置後恢復槽內間隙，再水平退出 60 mm。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Confirm three supplied Body1 blocks and the passive fork in the source cell.", "zh-Hant": "確認來源工作格內有三件原裝 Body1 及被動叉臂。"}, {"en": "Stack the blocks vertically at one XY position, using release heights 135, 175, and 215 mm.", "zh-Hant": "把方塊置於同一 XY 位置垂直堆疊，使用 135、175、215 mm 的釋放高度。"}, {"en": "Keep the outer layers at 0°; rotate only the middle layer +90° after pickup and an 80 mm lift.", "zh-Hant": "上下層保持 0°；只有中層在取件及抬高 80 mm 後才轉 +90°。"}, {"en": "After each release, restore slot clearance and withdraw 60 mm horizontally, then inspect the tower.", "zh-Hant": "每次放置後恢復槽內間隙，水平退出 60 mm，再檢查塔形堆疊。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
     examples: {lua: body1LessonProgram("lua", "intermediate-three-layer-tower"), python: body1LessonProgram("python", "intermediate-three-layer-tower")},
-    questions: [{en:"When does the middle layer turn90\u00b0?", "zh-Hant":"中層何時轉90°？", options:{en:["After pickup and an80mm lift; outer layers remain0\u00b0", "Before pickup", "At any height"], "zh-Hant":["先取件及抬高80；上下層保持0°", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Stack three supplied 40×40×40 Body1 blocks vertically at one XY. Bottom heights110/150/190; TCP release135/175/215. Only the middle layer turns90 after pickup and an80mm lift; outer layers stay0. Restore slot clearance and withdraw60 after each release.", "zh-Hant": "三件原裝 40×40×40 Body1 在同一XY垂直堆疊，底面110／150／190，TCP釋放135／175／215。只有中層先取件及抬高80再轉90；上下層保持0。每次放置後恢復槽內間隙並水平退出60。"}}],
+    questions: [{en:"When does the middle layer turn 90°?", "zh-Hant":"中層何時轉 90°？", options:{en:["After pickup and an 80 mm lift; outer layers remain at 0°", "Before pickup", "At any height"], "zh-Hant":["先取件及抬高 80 mm；上下層保持 0°", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Stack three supplied 40 × 40 × 40 Body1 blocks vertically at one XY position. Their bottom heights are 110, 150, and 190 mm; TCP release heights are 135, 175, and 215 mm. Only the middle layer turns +90° after pickup and an 80 mm lift; the outer layers stay at 0°. Restore slot clearance and withdraw 60 mm after each release.", "zh-Hant": "把三件原裝 40 × 40 × 40 Body1 置於同一 XY 位置垂直堆疊。底面高度為 110、150、190 mm；TCP 釋放高度為 135、175、215 mm。只有中層先取件及抬高 80 mm，再轉 +90°；上下層保持 0°。每次放置後恢復槽內間隙，再水平退出 60 mm。"}}],
   },
   {
     id: "intermediate-black-white-sort", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Magnet · two independent stacks", "zh-Hant": "磁吸工具 · 兩個獨立堆疊"},
-    title: {"en": "Black and white magnetic plate stacks", "zh-Hant": "黑白磁吸片獨立堆疊"}, outcome: {"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"},
+    title: {"en": "Black and white magnetic plate stacks", "zh-Hant": "黑白磁吸片獨立堆疊"}, outcome: {"en": "Process plates in the displayed black/white/black/white order. Stack black plates at (250, 80) and white plates separately at (350, 80). Count each colour's layers separately; each stack reaches 114 mm, then 118 mm. Turn a white plate +45° only after lifting it 80 mm. Finish with two visible stacks of two plates; do not unload them.", "zh-Hant": "依畫面顯示的黑／白／黑／白次序處理磁吸片。黑片疊在 (250, 80)，白片另疊在 (350, 80)。兩種顏色分開計層；每疊頂面先到 114 mm，再到 118 mm。白片抬高 80 mm 後才轉 +45°。完成後保留兩個可見的兩層堆疊，不再卸載。"},
     prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
-    explanation: [{"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
-    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    explanation: [{"en": "Process plates in the displayed black/white/black/white order. Stack black plates at (250, 80) and white plates separately at (350, 80). Count each colour's layers separately; each stack reaches 114 mm, then 118 mm. The white plate turns +45° only after an 80 mm lift. Finish with two visible stacks of two plates; do not unload them.", "zh-Hant": "依畫面顯示的黑／白／黑／白次序處理磁吸片。黑片疊在 (250, 80)，白片另疊在 (350, 80)。兩種顏色分開計層；每疊頂面先到 114 mm，再到 118 mm。白片抬高 80 mm 後才轉 +45°。完成後保留兩個可見的兩層堆疊，不再卸載。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Follow the displayed feeder order and check both stack positions.", "zh-Hant": "依畫面顯示的供料次序，確認兩個堆疊位置。"}, {"en": "Stack black plates at (250, 80) and white plates separately at (350, 80).", "zh-Hant": "黑片疊在 (250, 80)，白片另疊在 (350, 80)。"}, {"en": "For each white plate, lift 80 mm before turning +45°; keep one stack per colour.", "zh-Hant": "每塊白片都要先抬高 80 mm，再轉 +45°；每種顏色各自堆成一疊。"}, {"en": "Finish with two visible stacks of two plates and inspect them. Do not unload them.", "zh-Hant": "完成兩個可見的兩層堆疊並檢查結果，不要再卸載。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
     examples: {lua: sortingProgram("lua"), python: sortingProgram("python")},
-    questions: [{en:"How are the final stacks arranged?", "zh-Hant":"最終堆疊如何排列？", options:{en:["Two separate2-plate stacks at different XY", "Before pickup", "At any height"], "zh-Hant":["不同XY的兩個獨立兩層堆疊", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Use the disclosed black/white/black/white feeder parity. Place35×35×4 plates into separate bins at(250,80) and(350,80). Keep an independent per-color count for top heights114 then118. White turns45 after an80mm lift. Finish with two visible2-plate stacks; no unload pass.", "zh-Hant": "供料次序為黑／白／黑／白；按奇偶把35×35×4磁吸片放在(250,80)黑區及(350,80)白區。各色獨立計層，頂面114再118；白片先抬高80再轉45。完成後保留兩個可見的兩層堆疊，不再卸載。"}}],
+    questions: [{en:"How are the final stacks arranged?", "zh-Hant":"最終堆疊如何排列？", options:{en:["Two separate stacks of two plates at different XY positions", "Before pickup", "At any height"], "zh-Hant":["不同 XY 位置的兩個獨立兩層堆疊", "取件前", "任何高度"]}, answer:0, explanation:{"en": "Process plates in the displayed black/white/black/white order. Stack black plates at (250, 80) and white plates separately at (350, 80). Count each colour's layers separately; each stack reaches 114 mm, then 118 mm. The white plate turns +45° only after an 80 mm lift. Finish with two visible stacks of two plates; do not unload them.", "zh-Hant": "依畫面顯示的黑／白／黑／白次序處理磁吸片。黑片疊在 (250, 80)，白片另疊在 (350, 80)。兩種顏色分開計層；每疊頂面先到 114 mm，再到 118 mm。白片抬高 80 mm 後才轉 +45°。完成後保留兩個可見的兩層堆疊，不再卸載。"}}],
   },
   {
     id: "intermediate-passive-fork", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
-    title: {"en": "Body1 passive fork pickup", "zh-Hant": "Body1 被動叉臂取放"}, outcome: {"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"},
+    title: {"en": "Body1 passive fork pickup", "zh-Hant": "Body1 被動叉臂取放"}, outcome: {"en": "One supplied 40 × 40 × 40 Body1 rests directly on the common Z = 110 mm platform. Insert at TCP Z = 132.5 mm, take the load at Z = 135 mm, lift 80 mm, place at Z = 135 mm, lower to Z = 132.5 mm, and withdraw 60 mm horizontally. Do not use DO.", "zh-Hant": "一件原裝 40 × 40 × 40 Body1 直接放在共用 Z = 110 mm 平台；TCP 在 Z = 132.5 mm 沿槽插入，在 Z = 135 mm 承托，再抬高 80 mm。降至 Z = 135 mm 放置，降回 Z = 132.5 mm，再水平退出 60 mm；不使用 DO。"},
     prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
-    explanation: [{"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
-    guidedSteps: [{"en": "Prepare the practice, read the sequence, run and inspect the final visible workpieces.", "zh-Hant": "準備練習，閱讀流程，再執行並核對最終可見工件。"}],
+    explanation: [{"en": "One supplied 40 × 40 × 40 Body1 rests directly on the common Z = 110 mm platform. Insert at TCP Z = 132.5 mm, take the load at Z = 135 mm, lift 80 mm, place at Z = 135 mm, lower to Z = 132.5 mm, and withdraw 60 mm horizontally. Do not use DO.", "zh-Hant": "一件原裝 40 × 40 × 40 Body1 直接放在共用 Z = 110 mm 平台；TCP 在 Z = 132.5 mm 沿槽插入，在 Z = 135 mm 承托，再抬高 80 mm。降至 Z = 135 mm 放置，降回 Z = 132.5 mm，再水平退出 60 mm；不使用 DO。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
+    guidedSteps: [{"en": "Confirm the supplied Body1 is on the common Z = 110 mm platform.", "zh-Hant": "確認原裝 Body1 已放在共用 Z = 110 mm 平台。"}, {"en": "Insert the passive fork at TCP Z = 132.5 mm and support the load at Z = 135 mm.", "zh-Hant": "在 TCP Z = 132.5 mm 沿槽插入被動叉臂，並在 Z = 135 mm 承托負載。"}, {"en": "Lift 80 mm, place the block at Z = 135 mm, and lower to Z = 132.5 mm.", "zh-Hant": "抬高 80 mm，在 Z = 135 mm 放置方塊，再降回 Z = 132.5 mm。"}, {"en": "Withdraw 60 mm horizontally and inspect the result. Do not use DO, Pick, or Place.", "zh-Hant": "水平退出 60 mm，再檢查結果；不要使用 DO、Pick 或 Place。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
     examples: {lua: body1LessonProgram("lua", "intermediate-passive-fork"), python: body1LessonProgram("python", "intermediate-passive-fork")},
-    questions: [{en:"How does Body1 release and clear the fork?", "zh-Hant":"Body1 如何釋放及退出叉臂？", options:{en:["Lower to135, then132.5 and withdraw60 horizontally", "Before pickup", "At any height"], "zh-Hant":["降至135，再降至132.5及水平退出60", "取件前", "任何高度"]}, answer:0, explanation:{"en": "One supplied 40×40×40 Body1 rests directly on the common Z110 platform. Insert at TCP132.5, take the load at135, lift80, place at135, lower to132.5 and withdraw60 horizontally. No DO.", "zh-Hant": "一件原裝 40×40×40 Body1 直接放在共用 Z110 平台；TCP132.5 沿槽插入，135 承托，再抬高80。降至135放置，降回132.5並水平退出60；不使用 DO。"}}],
+    questions: [{en:"How does Body1 release and clear the fork?", "zh-Hant":"Body1 如何釋放及退出叉臂？", options:{en:["Lower to Z = 135 mm, then Z = 132.5 mm, and withdraw 60 mm horizontally", "Before pickup", "At any height"], "zh-Hant":["降至 Z = 135 mm，再降至 Z = 132.5 mm，然後水平退出 60 mm", "取件前", "任何高度"]}, answer:0, explanation:{"en": "One supplied 40 × 40 × 40 Body1 rests directly on the common Z = 110 mm platform. Insert at TCP Z = 132.5 mm, take the load at Z = 135 mm, lift 80 mm, place at Z = 135 mm, lower to Z = 132.5 mm, and withdraw 60 mm horizontally. Do not use DO.", "zh-Hant": "一件原裝 40 × 40 × 40 Body1 直接放在共用 Z = 110 mm 平台；TCP 在 Z = 132.5 mm 沿槽插入，在 Z = 135 mm 承托，再抬高 80 mm。降至 Z = 135 mm 放置，降回 Z = 132.5 mm，再水平退出 60 mm；不使用 DO。"}}],
   },
   {
     id: "advanced-queues-and-synchronization",
@@ -481,7 +481,32 @@ const RAW_LESSONS: Lesson[] = [
   },
 ];
 
-export const LESSONS: Lesson[] = RAW_LESSONS.map(lesson=>({...lesson, examples:{...lesson.examples, python: authoredPythonProgram(lesson.examples.python)}}));
+const INTERMEDIATE_LESSON_ORDER = [
+  "intermediate-relative-linear-motion",
+  "intermediate-pick-and-place",
+  "intermediate-passive-fork",
+  "intermediate-rotate-carried-block",
+  "intermediate-three-layer-tower",
+  "intermediate-black-white-sort",
+ ] as const;
+
+const AUTHORED_LESSONS = RAW_LESSONS.map(lesson=>({...lesson, examples:{...lesson.examples, python: authoredPythonProgram(lesson.examples.python)}}));
+const lessonsById = new Map(AUTHORED_LESSONS.map(lesson => [lesson.id, lesson]));
+const ORDERED_INTERMEDIATE_LESSONS = INTERMEDIATE_LESSON_ORDER.map((id) => {
+  const lesson = lessonsById.get(id);
+  if (!lesson) throw new Error(`Missing ordered intermediate lesson: ${id}`);
+  return lesson;
+});
+const LESSONS_BY_TRACK = {
+  foundation: AUTHORED_LESSONS.filter((lesson) => lesson.track === "foundation"),
+  intermediate: ORDERED_INTERMEDIATE_LESSONS,
+  advanced: AUTHORED_LESSONS.filter((lesson) => lesson.track === "advanced"),
+};
+export const LESSONS: Lesson[] = [
+  ...LESSONS_BY_TRACK.foundation,
+  ...LESSONS_BY_TRACK.intermediate,
+  ...LESSONS_BY_TRACK.advanced,
+];
 
 export const LESSON_BY_ID = new Map(LESSONS.map((lesson) => [lesson.id, lesson]));
 

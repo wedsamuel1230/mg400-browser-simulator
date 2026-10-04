@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Student Guide
 
-**Course release:** 1.3.5  
+**Course release:** 1.3.6
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 29 September 2026
+**Last checked against the app:** 4 October 2026
 
 ## What this simulator can do
 
@@ -21,7 +21,7 @@ There is no physical robot connection, collision-safety system, contact-force mo
 4. To practise an example, choose **Load this example…** and confirm the replacement. The current editor program stays until you confirm.
 5. Return to the workspace and choose **Run editor code**. Watch the robot, TCP position, run status, and log. **Stop** cancels a run; after an error, read the first error in the log before trying again.
 
-The first lesson is print-only. It needs no API key and does not move the robot. The first-motion lesson moves only to the selected tool's saved `PickApproach` point; it does not pick up the block.
+The first lesson is print-only. It needs no API key and does not move the robot. The first-motion lesson moves only to the selected tool's saved `PickApproach` point; it does not pick up the block. In the Intermediate fork sequence, first practise one normal Body1 pickup, then the carried +90° turn, then the three-layer tower whose middle layer alone turns. The black/white magnetic-plate stacks are a separate task.
 
 ## Choose a tool and teach points
 
@@ -35,12 +35,12 @@ Choose the tool before teaching or refreshing its points. A saved point is a pos
 
 | Tool | What the simulator represents | Program behavior |
 |---|---|---|
-| **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the block's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the rotation lesson, the block is attached and lifted before the wrist turns +90°. |
-| **Fork** | The supplied printed fork enters the 40 × 40 × 40 mm Body1 grooves. Support pads on the platform hold its bottom at Z130; insertion TCP is Z152.5 and load/release is Z155. | Move to the entry point, slide under the block, lift to pick it up, then lower it onto the destination pads to release it. No `DO`, `Pick()`, or `Place()` call is needed. |
+| **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the block's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the black/white stacking lesson, the white plate is attached and lifted before the wrist turns +45°. |
+| **Fork** | The supplied printed fork enters the 40 × 40 × 40 mm Body1 grooves. Body1 rests directly on the shared platform at Z = 110 mm; the fork insertion TCP is Z = 132.5 mm and the support/release height is Z = 135 mm. | Move to the entry point, slide under the block, lift to pick it up, then lower it to release. No `DO`, `Pick()`, or `Place()` call is needed. |
 
 The fork is passive: it has no motor or powered fingers. The app models support and release with deterministic simulator rules, not rigid-body physics. A completed run is evidence about this simulator only.
 
-In the carried-block rotation lesson, watch the arrow: it turns with the attached tool after pickup and a safe-height lift. The arrow shows orientation; the square block's dimensions do not change.
+In the carried-block rotation lesson, the passive fork carries the supplied grooved Body1. Watch its arrow: it turns with the block only after pickup and an 80 mm lift. The arrow shows orientation; the square block's dimensions do not change. This fork task needs no powered gripper or `DO` command.
 
 ## Read coordinates and common terms
 
@@ -54,7 +54,7 @@ In the carried-block rotation lesson, watch the arrow: it turns with the attache
 | **J1–J4** | The MG400's four joint angles, shown in radians in the simulator. |
 | **CP** | A path-blending option. This simulator supports only `CP=0`; it is not the TCP offset. |
 
-Fresh exercises share a front platform with top Z110. The magnetic plate centre is Z112 and its contact face is Z114. Body1 rests at Z130, with insertion TCP Z152.5 and load/release Z155. These are base-frame coordinates; older custom projects retain their saved geometry and points.
+Fresh exercises share a front platform with top Z = 110 mm. The magnetic plate centre is Z = 112 mm and its contact face is Z = 114 mm. Body1 rests directly on the platform at Z = 110 mm; its fork insertion TCP is Z = 132.5 mm and support/release height is Z = 135 mm. These are base-frame coordinates; older custom projects retain their saved geometry and points.
 
 ## Write and check a program
 
@@ -108,7 +108,7 @@ The browser saves the current robot project locally. You can export a project JS
 4. 如要練習範例，選擇 **Load this example…** 並確認替換。確認之前，編輯器內原有程式不會被覆蓋。
 5. 返回工作區，選擇 **Run editor code**。留意機械臂、TCP 位置、執行狀態及記錄。**Stop** 可取消執行；遇到錯誤後，先閱讀記錄中的第一個錯誤再重試。
 
-第一課只會輸出文字，不需 API key，也不會移動機械臂。第一次移動課只會移至目前工具已儲存的 **PickApproach** 接近點，不會拾起方塊。
+第一課只會輸出文字，不需 API key，也不會移動機械臂。第一次移動課只會移至目前工具已儲存的 **PickApproach** 接近點，不會拾起方塊。中階叉臂課先學一件 Body1 的普通取放，再學攜件旋轉，最後建三層塔（0°／90°／0°）；黑白磁吸片則是獨立分類及分開堆疊任務。
 
 ### 選擇工具及建立教點
 
@@ -122,12 +122,12 @@ The browser saves the current robot project locally. You can export a project JS
 
 | 工具 | 模擬內容 | 程式行為 |
 |---|---|---|
-| **Magnet** | 35 × 35 × 4 mm 磁吸片放在前方 110 mm 平台上，對比色箭嘴標示方塊本身的 +X 方向；磁吸工具從上方接觸頂面。 | **DO(1, ON)** 和 **DO(1, OFF)** 只在模擬器內代表吸附及釋放，並非實體 I/O。旋轉課會先附上及抬高方塊，再把手腕轉 +90°。 |
-| **Fork** | 隨附叉臂沿 40 × 40 × 40 mm Body1 槽滑入。平台上的承托墊把底面托至 Z130；插入 TCP 為 Z152.5，承托／釋放為 Z155。 | 移至入口點、滑入方塊底下、抬起方塊，再放低至目的地承托墊上以釋放。毋須呼叫 **DO**、**Pick()** 或 **Place()**。 |
+| **Magnet** | 35 × 35 × 4 mm 磁吸片放在前方 110 mm 平台上，對比色箭嘴標示方塊本身的 +X 方向；磁吸工具從上方接觸頂面。 | **DO(1, ON)** 和 **DO(1, OFF)** 只在模擬器內代表吸附及釋放，並非實體 I/O。黑白磁吸片堆疊課會先吸附及抬高白片，再把手腕轉 +45°。 |
+| **Fork** | 隨附叉臂沿 40 × 40 × 40 mm Body1 槽滑入。Body1 直接放在頂面 Z = 110 mm 的共用平台上；叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。 | 移至入口點，沿槽滑入、抬起方塊，再降下釋放。毋須呼叫 **DO**、**Pick()** 或 **Place()**。 |
 
 叉臂是被動工具：沒有馬達或動力手指。程式以確定性的模擬規則處理承托和釋放，並非剛體物理模擬。成功完成模擬只代表模擬器內的結果。
 
-在攜件旋轉課中觀察箭嘴：方塊吸附並安全抬高後，箭嘴會跟隨工具一同旋轉。箭嘴顯示方向；方塊尺寸保持不變。
+在 Body1 叉臂旋轉課中觀察箭嘴：被動叉臂承托方塊並抬高 80 mm 後，才旋轉 +90°；箭嘴會跟隨方塊轉向。箭嘴顯示方向，方塊尺寸保持不變。此課不使用動力夾具，也不需 DO 指令。
 
 ### 座標及常用術語
 
@@ -141,7 +141,7 @@ The browser saves the current robot project locally. You can export a project JS
 | **J1–J4** | MG400 的四個關節角度；本模擬器以弧度顯示。 |
 | **CP** | 路徑平滑選項。本模擬器只支援 **CP=0**；它不是 TCP 偏移。 |
 
-新練習共用前方平台，頂面 Z110。磁吸片中心 Z112、取件頂面 Z114。Body1 底面 Z130，插入 TCP Z152.5、承托／釋放 Z155。這些是基座座標；舊自訂專案保留已儲存幾何與教點。
+新練習共用前方平台，頂面 Z = 110 mm。磁吸片中心 Z = 112 mm、接觸頂面 Z = 114 mm。Body1 直接放在平台上，底面 Z = 110 mm；叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。這些是基座座標；舊自訂專案保留已儲存幾何與教點。
 
 ### 編寫及檢查程式
 
