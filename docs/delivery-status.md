@@ -22,8 +22,9 @@ This report captures the implementation outcomes for the [Wayfinder task map](..
 
 ## 2026-10-04 Vercel deployment status
 
-- Commit `5b84615` (`Improve 3D viewport label contrast`) is pushed to public GitHub `main`. A Vercel deployment query found no deployment for this commit; the production alias still resolves to the deployment for `058db36`.
-- The Vercel team Git-project query returned no linked repositories. There is no authenticated local Vercel CLI, and the Vercel tools available in this session expose deployment inspection but no create-deployment action. No project, domain, or access settings were changed. The contrast update remains in the public source repository and is not yet live on the Vercel URL; connecting the existing project to the Git repository or restoring a compliant deploy path is required.
+- Fresh Vercel API checks confirm the latest `READY` production deployment is `dpl_6A8UXrNdQdddbD73ubKmwbcwk7N9`, built from `058db36b24e9282cd89d576f2d5289511f565917` (`Localize simulator run messages`). Current source changes after that app commit, including `5b84615` (`Improve 3D viewport label contrast`), are not in production. GitHub `main` currently resolves to `d002179f88656f2c9625426929ad38ac60a7cd0f`; this latest commit only corrects release documentation.
+- The Vercel team Git-project query reports no linked repositories or origin connections. The project still exists and serves the public URL: an unauthenticated `HEAD https://mg400-browser-simulator.vercel.app/` returned HTTP 200. Project settings report SSO protection as enabled for all except custom domains; the checked URL did not return an authentication error.
+- No authenticated local Vercel CLI, `VERCEL_TOKEN`, or `~/.vercel/auth.json` is available. The available Vercel tools can inspect deployments but cannot create one or reconnect this existing unlinked project. No project, domain, or access settings were changed. The next required step is to reconnect the existing Vercel project to `wedsamuel1230/mg400-browser-simulator` on `main` in Vercel, or restore a compliant authenticated deployment path; only then can the current app commit be deployed and the updated public app smoke-tested.
 
 ## Public release execution (2026-09-29)
 
