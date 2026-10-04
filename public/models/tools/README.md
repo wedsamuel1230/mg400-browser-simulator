@@ -1,6 +1,6 @@
 # Supplied teaching models
 
-The project maintainer supplied these files and explicitly requested that the app bundle and load them by default on 2026-10-02. This replaces the earlier local-import-only packaging decision. This authorization is not an upstream Dobot license or proof of CAD authorship. These are separate user-supplied teaching assets; no claim of Dobot endorsement or verified physical fit is made.
+The project maintainer supplied these files and explicitly requested public-project bundling and default loading on 2026-10-02/03. This replaces the earlier local-import-only packaging decision. This project-specific instruction is not an upstream license or independent proof of CAD authorship. These files are not covered by the repository's root MIT license, and no general downstream reuse license is asserted. No claim of Dobot authorship, endorsement, or verified physical fit is made.
 
 - `Body1.stl`: supplied workpiece, 40 × 40 × 40 mm, grooves at Z15–25.
 - `Block.stl`: supplied passive fork, 5 mm plate, mounted beneath the flange.
