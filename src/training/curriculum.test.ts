@@ -133,4 +133,14 @@ describe("beginner curriculum entry", () => {
     expect(rotation.explanation.map((copy) => copy.en).join(" ")).toContain("held tool +90°");
     expect(rotation.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("先抬高80");
   });
+
+  it("separates RelMovL offsets from the CP path-blending option", () => {
+    const lesson = LESSONS.find((entry) => entry.id === "intermediate-relative-linear-motion");
+    expect(lesson).toBeDefined();
+    if (!lesson) throw new Error("Missing RelMovL lesson.");
+    expect(lesson.explanation.map((copy) => copy.en).join(" ")).toContain("CP is the path-blending option, not a TCP coordinate");
+    expect(lesson.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("CP 是路徑混合選項，不是 TCP 座標");
+    expect(lesson.examples.lua).toContain("{CP=0}");
+    expect(lesson.examples.python).toContain("cp=0");
+  });
 });

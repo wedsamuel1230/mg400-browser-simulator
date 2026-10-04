@@ -17,6 +17,7 @@ const translations: Record<string, string> = {
   "Motion target contains a non-finite number.": "移動目標含有無效數值。",
   "Joint target contains a non-finite number.": "關節目標含有無效數值。",
   "RelMovL is missing its X/Y/Z/R Cartesian offset.": "RelMovL 缺少 X／Y／Z／R 笛卡兒座標偏移。",
+  "CP omitted; this simulator uses CP=0. DobotStudio Pro documents CP=1 by default.": "未填 CP：模擬器會使用 CP=0；DobotStudio Pro 手冊所列預設值為 CP=1。請在指令中明確寫出 {CP=0}。",
   "The block is already attached to the tool.": "方塊已連接至工具。",
   "Place failed: there is no block attached to the tool.": "放置失敗：工具目前沒有連接方塊。",
 };
@@ -38,6 +39,9 @@ export function localizeWorkspaceMessage(message: string, language: WorkspaceLan
   if (imported) return `已匯入並驗證 ${imported[1]}。`;
   const saved = message.match(/^Taught (.+) from the current TCP pose\.$/);
   if (saved) return `已從目前 TCP 姿勢示教 ${saved[1]}。`;
+  if (message.includes("UNSUPPORTED_OPTION:") && message.toLowerCase().includes("cp")) {
+    return "目前版本只支援 CP=0，尚未模擬非零 CP 的連續路徑混合。CP 不是 TCP 座標；請將移動選項設為 CP=0。";
+  }
   if (message.startsWith("Target is outside the modeled workspace")) return "目標超出模擬工作範圍；請調整目標位置或方向。";
   if (message.startsWith("Straight-line motion left the modeled workspace")) return "直線移動超出模擬工作範圍；請調整目標或路徑。";
   if (message.startsWith("Pick failed:")) return "拾取失敗：請檢查工件位置及目前工具的拾取容差。";
