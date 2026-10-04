@@ -12,7 +12,7 @@
   --status-line: #9babc2; --shadow-menu: #172b4522; --shadow-tab: #172b4515;
   --shadow-dock: #172b4533; --backdrop: #172b4566;
   --viewport-bg: #edf2f7; --viewport-text: #172b45; --viewport-muted: #52647b;
-  --viewport-chip: #ffffffe6; --viewport-guide: #fffffff2; --viewport-overlay: #edf2f7ee;
+  --viewport-chip: #ffffff; --viewport-guide: #fffffff2; --viewport-overlay: #edf2f7ee;
   --viewport-line: #8d9bad; --viewport-swatch-line: #52647b66; --viewport-focus: #235dcc;
   --progress-track: #d5dde8; --progress-fill: #235dcc; --live-dot: #17694d;
   --placement-bg: #fff6ddf5; --placement-text: #463614; --placement-line: #dabb73;
@@ -31,7 +31,7 @@
   --status-line: #8093ae; --shadow-menu: #00000055; --shadow-tab: #00000033;
   --shadow-dock: #00000066; --backdrop: #060b14bb;
   --viewport-bg: #10171a; --viewport-text: #e8f0f4; --viewport-muted: #bacbd5;
-  --viewport-chip: #10171acc; --viewport-guide: #10171af2; --viewport-overlay: #10171aee;
+  --viewport-chip: #10171a; --viewport-guide: #10171af2; --viewport-overlay: #10171aee;
   --viewport-line: #5b6b77; --viewport-swatch-line: #ffffff66; --viewport-focus: #ffe09d;
   --progress-track: #394c57; --progress-fill: #85bddf; --live-dot: #72cbb2;
   --placement-bg: #3a2c19f5; --placement-text: #ffe0a8; --placement-line: #ae8545;
@@ -116,9 +116,11 @@ svg { flex-shrink: 0; }
 .viewport-focus-workpieces { pointer-events: auto; color: inherit; font: inherit; cursor: pointer; }
 .hud-chip { border-radius: 5px; background: var(--viewport-chip); padding: 4px 8px; }
 .live-dot, .footer-dot, .mini-dot, .telemetry-pulse, .io-led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--live-dot); }
-.scene-caption { display: flex; gap: 6px; align-items: center; } .scene-controls { color: var(--viewport-muted); }
+.scene-caption { display: flex; gap: 6px; align-items: center; }
+.scene-caption > span { border-radius: 5px; background: var(--viewport-chip); padding: 4px 8px; }
+.scene-controls { color: var(--viewport-muted); border-radius: 5px; background: var(--viewport-chip); padding: 4px 8px; }
 .model-color-guide { position: absolute; z-index: 3; top: 54px; right: 18px; max-width: 310px; color: var(--viewport-text); font-size: 14px; }
-.model-color-guide summary { text-align: right; cursor: pointer; min-height: 44px; padding: 10px; }
+.model-color-guide summary { text-align: right; cursor: pointer; min-height: 44px; padding: 10px; background: var(--viewport-chip); border-radius: 5px; }
 .model-color-guide[open] { padding: 10px; background: var(--viewport-guide); border: 1px solid var(--viewport-line); border-radius: 8px; }
 .model-color-guide ul { padding: 0; list-style: none; } .model-color-guide li { display: flex; align-items: center; gap: 10px; margin: 9px 0; }
 .model-color-guide p { color: var(--viewport-muted); margin: 8px 0; }

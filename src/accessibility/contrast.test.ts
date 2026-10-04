@@ -81,6 +81,22 @@ describe.each(["light", "dark"] as const)("%s UI text contrast", (theme) => {
     expect(contrastRatio(color, resolveColor("var(--viewport-bg)", theme))).toBeGreaterThanOrEqual(3);
   });
 
+  it("keeps scene labels readable over any robot pose with opaque theme-matched chips", () => {
+    const chip = resolveColor("var(--viewport-chip)", theme);
+    expect(chip).toMatch(/^#[\da-f]{6}$/i);
+
+    for (const [selector, foreground] of [
+      [".hud-chip", "--viewport-text"],
+      [".scene-caption > span", "--viewport-text"],
+      [".scene-controls", "--viewport-muted"],
+      [".model-color-guide summary", "--viewport-text"],
+    ]) {
+      const surface = declarationFor(selector, "background", theme);
+      expect(surface).toBe(chip);
+      expect(contrastRatio(resolveColor(`var(${foreground})`, theme), surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   const pairs = [
     ["page text", "--text", "--bg"],
     ["panel text", "--text", "--panel"],
