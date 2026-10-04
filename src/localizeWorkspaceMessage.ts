@@ -3,6 +3,9 @@ export type WorkspaceLanguage = "zh-Hant" | "en";
 const translations: Record<string, string> = {
   "Local simulator ready. No robot hardware is connected.": "本機模擬器已就緒。未連接機械臂硬體。",
   "Robot pose and reference cell reset.": "機械臂姿勢及參考工作格已重設。",
+  "Lua program started in the isolated browser worker.": "Lua 程式已在本機隔離工作執行器中開始執行。",
+  "Python program started in the isolated browser worker.": "Python 程式已在本機隔離工作執行器中開始執行。",
+  "Program and queued simulation motions completed.": "程式及排隊中的模擬動作已完成。",
   "This project already has the maximum of 100 teach points.": "此專案已達 100 個示教點上限。",
   "A point pair needs two free slots; the project limit is 100 points.": "一組示教點需要兩個空位；專案上限為 100 點。",
   "Saved the current joint pose as Home.": "已將目前關節姿勢儲存為 Home。",
@@ -31,6 +34,10 @@ export function localizeWorkspaceMessage(message: string, language: WorkspaceLan
   if (jog) return `點動已停止：${jog[1]} 軸目標超出模擬工作範圍。`;
   const jointLimit = message.match(/^Jog stopped at J([1-4]) limit \((.+)° to (.+)°\)\.$/);
   if (jointLimit) return `點動已停止：J${jointLimit[1]} 目標超出限制（${jointLimit[2]}° 至 ${jointLimit[3]}°）。`;
+  const movingTo = message.match(/^Moving smoothly to (.+)…$/);
+  if (movingTo) return `正平順移動至 ${movingTo[1]}…`;
+  const reached = message.match(/^Reached (.+)\.$/);
+  if (reached) return `已到達 ${reached[1]}。`;
   const taught = message.match(/^Taught (joint point )?([PJ]\d+)\.$/);
   if (taught) return `已示教${taught[1] ? "關節" : "笛卡兒"}點 ${taught[2]}。`;
   const removed = message.match(/^Removed point (.+)\.$/);

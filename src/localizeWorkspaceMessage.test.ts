@@ -29,4 +29,15 @@ describe("workspace message localization", () => {
       "zh-Hant",
     )).toContain("請在指令中明確寫出 {CP=0}");
   });
+
+  it("translates simulation start, completion, and go-to logs for Traditional Chinese", () => {
+    expect(localizeWorkspaceMessage("Python program started in the isolated browser worker.", "zh-Hant"))
+      .toBe("Python 程式已在本機隔離工作執行器中開始執行。");
+    expect(localizeWorkspaceMessage("Program and queued simulation motions completed.", "zh-Hant"))
+      .toBe("程式及排隊中的模擬動作已完成。");
+    expect(localizeWorkspaceMessage("Moving smoothly to PickApproach…", "zh-Hant"))
+      .toBe("正平順移動至 PickApproach…");
+    expect(localizeWorkspaceMessage("Reached PickApproach.", "zh-Hant"))
+      .toBe("已到達 PickApproach。");
+  });
 });
