@@ -45,6 +45,7 @@ const LEGACY_V7_MAGNET_LUA = [
   'print("Pick and place complete")',
   "",
 ].join("\n");
+// Exact historical source is a migration fingerprint; do not display or edit it.
 const LEGACY_V7_MAGNET_PYTHON = [
   "# MG400 training simulator Python API (not a Dobot controller SDK)",
   "# Offsets use base-frame millimetres and degrees; motion timing is simulated.",

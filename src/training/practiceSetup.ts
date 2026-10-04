@@ -1,5 +1,5 @@
 import { DEFAULT_PROJECT } from "../data/defaultProject";
-import { type ProgramLanguage, type ProjectDocument } from "../domain";
+import { authoredPythonProgram, type ProgramLanguage, type ProjectDocument } from "../domain";
 import { forkContactPose, forkEntryPose } from "../sim/forkTool";
 
 export const BODY1_LESSONS = ["intermediate-passive-fork", "intermediate-rotate-carried-block", "intermediate-three-layer-tower"];
@@ -31,8 +31,6 @@ export function prepareLessonProject(id: string): ProjectDocument {
   return project;
 }
 
-const authoredPython = (source: string) => "def task():\n" + source.replace(/\bawait /g, "").split("\n").map(line=>"    "+line).join("\n") + "\ntask()";
-
 export function body1LessonProgram(language: ProgramLanguage, id: string): string {
   const tower = id === "intermediate-three-layer-tower", rotate = id === "intermediate-rotate-carried-block";
   if (language === "lua") return [
@@ -53,20 +51,20 @@ export function body1LessonProgram(language: ProgramLanguage, id: string): strin
     "  MovL({coordinate={x=300-60*math.cos(math.rad(r)),y=80-60*math.sin(math.rad(r)),z=z-2.5,r=r}}, {CP=0,SYNC=1})",
     "  RelMovL({0,0,80,0}, {CP=0,SYNC=1})", "end", "JointMovJ(Home,{CP=0})", "Sync()",
   ].join("\n");
-  return authoredPython([
+  return authoredPythonProgram([
     "import math", "# Supplied 40×40×40 Body1 on Z110; passive fork.",
     `for layer, x in enumerate([${tower ? "250,300,350" : "300"}]):`,
     `    turn = ${tower ? "layer == 1" : rotate ? "True" : "False"}`,
     "    r = 0 if turn else -90",
-    "    await mov_j({'coordinate':{'x':x,'y':-20,'z':132.5,'r':-90}},cp=0)",
-    "    await mov_l({'coordinate':{'x':x,'y':-80,'z':132.5,'r':-90}},cp=0)",
-    "    await rel_mov_l([0,0,2.5,0],cp=0)", "    await rel_mov_l([0,0,80,0],cp=0)",
-    "    if turn: await rel_mov_l([0,0,0,90],cp=0)", "    z = 135 + 40*layer",
-    "    await mov_j({'coordinate':{'x':300,'y':80,'z':z+80,'r':r}},cp=0)",
-    "    await mov_l({'coordinate':{'x':300,'y':80,'z':z,'r':r}},cp=0)",
-    "    await mov_l({'coordinate':{'x':300,'y':80,'z':z-2.5,'r':r}},cp=0)",
-    "    await mov_l({'coordinate':{'x':300-60*math.cos(math.radians(r)),'y':80-60*math.sin(math.radians(r)),'z':z-2.5,'r':r}},cp=0)",
-    "    await rel_mov_l([0,0,80,0],cp=0)", "await joint_mov_j(Home,cp=0)", "await sync()",
+    "    mov_j({'coordinate':{'x':x,'y':-20,'z':132.5,'r':-90}},cp=0)",
+    "    mov_l({'coordinate':{'x':x,'y':-80,'z':132.5,'r':-90}},cp=0)",
+    "    rel_mov_l([0,0,2.5,0],cp=0)", "    rel_mov_l([0,0,80,0],cp=0)",
+    "    if turn: rel_mov_l([0,0,0,90],cp=0)", "    z = 135 + 40*layer",
+    "    mov_j({'coordinate':{'x':300,'y':80,'z':z+80,'r':r}},cp=0)",
+    "    mov_l({'coordinate':{'x':300,'y':80,'z':z,'r':r}},cp=0)",
+    "    mov_l({'coordinate':{'x':300,'y':80,'z':z-2.5,'r':r}},cp=0)",
+    "    mov_l({'coordinate':{'x':300-60*math.cos(math.radians(r)),'y':80-60*math.sin(math.radians(r)),'z':z-2.5,'r':r}},cp=0)",
+    "    rel_mov_l([0,0,80,0],cp=0)", "joint_mov_j(Home,cp=0)", "sync()",
   ].join("\n"));
 }
 
@@ -83,14 +81,14 @@ export function sortingProgram(language: ProgramLanguage): string {
     "  MovL({coordinate={x=x,y=80,z=z,r=r}}, {CP=0,SYNC=1})", "  DO(1,OFF)",
     "  counts[color] = counts[color]+1", "  RelMovL({0,0,80,0}, {CP=0,SYNC=1})", "end", "JointMovJ(Home,{CP=0})", "Sync()",
   ].join("\n");
-  return authoredPython([
+  return authoredPythonProgram([
     "# Four spaced 35×35×4 plates; independent black and white height counts.", "counts = [0,0]",
     "for i, source_x in enumerate([250,300,350,400]):", "    color = i % 2", "    x = 350 if color else 250", "    r = 45 if color else 0",
-    "    await mov_j({'coordinate':{'x':source_x,'y':-100,'z':114,'r':0}},cp=0)", "    do(1,ON)",
-    "    await rel_mov_l([0,0,80,0],cp=0)", "    if color: await rel_mov_l([0,0,0,45],cp=0)",
+    "    mov_j({'coordinate':{'x':source_x,'y':-100,'z':114,'r':0}},cp=0)", "    do(1,ON)",
+    "    rel_mov_l([0,0,80,0],cp=0)", "    if color: rel_mov_l([0,0,0,45],cp=0)",
     "    z = 114 + 4*counts[color]",
-    "    await mov_j({'coordinate':{'x':x,'y':80,'z':z+80,'r':r}},cp=0)",
-    "    await mov_l({'coordinate':{'x':x,'y':80,'z':z,'r':r}},cp=0)", "    do(1,OFF)",
-    "    counts[color] += 1", "    await rel_mov_l([0,0,80,0],cp=0)", "await joint_mov_j(Home,cp=0)", "await sync()",
+    "    mov_j({'coordinate':{'x':x,'y':80,'z':z+80,'r':r}},cp=0)",
+    "    mov_l({'coordinate':{'x':x,'y':80,'z':z,'r':r}},cp=0)", "    do(1,OFF)",
+    "    counts[color] += 1", "    rel_mov_l([0,0,80,0],cp=0)", "joint_mov_j(Home,cp=0)", "sync()",
   ].join("\n"));
 }

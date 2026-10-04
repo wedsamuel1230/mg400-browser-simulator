@@ -129,8 +129,8 @@ export const DEFAULT_FLANGE_OFFSET: Pose = {
 };
 
 export function authoredPythonProgram(source: string): string {
-  if (!/\bawait\s/.test(source) && /\bdef task\(/.test(source)) return source;
-  return "def task():\n" + source.replace(/\bawait\s+/g, "").split("\n").map(line=>"    "+line).join("\n") + "\ntask()";
+  if (/\bdef task\(/.test(source)) return source;
+  return "def task():\n" + source.split("\n").map(line=>"    "+line).join("\n") + "\ntask()";
 }
 
 export const DEFAULT_SCRIPT = [
@@ -187,19 +187,19 @@ export const DEFAULT_PYTHON_SCRIPT = authoredPythonProgram([
   "# The dark arrow on the block shows its local +X direction.",
   "# Pick first, lift clear, then rotate the carried tool/block by +90 degrees.",
   "",
-  "await joint_mov_j(Home, cp=0)",
-  "await mov_j(PickApproach, cp=0)",
-  "await mov_l(PickPoint, cp=0)",
+  "joint_mov_j(Home, cp=0)",
+  "mov_j(PickApproach, cp=0)",
+  "mov_l(PickPoint, cp=0)",
   "do(1, ON)",
-  "await rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 80, \"r\": 0}, cp=0, speed_l=50, acc_l=20)  # lift in base-frame +Z",
+  "rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 80, \"r\": 0}, cp=0, speed_l=50, acc_l=20)  # lift in base-frame +Z",
   "# The block is attached and high enough; turn only the wrist R axis now.",
-  "await rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 0, \"r\": 90}, cp=0, speed_l=35, acc_l=20)",
+  "rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 0, \"r\": 90}, cp=0, speed_l=35, acc_l=20)",
   "RotatedPlaceApproach = {\"coordinate\": {\"x\": PlaceApproach[\"coordinate\"][\"x\"], \"y\": PlaceApproach[\"coordinate\"][\"y\"], \"z\": PlaceApproach[\"coordinate\"][\"z\"], \"r\": PlaceApproach[\"coordinate\"][\"r\"] + 90}}",
   "RotatedPlacePoint = {\"coordinate\": {\"x\": PlacePoint[\"coordinate\"][\"x\"], \"y\": PlacePoint[\"coordinate\"][\"y\"], \"z\": PlacePoint[\"coordinate\"][\"z\"], \"r\": PlacePoint[\"coordinate\"][\"r\"] + 90}}",
-  "await mov_j(RotatedPlaceApproach, cp=0)",
-  "await mov_l(RotatedPlacePoint, cp=0)",
+  "mov_j(RotatedPlaceApproach, cp=0)",
+  "mov_l(RotatedPlacePoint, cp=0)",
   "do(1, OFF)",
-  "await sync()",
+  "sync()",
   "print('Picked, rotated +90 degrees, and placed the block')",
   "",
 ].join("\n"));
@@ -210,15 +210,15 @@ export const DEFAULT_FORK_PYTHON_SCRIPT = authoredPythonProgram([
   "# The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
   "# PickApproach is 60 mm before PickPoint along tool -X at the support height.",
   "",
-  "await joint_mov_j(Home, cp=0)",
-  "await mov_j(PickApproach, cp=0)",
-  "await mov_l(PickPoint, cp=0)",
-  "await rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 80, \"r\": 0}, cp=0, speed_l=50, acc_l=20)",
-  "await mov_j(PlaceApproach, cp=0)",
-  "await mov_l(PlacePoint, cp=0)",
-  "await mov_l(PlaceApproach, cp=0)",
-  "await joint_mov_j(Home, cp=0)",
-  "await sync()",
+  "joint_mov_j(Home, cp=0)",
+  "mov_j(PickApproach, cp=0)",
+  "mov_l(PickPoint, cp=0)",
+  "rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 80, \"r\": 0}, cp=0, speed_l=50, acc_l=20)",
+  "mov_j(PlaceApproach, cp=0)",
+  "mov_l(PlacePoint, cp=0)",
+  "mov_l(PlaceApproach, cp=0)",
+  "joint_mov_j(Home, cp=0)",
+  "sync()",
   "print('Fork pick and place complete')",
   "",
 ].join("\n"));
@@ -228,10 +228,10 @@ export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 1
     "import math", `# 已量度 Body1 槽：插入 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ} mm；承托／釋放 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.loadZ} mm；不使用 DO。`,
     `PlaceClear = {"coordinate": {**PlacePoint["coordinate"], "z": ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ}}}`,
     `PlaceExit = {"coordinate": {**PlaceClear["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60 * math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60 * math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}`,
-    "await joint_mov_j(Home, cp=0)", "await mov_j(PickApproach, cp=0)", "await mov_l(PickPoint, cp=0)",
-    "await rel_mov_l([0, 0, 80, 0], cp=0)", "await mov_j(PlaceApproach, cp=0)", "await mov_l(PlacePoint, cp=0)",
-    "await mov_l(PlaceClear, cp=0)", "await mov_l(PlaceExit, cp=0)", "await rel_mov_l([0, 0, 80, 0], cp=0)",
-    "await joint_mov_j(Home, cp=0)", "await sync()", "print('Body1 fork pick and place complete')", "",
+    "joint_mov_j(Home, cp=0)", "mov_j(PickApproach, cp=0)", "mov_l(PickPoint, cp=0)",
+    "rel_mov_l([0, 0, 80, 0], cp=0)", "mov_j(PlaceApproach, cp=0)", "mov_l(PlacePoint, cp=0)",
+    "mov_l(PlaceClear, cp=0)", "mov_l(PlaceExit, cp=0)", "rel_mov_l([0, 0, 80, 0], cp=0)",
+    "joint_mov_j(Home, cp=0)", "sync()", "print('Body1 fork pick and place complete')", "",
   ].join("\n"));
   return [
     `-- 已量度 Body1 槽：插入 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ} mm；承托／釋放 ${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.loadZ} mm；不使用 DO。`,

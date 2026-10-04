@@ -5,6 +5,7 @@ import { loadPyodide, type PyodideInterface } from "pyodide";
 import { reviewLuaSnippet, reviewRobotCalls, type RobotCall, type SavedPointDescriptor } from "../coach/codeReview";
 import { PYTHON_ANALYSIS } from "../coach/pythonAnalysis";
 import { LESSONS } from "./curriculum";
+import { body1LessonProgram, sortingProgram } from "./practiceSetup";
 import { recommendedProgram } from "../sim/codeRecommendation";
 import { DEFAULT_FORK_PYTHON_SCRIPT, DEFAULT_FORK_SCRIPT, DEFAULT_PYTHON_SCRIPT, DEFAULT_SCRIPT } from "../domain";
 
@@ -56,6 +57,9 @@ describe("curriculum example verification", () => {
 
   it("parses every Python lesson example and checks its simulator API, saved points, and tool mode", () => {
     for (const lesson of LESSONS) {
+      expect(lesson.examples.python, `${lesson.id} should use standard function syntax`).not.toMatch(/\bawait\s/);
+      expect(lesson.examples.python, `${lesson.id} should define its task`).toMatch(/^def task\(\):\n/);
+      expect(lesson.examples.python.trimEnd(), `${lesson.id} should call its task`).toMatch(/\ntask\(\)$/);
       python.globals.set("__ai_source", lesson.examples.python);
       const raw = python.runPython(PYTHON_ANALYSIS);
       expect(typeof raw, `${lesson.id} Python AST result`).toBe("string");
@@ -93,8 +97,15 @@ describe("curriculum example verification", () => {
       { label: "fork starter", source: DEFAULT_FORK_PYTHON_SCRIPT, mode: "fork" as const },
       { label: "fork recommendation", source: recommendedProgram("python", "fork"), mode: "fork" as const },
       { label: "Body1 calibrated fork", source: recommendedProgram("python", "fork", "body1"), mode: "fork" as const },
+      ...["intermediate-passive-fork", "intermediate-rotate-carried-block", "intermediate-three-layer-tower"].map(id => ({
+        label: `${id} teaching program`, source: body1LessonProgram("python", id), mode: "fork" as const,
+      })),
+      { label: "magnet color-sorting practice", source: sortingProgram("python"), mode: "magnet" as const },
     ];
     for (const example of pythonExamples) {
+      expect(example.source, `${example.label} should use standard function syntax`).not.toMatch(/\bawait\s/);
+      expect(example.source, `${example.label} should define its task`).toMatch(/^def task\(\):\n/);
+      expect(example.source.trimEnd(), `${example.label} should call its task`).toMatch(/\ntask\(\)$/);
       python.globals.set("__ai_source", example.source);
       const raw = python.runPython(PYTHON_ANALYSIS);
       expect(typeof raw, `${example.label} AST result`).toBe("string");

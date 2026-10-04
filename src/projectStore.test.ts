@@ -110,6 +110,32 @@ describe("project document validation", () => {
     expect(custom.script).toBe("-- my custom program\nDO(2, ON)");
   });
 
+  it("recognizes the exact historical await-based starter while upgrading old projects", () => {
+    const legacy = structuredClone(DEFAULT_PROJECT) as unknown as Record<string, unknown>;
+    legacy.schemaVersion = 4;
+    legacy.pythonScript = [
+      "# MG400 training simulator Python API (not a Dobot controller SDK)",
+      "# Offsets use base-frame millimetres and degrees; motion timing is simulated.",
+      "",
+      "await joint_mov_j(Home, cp=0)",
+      "await mov_j(PickApproach, cp=0)",
+      "await mov_l(PickPoint, cp=0)",
+      "do(1, ON)",
+      'await rel_mov_l({"x": 0, "y": 0, "z": 80, "r": 0}, cp=0, speed_l=50, acc_l=20)',
+      "await mov_j(PlaceApproach, cp=0)",
+      "await mov_l(PlacePoint, cp=0)",
+      "do(1, OFF)",
+      "await sync()",
+      "print('Pick and place complete')",
+      "",
+    ].join("\n");
+    (legacy.tool as Record<string, unknown>).mode = "fork";
+
+    const migrated = validateProject(legacy);
+    expect(migrated.pythonScript).toBe(DEFAULT_FORK_PYTHON_SCRIPT);
+    expect(migrated.pythonScript).not.toMatch(/\bawait\s/);
+  });
+
   it("moves untouched v5 reference cells into the current shared reachable layout", () => {
     const legacy = structuredClone(DEFAULT_PROJECT) as unknown as Record<string, unknown>;
     legacy.schemaVersion = 5;
