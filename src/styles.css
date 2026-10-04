@@ -325,6 +325,10 @@ svg { flex-shrink: 0; }
   .training-content { overflow: visible; padding: 24px 18px; } .training-content > h3 { font-size: 26px; }
   .lesson-code { font-size: 15px; } .lesson-section li, .lesson-section p, .lesson-outcome span { font-size: 18px; }
 }
+@media (max-width: 380px) {
+  .workbench-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .workbench-nav button { min-width: 0; padding-inline: 4px; white-space: normal; text-align: center; }
+}
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } * { scroll-behavior: auto !important; } }
 
 .syntax-snippets { padding: 16px; border-top: 1px solid var(--line); font-size: 16px; }
