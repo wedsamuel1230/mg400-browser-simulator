@@ -316,6 +316,7 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedFunctionLanguage, setCopiedFunctionLanguage] = useState<ProgramLanguage | null>(null);
 
   const setupSummary = useMemo(
     () => setupChecks.slice(0, 12).map(({ title, status, detail }) => `${title}: ${status.toUpperCase()} — ${detail}`.slice(0, 240)),
@@ -327,6 +328,9 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
     && isOpenRouterEndpoint(endpointCheck.value);
   const lastMessage = messages.at(-1);
   const latestReply = lastMessage?.role === "assistant" ? lastMessage.content : "";
+  const functionExample = language === "python"
+    ? "def go_to_pickup():\n    mov_j(PickApproach, cp=0)\n    sync()\n\ngo_to_pickup()"
+    : "local function goToPickup()\n  MovJ(PickApproach, {CP=0})\n  Sync()\nend\n\ngoToPickup()";
 
   async function askCoach(prompt = question, intent?: "review" | "explain" | "teach") {
     if (!apiKey.trim() || !prompt.trim() || loading) return;
@@ -439,6 +443,16 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
     }
   }
 
+  async function copyFunctionExample() {
+    try {
+      await navigator.clipboard.writeText(functionExample);
+      setCopiedFunctionLanguage(language);
+      setError("");
+    } catch {
+      setError("Clipboard access was blocked. Select and copy the code example manually.");
+    }
+  }
+
   return localizeCoachTree(
     <section className="ai-coach" aria-label="AI coding coach">
       <div className="ai-coach-heading">
@@ -518,10 +532,20 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
 
       <details className="ai-local-functions">
         <summary>{uiLanguage === "zh-Hant" ? "函式與呼叫 · 免費導學" : "Functions and calls · free lesson"}</summary>
-        <p>{uiLanguage === "zh-Hant" ? "先定義函式，再呼叫它。函式可接收參數及回傳值；把函式放進清單後，可按選項呼叫。Python 學生程式毋須 await，內部會逐步等待動作完成。" : "Define a function, then call it. Functions accept arguments and return values. A list can select which function to call. Student Python needs no await; the simulator waits for motions internally."}</p>
-        <pre><code>{language === "python" ? "def task():\n    print('training')\n    return 1\n\nfunctions = [task]\nselected_value = functions[0]\nselected_value()" : "local function task()\n  print('training')\n  return 1\nend\n\nlocal functions = {task}\nlocal selected_value = functions[1]\nselected_value()"}</code></pre>
-        <p>{uiLanguage === "zh-Hant" ? "支援一般函式與有限迴圈；不支援呼叫式註解、next/iter/StopIteration 或迭代器協定。指令速查：需使用已儲存點位。以下只列出模擬器支援的子集；不是完整 Dobot SDK。被動叉工具只靠路徑拾放，不可使用 DO/pick/place。" : "Functions and finite loops are supported; callable annotations and next/iter/StopIteration iterator protocols are excluded. Command reference: use saved points. This is the simulator subset, not the full Dobot SDK. The passive fork uses its path and cannot use DO/pick/place."}</p>
-        <pre><code>{language === "python" ? "mov_j(P) / mov_l(P)\nrel_mov_l([x, y, z, r])\njoint_mov_j(J)\nsync() / wait(milliseconds)\nget_pose() / get_angle()\ndo(1, ON) / do(1, OFF)" : "MovJ(P) / MovL(P)\nRelMovL({x, y, z, r})\nJointMovJ(J)\nSync() / Wait(milliseconds)\nGetPose() / GetAngle()\nDO(1, ON) / DO(1, OFF)"}</code></pre>
+        <p>{uiLanguage === "zh-Hant" ? "把移動步驟寫進有名稱的函式，再用名稱加括號呼叫。範例會讓模擬器前往已儲存的 PickApproach 教點。Python 程式不需手寫 await。" : "Put robot steps in a named function, then call it with parentheses. This example moves the simulator to the saved PickApproach point. Student Python does not need authored await."}</p>
+        <div className="ai-local-example-toolbar">
+          <strong>{uiLanguage === "zh-Hant" ? "前往接近點" : "Move to the approach point"}</strong>
+          <button type="button" className="ai-local-copy" aria-label={copiedFunctionLanguage === language ? (uiLanguage === "zh-Hant" ? "已複製函式範例" : "Function example copied") : (uiLanguage === "zh-Hant" ? "複製函式範例" : "Copy function example")} onClick={() => void copyFunctionExample()}>
+            <Clipboard size={14} />{copiedFunctionLanguage === language ? (uiLanguage === "zh-Hant" ? "已複製" : "Copied") : (uiLanguage === "zh-Hant" ? "複製範例" : "Copy example")}
+          </button>
+        </div>
+        <pre className="ai-local-function-example"><code>{functionExample}</code></pre>
+        <p>{uiLanguage === "zh-Hant" ? "這是虛擬工作台的範例，不會連接實體機械臂。請先確認 PickApproach 是已儲存的笛卡兒教點。Lua 是 MG400 訓練語言；Python 只適用於此模擬器。" : "This is a virtual-workcell example and does not connect to a real robot. Confirm PickApproach is a saved Cartesian point. Lua is the MG400 training language; Python works only in this simulator."}</p>
+        <details className="ai-local-command-reference">
+          <summary>{uiLanguage === "zh-Hant" ? "更多機械臂指令" : "More robot commands"}</summary>
+          <p>{uiLanguage === "zh-Hant" ? "這些是模擬器支援的指令子集，不是完整 Dobot SDK。無動力叉臂只靠路徑取放，不使用 DO、Pick 或 Place。" : "These are a supported simulator subset, not the full Dobot SDK. The passive fork uses its path and does not use DO, Pick, or Place."}</p>
+          <pre><code>{language === "python" ? "mov_j(P) / mov_l(P)\nrel_mov_l([x, y, z, r])\njoint_mov_j(J)\nsync() / wait(milliseconds)\nget_pose() / get_angle()\ndo(1, ON) / do(1, OFF)" : "MovJ(P) / MovL(P)\nRelMovL({x, y, z, r})\nJointMovJ(J)\nSync() / Wait(milliseconds)\nGetPose() / GetAngle()\nDO(1, ON) / DO(1, OFF)"}</code></pre>
+        </details>
       </details>
       <label className="ai-question-label" htmlFor="ai-coach-question">What would you like help with?</label>
       <textarea

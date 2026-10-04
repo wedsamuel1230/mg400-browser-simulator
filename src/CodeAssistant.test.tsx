@@ -554,14 +554,37 @@ it("defaults all coach controls/privacy and free function teaching to Traditiona
   expect(screen.getByText("私隱與建議檢查方式")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "詢問教練" })).toBeDisabled();
   expect(screen.getByPlaceholderText("描述預期結果、實際情況，或想學習的概念…")).toBeInTheDocument();
-  expect(container.textContent).toContain("def task():");
-  expect(container.textContent).toContain("selected_value()");
+  expect(container.querySelector(".ai-local-function-example code")?.textContent).toBe("def go_to_pickup():\n    mov_j(PickApproach, cp=0)\n    sync()\n\ngo_to_pickup()");
+  expect(container.textContent).toContain("把移動步驟寫進有名稱的函式");
+  expect(screen.getByRole("button", { name: "複製函式範例" })).toBeInTheDocument();
+  expect(screen.getByText("更多機械臂指令")).toBeInTheDocument();
+  expect(container.querySelector(".ai-local-command-reference")?.hasAttribute("open")).toBe(false);
+  expect(container.textContent).not.toContain("functions = [");
   expect(container.textContent).not.toContain("await mov_");
   expect(container.textContent).not.toContain("Your provider API key");
   rerender(<CodeAssistant {...props} uiLanguage="en" />);
   expect(screen.getByText("AI coding coach · read-only")).toBeInTheDocument();
   expect(screen.getByText("Functions and calls · free lesson")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("Describe what you expect, what happened, or a concept you want to learn…")).toBeInTheDocument();
+  expect(container.textContent).toContain("Put robot steps in a named function");
+  rerender(<CodeAssistant {...props} language="lua" uiLanguage="zh-Hant" />);
+  expect(container.querySelector(".ai-local-function-example code")?.textContent).toBe("local function goToPickup()\n  MovJ(PickApproach, {CP=0})\n  Sync()\nend\n\ngoToPickup()");
+});
+
+it("copies the selected-language robot function example without changing or running the program", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { clipboard: { writeText } });
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  const props = { code: "print('keep me')", savedPoints: [], language: "python" as const, toolMode: "fork" as const, setupReady: true, setupChecks: [], recentRunLog: [], hasCurrentRun: false };
+  const { container } = render(<CodeAssistant {...props} />);
+  fireEvent.click(screen.getByText("函式與呼叫 · 免費導學"));
+  fireEvent.click(screen.getByRole("button", { name: "複製函式範例" }));
+
+  expect(writeText).toHaveBeenCalledWith("def go_to_pickup():\n    mov_j(PickApproach, cp=0)\n    sync()\n\ngo_to_pickup()");
+  expect(container.querySelector(".ai-local-function-example code")?.textContent).toContain("def go_to_pickup():");
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(await screen.findByRole("button", { name: "已複製函式範例" })).toBeInTheDocument();
 });
 
 it("sends the selected Chinese language instruction without leaking the key into context and shows Chinese checks/errors", async () => {
