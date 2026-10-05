@@ -1254,9 +1254,9 @@ export default function App() {
     if (freeMode) {
       try { window.localStorage.setItem(FREE_SCENE_KEY, JSON.stringify(current.scene)); } catch { /* keep current project on save failure */ }
     }
-    const mode = BODY1_LESSONS.includes(id) ? "fork" : "magnet";
+    const mode = BODY1_LESSONS.includes(id) ? "fork" : id === "foundation-first-robot-move" ? current.tool.mode : "magnet";
     const profile = mode === "fork" ? "body1" : "reference";
-    const next = prepareLessonProject(id);
+    const next = prepareLessonProject(id, mode);
     next.tool = { ...structuredClone(current.tool), mode };
     next.simulation = { ...current.simulation };
     next.programmingLanguage = language;

@@ -17,6 +17,8 @@ type Props = {
 export function TrainingCenter({ open, programLanguage, initialLessonId, onClose, onUseExample }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const lessonHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusLessonHeadingRef = useRef(false);
   const [progress, setProgress] = useState<CourseProgress>(() => loadCourseProgress());
   const [lessonId, setLessonId] = useState(progress.lastLessonId);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -75,7 +77,14 @@ export function TrainingCenter({ open, programLanguage, initialLessonId, onClose
     saveCourseProgress(next);
   }, [courseLanguage, lessonId, open]);
 
+  useEffect(() => {
+    if (!open || !focusLessonHeadingRef.current) return;
+    focusLessonHeadingRef.current = false;
+    lessonHeadingRef.current?.focus();
+  }, [lessonId, open]);
+
   function selectLesson(item: Lesson) {
+    focusLessonHeadingRef.current = true;
     setLessonId(item.id);
     setAnswers({});
     setFeedback("");
@@ -195,7 +204,7 @@ export function TrainingCenter({ open, programLanguage, initialLessonId, onClose
 
           <article className="training-content" key={lesson.id}>
             <div className="training-kicker">{displayText(track.title)} <span>·</span> {lesson.durationMinutes} {strings.minutes}</div>
-            <h3>{displayText(lesson.title)}</h3>
+            <h3 ref={lessonHeadingRef} tabIndex={-1}>{displayText(lesson.title)}</h3>
             <div className="lesson-outcome"><strong>{strings.outcome}</strong><span>{displayText(lesson.outcome)}</span></div>
             <section className="lesson-section"><h4>{strings.guidedActivity}</h4><ol>{guidedSteps.map((item, index) => <li key={index}>{item}</li>)}</ol></section>
             {lesson.id === "intermediate-relative-linear-motion" && <RelMovLMathActivity language={courseLanguage} />}
@@ -261,7 +270,7 @@ const englishUi = {
   firstProgramHint: "Loading returns you to the practice guide. This text example is ready to run straight away.",
   previewExample: "Preview code", previewNote: "Read-only course preview. Load it to follow the practice guide; open Program when you want to edit it.",
   referenceDetails: "Concepts and further practice", lessonComplete: "Completed", questionCount: "questions",
-  firstProgramSteps: ["Load the example below and confirm replacing the editor program.", "Back in the practice guide, run the program and read the message. The robot stays still.", "Open Program, change the message inside the quotes, then run it again."],
+  firstProgramSteps: ["Choose Load and start practising and confirm replacing the editor program.", "Back in the practice guide, press Run practice and read the message. The robot stays still.", "Open Program, change the message inside the quotes, then press Run practice again."],
   replaceWarning: { lua: "This replaces your current Lua program. Copy or export it first if you need to keep it.", python: "This replaces your current Python program. Copy or export it first if you need to keep it." },
   cancelReplace: "Keep current code", confirmReplace: "Replace current program",
   checkLearning: "Check your learning", answered: "answered", attempts: "Attempts", checkAnswers: "Check answers",
@@ -280,7 +289,7 @@ const chineseUi = {
   firstProgramHint: "載入後會返回練習指引。這個文字範例已準備好，可直接執行。",
   previewExample: "查看程式範例", previewNote: "這裡是唯讀課程預覽。載入後跟著練習指引執行；想修改時再開啟「程式」。",
   referenceDetails: "概念解說與延伸練習", lessonComplete: "已完成", questionCount: "題",
-  firstProgramSteps: ["按下方按鈕載入範例，並確認替換編輯器程式。", "返回練習指引後執行程式，查看問候訊息；機械臂會保持不動。", "開啟「程式」，修改引號內的文字，再執行一次。"],
+  firstProgramSteps: ["按「載入並開始練習」並確認替換編輯器程式。", "返回練習指引後按「執行練習」，查看問候訊息；機械臂會保持不動。", "開啟「程式」，修改引號內的文字，再按「執行練習」。"],
   replaceWarning: { lua: "這會替換目前的 Lua 程式。如需保留，請先複製或匯出。", python: "這會替換目前的 Python 程式。如需保留，請先複製或匯出。" },
   cancelReplace: "保留目前程式", confirmReplace: "確認替換程式",
   checkLearning: "自我檢查", answered: "題已作答", attempts: "嘗試次數", checkAnswers: "檢查答案",

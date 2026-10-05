@@ -1,14 +1,14 @@
 import { DEFAULT_PROJECT } from "../data/defaultProject";
-import { authoredPythonProgram, type ProgramLanguage, type ProjectDocument } from "../domain";
+import { authoredPythonProgram, type ProgramLanguage, type ProjectDocument, type ToolMode } from "../domain";
 import { forkContactPose, forkEntryPose } from "../sim/forkTool";
 
 export const BODY1_LESSONS = ["intermediate-passive-fork", "intermediate-rotate-carried-block", "intermediate-three-layer-tower"];
 export const SORT_BINS = { black: { x: 250, y: 80 }, white: { x: 350, y: 80 } };
 
 /** Fresh teaching cells; importing an existing project never calls this preparation. */
-export function prepareLessonProject(id: string): ProjectDocument {
+export function prepareLessonProject(id: string, activeTool?: ToolMode): ProjectDocument {
   const project = structuredClone(DEFAULT_PROJECT);
-  const fork = BODY1_LESSONS.includes(id);
+  const fork = BODY1_LESSONS.includes(id) || (id === "foundation-first-robot-move" && activeTool === "fork");
   project.tool.mode = fork ? "fork" : "magnet";
   project.scene.body1SupportHeightMm = 0;
   if (fork) {

@@ -15,7 +15,7 @@ describe("TrainingCenter example replacement", () => {
       value(this: HTMLDialogElement) { this.open = false; this.removeAttribute("open"); },
     });
     localStorage.clear();
-  localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.7", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
+  localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.8", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
   });
 
   afterEach(() => {
@@ -105,11 +105,13 @@ describe("TrainingCenter example replacement", () => {
     expect(document.querySelector(".lesson-code")?.textContent).toContain("MovJ(PickApproach, {CP=0})");
     expect(document.querySelector(".lesson-code")?.textContent).not.toContain("DO(");
     expect(document.querySelector(".lesson-code")?.textContent).not.toContain("MovL(");
-    expect(screen.getByText(/completed course progress stay saved/)).toBeInTheDocument();
-    expect(screen.getByText(/save automatically with this local project/)).toBeInTheDocument();
+    expect(screen.getAllByText(/returns you to the practice guide/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/select Magnet or Fork/)).toBeInTheDocument();
+    expect(screen.getByText(/matching workpiece and PickApproach/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "繁中" }));
-    expect(screen.getByText(/已完成進度會保留/)).toBeInTheDocument();
-    expect(screen.getByText(/自動儲存到本機專案/)).toBeInTheDocument();
+    expect(screen.getAllByText(/返回練習指引/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/選擇磁吸或叉臂/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/相配工件及 PickApproach/).length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "EN" }));
     await user.click(screen.getByRole("button", { name: "Your first program: show a message" }));
     await user.click(screen.getByRole("button", { name: "If and else: choose a path" }));
@@ -120,6 +122,15 @@ describe("TrainingCenter example replacement", () => {
     expect(screen.getByRole("heading", { name: "Loops: repeat a small task" })).toBeInTheDocument();
     expect(document.querySelector(".lesson-code")?.textContent).toContain("for step = 1, 3 do");
     expect(document.querySelector(".lesson-code")?.textContent).toContain("while count < 3 do");
+  });
+
+  it("moves focus to the newly selected lesson heading", async () => {
+    const user = userEvent.setup();
+    render(<TrainingCenter open programLanguage="lua" initialLessonId="foundation-first-program" onClose={vi.fn()} onUseExample={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Next lesson" }));
+    const heading = await screen.findByRole("heading", { name: "First robot move: go to the approach point", level: 3 });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
   });
 
   it("shows the Intermediate fork-first order and prerequisites in Traditional Chinese", async () => {

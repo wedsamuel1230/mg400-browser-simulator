@@ -1,6 +1,6 @@
 # MG400 Virtual Training Simulator — Student Guide
 
-**Course release:** 1.3.7
+**Course release:** 1.3.8
 **Languages:** English and Traditional Chinese  
 **Last checked against the app:** 5 October 2026
 
@@ -15,19 +15,19 @@ There is no physical robot connection, collision-safety system, contact-force mo
 
 ## Start a lesson
 
-1. Open **Training** and choose a lesson. Foundation is a good first stop; all three tracks remain available if your instructor assigns a different lesson.
+1. Open **Lessons** and choose a lesson. Foundation is a good first stop; all three tracks remain available if your instructor assigns a different lesson.
 2. Select **Lua** or **Python** in the workspace. The editor keeps the programs separate, and a lesson example follows the selected language.
-3. Read the lesson's outcome and steps. Code shown in a lesson is a preview; it does not run when you press **Run**.
-4. To practise an example, choose **Load this example…** and confirm the replacement. The current editor program stays until you confirm.
-5. Return to the workspace and choose **Run editor code**. Watch the robot, TCP position, run status, and log. **Stop** cancels a run; after an error, read the first error in the log before trying again.
+3. Read the lesson's outcome and steps. Code shown in a lesson is a preview; it does not run when you press **Run practice**.
+4. Choose **Load and start practising** and confirm the replacement. The lesson closes and returns to the practice guide; your existing program stays until you confirm.
+5. For a robot-motion lesson, select its tool under **Tools & settings**, return to **Practice**, and choose **Prepare this practice**. Then choose **Run practice**. Watch the robot, TCP position, run status, and log. **Stop** cancels a run; after an error, read the first error in the log before trying again.
 
 The first lesson is print-only. It needs no API key and does not move the robot. The first-motion lesson moves only to the selected tool's saved `PickApproach` point; it does not pick up the block. Recommended Intermediate order: practise the one-block Body1 passive-fork slide, lift, and release first (no DO); then practise a carried turn; then stack three blocks vertically with bottom/top at 0° and only the middle at +90°. Continue with RelMovL, single-plate magnet pickup, then four 35 × 35 × 4 mm magnetic plates sorted into separate black and white stacks.
 
 ## Choose a tool and teach points
 
-Open **Tool & pickup** to choose the active tool and review the configured TCP offset. The TCP (Tool Center Point) is the reference point used by motion commands. The requested default is 60 mm in flange-frame +X; this is a simulator setting, not a measurement of a physical installation.
+Open **Tools & settings** to choose the active tool and review the configured TCP offset. The TCP (Tool Center Point) is the reference point used by motion commands. The requested default is 60 mm in flange-frame +X; this is a simulator setting, not a measurement of a physical installation.
 
-In **Teach**, use **Teach pick pair** or **Teach place pair** to create or refresh approach and contact points for the selected tool. You can also jog the robot, save its current TCP pose or joint angles, edit a point, and press **Go to** to move the simulated arm there. Cartesian coordinates use millimetres and degrees; joint values use radians.
+In **Teach**, use **Teach pick pair** or **Teach place pair** to create or refresh approach and contact points for the selected tool. The first robot-move lesson creates its matching workpiece and `PickApproach` when you choose **Prepare this practice**. You can also jog the robot, save its current TCP pose or joint angles, edit a point, and press **Go to** to move the simulated arm there. Cartesian coordinates use millimetres and degrees; joint values use radians.
 
 Choose the tool before teaching or refreshing its points. A saved point is a pose for the active TCP, so Magnet and Fork targets can differ even when they refer to the same block.
 
@@ -129,21 +129,21 @@ The browser saves the current robot project locally. You can export a project JS
 
 ### 開始課堂練習
 
-1. 開啟 **Training** 並選擇課堂。第一次學習可由 Foundation 開始；如導師另有安排，亦可直接選擇其他課程。
+1. 開啟 **課程** 並選擇課堂。第一次學習可由 Foundation 開始；如導師另有安排，亦可直接選擇其他課程。
 2. 在工作區選擇 **Lua** 或 **Python**。兩種語言的編輯器程式分開儲存，課程範例會跟隨目前選取的語言。
-3. 閱讀課程目標和步驟。課程內的程式碼只是預覽；按 **Run** 不會直接執行它。
-4. 如要練習範例，選擇 **Load this example…** 並確認替換。確認之前，編輯器內原有程式不會被覆蓋。
-5. 返回工作區，選擇 **Run editor code**。留意機械臂、TCP 位置、執行狀態及記錄。**Stop** 可取消執行；遇到錯誤後，先閱讀記錄中的第一個錯誤再重試。
+3. 閱讀課程目標和步驟。課程內的程式碼只是預覽；按 **執行練習** 不會直接執行它。
+4. 選擇 **載入並開始練習** 並確認替換。課堂會關閉並返回練習指引；確認之前，原有程式不會被覆蓋。
+5. 機械臂動作課先在 **工具與設定** 選擇工具，返回 **練習** 後按 **準備這個練習**，再按 **執行練習**。留意機械臂、TCP 位置、執行狀態及記錄。**Stop** 可取消執行；遇到錯誤後，先閱讀記錄中的第一個錯誤再重試。
 
 第一課只會輸出文字，不需 API key，也不會移動機械臂。第一次移動課只會移至目前工具已儲存的 **PickApproach** 接近點，不會拾起方塊。建議中階次序：先用一件 Body1 練習被動叉臂沿槽滑入、抬起及釋放（不需 DO）；再練習攜件旋轉；然後以三件方塊垂直建塔，底層及頂層保持 0°，只有中層轉 +90°。之後學 RelMovL、單件磁吸取放，再用四塊 35 × 35 × 4 mm 磁吸片把黑白分成兩疊。
 
 ### 選擇工具及建立教點
 
-開啟 **Tool & pickup** 選擇目前工具，並查看已設定的 TCP 偏移。TCP（Tool Center Point，工具中心點）是移動指令使用的參考位置。本專案指定的預設位置為法蘭座標 +X 方向 60 mm；這是模擬器設定，不是實體安裝的量度值。
+開啟 **工具與設定** 選擇目前工具，並查看已設定的 TCP 偏移。TCP（Tool Center Point，工具中心點）是移動指令使用的參考位置。本專案指定的預設位置為法蘭座標 +X 方向 60 mm；這是模擬器設定，不是實體安裝的量度值。
 
-在 **Teach** 面板使用 **Teach pick pair** 或 **Teach place pair**，按目前工具建立或更新接近點和接觸點。你亦可使用 Jog 移動機械臂、儲存目前 TCP 姿態或關節角度、編輯教點，並按 **Go to** 令模擬機械臂前往該位置。笛卡兒座標使用毫米及角度；關節數值使用弧度。
+在 **示教** 分頁按 **示教拾取點組** 或 **示教放置點組**，按目前工具建立或更新接近點和接觸點。你亦可使用 **點動** 移動機械臂、按 **示教目前位置** 或 **儲存關節點**、編輯教點，再按 **前往所選** 令模擬機械臂前往該位置。笛卡兒座標使用毫米及角度；關節數值使用弧度。
 
-建立或更新教點前先選好工具。教點代表目前 TCP 的姿態，所以即使目標是同一個方塊，Magnet 和 Fork 的教點亦可能不同。
+建立或更新教點前先選好工具。教點代表目前 TCP 的姿態，所以即使目標是同一個方塊，Magnet 和 Fork 的教點亦可能不同。第一次移動課會在你選擇 **準備這個練習** 時，自動建立相配工件及 `PickApproach`。
 
 ### 兩種取放模式
 

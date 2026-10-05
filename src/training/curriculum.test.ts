@@ -5,7 +5,7 @@ import { prepareLessonProject } from "./practiceSetup";
 describe("beginner curriculum entry", () => {
   it("starts with a bilingual text-only program instead of a robot command", () => {
     const first = LESSONS[0];
-    expect(CURRICULUM_VERSION).toBe("1.3.7");
+    expect(CURRICULUM_VERSION).toBe("1.3.8");
     expect(first.id).toBe("foundation-first-program");
     expect(first.track).toBe("foundation");
     expect(first.title.en).toBeTruthy();
@@ -25,11 +25,11 @@ describe("beginner curriculum entry", () => {
     expect(languageGuidance).toContain("Python is for this simulator only");
     expect(languageGuidance).toContain("separate editor programs");
     expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("程式不能在實體 Dobot 控制器執行");
-    expect(first.explanation.map((copy) => copy.en).join(" ")).toContain("Run executes the program in the editor");
-    expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("「執行編輯器程式」會執行編輯器內的程式");
-    expect(first.guidedSteps[1].en).toContain("Until you load it, Run will execute the current editor program");
+    expect(first.explanation.map((copy) => copy.en).join(" ")).toContain("Run practice executes the program in the editor");
+    expect(first.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("「執行練習」會執行編輯器內的程式");
+    expect(first.guidedSteps[1].en).toContain("Until you load it, Run practice executes the current editor program");
     expect(first.guidedSteps[2].en).toContain("After loading the example");
-    expect(first.guidedSteps[1]["zh-Hant"]).toContain("「執行編輯器程式」會執行編輯器目前的程式");
+    expect(first.guidedSteps[1]["zh-Hant"]).toContain("「執行練習」會執行編輯器目前的程式");
     expect(first.practice.en).toContain("After loading the lesson example");
     expect(first.practice["zh-Hant"]).toContain("載入課堂範例後");
     expect(TRACKS.find((track) => track.id === "foundation")?.summary.en).toContain("a first simulated move");
@@ -48,16 +48,18 @@ describe("beginner curriculum entry", () => {
 
     const firstMove = LESSONS[1];
     expect(firstMove.title.en).toBe("First robot move: go to the approach point");
-    expect(firstMove.guidedSteps[0].en).toContain("completed course progress stay saved");
-    expect(firstMove.guidedSteps[0].en).toContain("save automatically with this local project");
-    expect(firstMove.guidedSteps[0].en).toContain("resume this lesson");
-    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("已完成進度會保留");
-    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("自動儲存到本機專案");
-    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("繼續本課");
+    expect(firstMove.guidedSteps[0].en).toContain("returns you to the practice guide");
+    expect(firstMove.guidedSteps[0].en).toContain("select Magnet or Fork");
+    expect(firstMove.guidedSteps[0].en).toContain("matching workpiece and PickApproach");
+    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("返回練習指引");
+    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("選擇磁吸或叉臂");
+    expect(firstMove.guidedSteps[0]["zh-Hant"]).toContain("相配工件及 PickApproach");
     expect(firstMove.examples.lua).toContain("MovJ(PickApproach, {CP=0})");
     expect(firstMove.examples.lua).toContain("Sync()");
     expect(firstMove.examples.python).toContain("mov_j(PickApproach, cp=0)");
     expect(firstMove.examples.python).toContain("sync()");
+    expect(firstMove.guidedSteps[1].en).toContain("Run practice");
+    expect(firstMove.guidedSteps[1]["zh-Hant"]).toContain("執行練習");
     expect(firstMove.examples.lua).not.toMatch(/\b(?:MovL|RelMovL|DO|Pick|Place)\s*\(/);
     expect(firstMove.examples.python).not.toMatch(/\b(?:mov_l|rel_mov_l|do|pick|place)\s*\(/);
     expect(firstMove.explanation.map((copy) => copy.en).join(" ")).toContain("does not insert, lift, or pick up anything");
@@ -101,6 +103,7 @@ describe("beginner curriculum entry", () => {
 
   it("keeps the Body1 fork progression and later magnetic tasks on their intended props", () => {
     const fork = prepareLessonProject("intermediate-passive-fork");
+    const firstMoveFork = prepareLessonProject("foundation-first-robot-move", "fork");
     const rotate = prepareLessonProject("intermediate-rotate-carried-block");
     const tower = prepareLessonProject("intermediate-three-layer-tower");
     const magnet = prepareLessonProject("intermediate-pick-and-place");
@@ -109,6 +112,12 @@ describe("beginner curriculum entry", () => {
     expect(fork.scene.blocks).toHaveLength(1);
     expect(fork.scene.blocks[0]).toMatchObject({ kind: "block", geometry: "body1", color: "neutral" });
     expect(fork.tool.mode).toBe("fork");
+    expect(firstMoveFork.tool.mode).toBe("fork");
+    expect(firstMoveFork.scene.blocks).toHaveLength(1);
+    expect(firstMoveFork.scene.blocks[0]).toMatchObject({ kind: "block", geometry: "body1" });
+    const firstMoveForkApproach = firstMoveFork.points.find(({ name }) => name === "PickApproach");
+    expect(firstMoveForkApproach?.kind).toBe("cartesian");
+    if (firstMoveForkApproach?.kind === "cartesian") expect(firstMoveForkApproach.pose).toMatchObject({ z: 132.5 });
     expect(fork.script).not.toMatch(/\bDO\s*\(/);
     expect(rotate.scene.blocks).toHaveLength(1);
     expect(rotate.scene.blocks[0].geometry).toBe("body1");

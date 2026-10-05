@@ -1,6 +1,6 @@
 # MG400 Virtual Training Simulator — Instructor Guide
 
-**Course release:** 1.3.7
+**Course release:** 1.3.8
 **Languages:** English and Traditional Chinese  
 **Last checked against the app:** 5 October 2026
 
@@ -19,8 +19,8 @@ Before learners begin:
 1. Open the app and check that the colored MG400, active tool, workpiece, and workspace panels have loaded.
 2. Explain that Lua and Python editor buffers are independent. Python is simulator-only; it is not code for a Dobot controller.
 3. Begin with the print-only lesson if learners have not programmed before. It does not move the robot and does not need an AI key.
-4. Explain the **Load this example…** confirmation. Lesson code is a preview until deliberately loaded; **Run editor code** runs the current editor buffer.
-5. Have learners select Magnet or Fork before teaching or refreshing point pairs.
+4. Explain the **Load and start practising** confirmation. Lesson code is a preview until deliberately loaded; loading it returns the learner to the practice guide.
+5. In the first robot-move lesson, learners choose Magnet or Fork under **Tools & settings**, return to **Practice**, and choose **Prepare this practice**. The simulator creates the matching workpiece and approach point; loading the lesson preview alone does not prepare or execute it.
 
 The 14 current lessons total about 211 minutes of stated lesson time. Actual class time depends on discussion and practice.
 
@@ -114,7 +114,7 @@ For OpenRouter Space Bunny Alpha, the model listing says its third-party provide
 
 Keep these identities separate when presenting the product:
 
-- **Course release:** 1.3.7, the version of the bilingual lesson content.
+- **Course release:** 1.3.8, the version of the bilingual lesson content.
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
@@ -144,7 +144,7 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 1. 開啟 app，確認彩色 MG400、目前工具、工件和工作區面板均已載入。
 2. 說明 Lua 和 Python 使用互相分開的編輯器內容。Python 只供模擬器使用，不能當作 Dobot 控制器程式。
 3. 對未學過程式的學生，先由只輸出文字的第一課開始。該課不會移動機械臂，也不需 AI key。
-4. 說明 **Load this example…** 的確認步驟。課程程式碼只是預覽；**Run editor code** 執行的是目前編輯器內容。
+4. 說明 **載入並開始練習** 的確認步驟。課堂程式碼只是預覽；載入後會返回練習指引。
 5. 提醒學生先選 Magnet 或 Fork，再建立或更新教點組合。
 
 目前 14 課標示時間合共約 211 分鐘。實際課堂時間會視乎討論和練習而變。
@@ -237,7 +237,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 向學生介紹產品時，請分清以下身分：
 
-- **課程版本：**1.3.7，代表雙語教材版本。
+- **課程版本：**1.3.8，代表雙語教材版本。
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。

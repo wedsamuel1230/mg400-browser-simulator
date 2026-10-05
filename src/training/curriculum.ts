@@ -32,7 +32,7 @@ export type Track = {
   summary: LocalizedText;
 };
 
-export const CURRICULUM_VERSION = "1.3.7";
+export const CURRICULUM_VERSION = "1.3.8";
 
 export const TRACKS: Track[] = [
   {
@@ -66,12 +66,12 @@ const RAW_LESSONS: Lesson[] = [
       { en: "A program runs from top to bottom. A comment is a note for people that the language skips: Lua starts one with `--`; Python starts one with `#`. The next line gives text a name (`local greeting = ...` in Lua; `greeting = ...` in Python), and `print(greeting)` shows it in the Run output.", "zh-Hant": "程式會由上而下執行。註解是給人看的提示，程式會略過：Lua 用 `--` 開始註解；Python 用 `#`。下一行為文字命名（Lua 寫 `local greeting = ...`；Python 寫 `greeting = ...`），而 `print(greeting)` 會在 執行記錄區顯示文字。" },
       { en: "In both examples, `=` stores a value. Both languages later use `==` to compare values; Lua closes `if` and loop blocks with `end`, while Python uses indentation. You do not need those ideas to run this first example.", "zh-Hant": "兩個範例都用 `=` 儲存數值。兩種語言之後都會用 `==` 比較數值；Lua 用 `end` 結束 `if` 和迴圈區塊，Python 則用縮排。本範例暫時不需要這些概念。" },
       { en: "In this simulator, Lua is the MG400 training language, limited to the documented simulator subset. Python is for this simulator only; its code cannot run on a physical Dobot controller. Lua and Python keep separate editor programs, and the lesson example always follows the selected language tab.", "zh-Hant": "本模擬器以 Lua 作 MG400 訓練語言，但只支援已列明的模擬器子集。Python 只供本模擬器使用，程式不能在實體 Dobot 控制器執行。Lua 和 Python 的編輯器程式分開儲存；課程範例會跟隨目前選取的語言分頁。" },
-      { en: "This text-only lesson example has no robot commands and needs no API key. The editor may still contain the full pick-and-place demo. Run executes the program in the editor, not the example preview in this lesson. Loading this example asks you to confirm before it replaces the editor contents.", "zh-Hant": "本課的文字範例沒有機械臂指令，也不需 API key。編輯器可能仍有完整取放示範程式。「執行編輯器程式」會執行編輯器內的程式，不會執行課程中的預覽範例。載入本範例前，系統會先請你確認才替換編輯器內容。" },
+      { en: "This text-only lesson example has no robot commands and needs no API key. The editor may still contain the full pick-and-place demo. Run practice executes the program in the editor, not the example preview in this lesson. Loading asks you to confirm before it replaces the editor contents.", "zh-Hant": "本課的文字範例沒有機械臂指令，也不需 API key。編輯器可能仍有完整取放示範程式。「執行練習」會執行編輯器內的程式，不會執行課堂預覽。載入範例前，系統會先請你確認才替換編輯器內容。" },
     ],
     guidedSteps: [
       { en: "Read the three lines in the selected-language example and find which one is a note, which one saves text, and which one displays it.", "zh-Hant": "閱讀所選語言的三行程式，找出哪行是註解、哪行儲存文字，以及哪行負責顯示文字。" },
-      { en: "To practise, choose Load this example… and confirm the replacement. Until you load it, Run will execute the current editor program, not the lesson preview. You can also skip running and just read the example.", "zh-Hant": "如要練習，請按「載入此範例…」並確認替換。在載入之前，「執行編輯器程式」會執行編輯器目前的程式，而非課堂預覽；你亦可以跳過執行，只閱讀範例。" },
-      { en: "After loading the example, change the words inside the quotes and press Run. Check that only the printed message changes while the virtual robot stays still.", "zh-Hant": "載入範例後，修改引號內的文字再按「執行編輯器程式」。確認只有輸出的訊息改變，而虛擬機械臂保持不動。" },
+      { en: "To practise, choose Load and start practising and confirm the replacement. Until you load it, Run practice executes the current editor program, not the lesson preview. You can also skip running and just read the example.", "zh-Hant": "如要練習，請按「載入並開始練習」並確認替換。在載入之前，「執行練習」會執行編輯器目前的程式，而非課堂預覽；你亦可以跳過執行，只閱讀範例。" },
+      { en: "After loading the example, change the words inside the quotes and press Run practice. Check that only the printed message changes while the virtual robot stays still.", "zh-Hant": "載入範例後，修改引號內的文字再按「執行練習」。確認只有輸出的訊息改變，而虛擬機械臂保持不動。" },
     ],
     practice: { en: "After loading the lesson example, change the message to introduce yourself, run it, and explain in one sentence what `print` did.", "zh-Hant": "載入課堂範例後，把訊息改成自我介紹，再執行並用一句話說明 `print` 做了甚麼。" },
     examples: {
@@ -97,15 +97,15 @@ const RAW_LESSONS: Lesson[] = [
     outcome: { en: "Run one MovJ command to move to the active tool's saved PickApproach point; it does not contact or pick the block.", "zh-Hant": "執行一個 MovJ 指令，移至目前工具已儲存的 PickApproach 接近點；不會接觸或拾起方塊。" },
     prerequisite: { en: "Complete or review the first print program. This runs only in the simulator, not on a physical MG400.", "zh-Hant": "先完成或重溫第一個 print 程式。本課只會在模擬器移動，不會控制實體 MG400。" },
     explanation: [
-      { en: "PickApproach and PickPoint are saved Cartesian TCP poses. In the Teach panel, Teach pick pair creates or refreshes them for the active tool and current block. A point name lets code refer to a pose without typing its coordinates.", "zh-Hant": "PickApproach 和 PickPoint 是已儲存的笛卡兒 TCP 姿態。在「示教點面板」按 「示教拾取點組」，便會按目前工具及方塊位置建立或更新兩個教點。程式可用名稱引用姿態，毋須輸入座標。" },
+      { en: "PickApproach and PickPoint are saved Cartesian TCP poses. Preparing this lesson creates or refreshes them for the selected tool and its matching workpiece. A point name lets code refer to a pose without typing its coordinates.", "zh-Hant": "PickApproach 和 PickPoint 是已儲存的笛卡兒 TCP 姿態。準備本課時，模擬器會按所選工具及相配工件建立或更新教點。程式可用名稱引用姿態，毋須輸入座標。" },
       { en: "MovJ moves the TCP to the named approach pose, and Sync waits for that queued move to finish. This is a single simulated move: it contains no DO, Pick, Place, or straight-line insertion command, and does not pick up the block.", "zh-Hant": "MovJ 會把 TCP 移至指定接近姿態，而 Sync 會等待佇列中的移動完成。這只是一個模擬移動：沒有 DO、Pick、Place 或直線插入指令，也不會拾起方塊。" },
-      { en: "The configured TCP is 60 mm along +X from the flange and can be changed in Tool & pickup. The magnet's taught approach is above the block. The passive, unpowered fork's entry point is 60 mm before the block at its raised support height, Z=130 mm. This first move goes only to that approach pose; it does not insert, lift, or pick up anything.", "zh-Hant": "目前設定的 TCP 位於法蘭 +X 方向 60 mm，可在 「工具與取件」 修改。磁吸工具的接近點位於方塊上方；無動力叉臂的入口點則位於方塊前方 60 mm、Z=130 mm 抬高承托面。本次只移至接近姿態，不會插入、抬起或拾取任何物件。" },
+      { en: "The configured TCP is 60 mm along +X from the flange and can be changed in Tools & settings. The magnet's approach is above its plate. The passive fork's entry point is 60 mm before the Body1 block at its raised support height. This first move goes only to that approach pose; it does not insert, lift, or pick up anything.", "zh-Hant": "目前設定的 TCP 位於法蘭 +X 方向 60 mm，可在「工具與設定」查看。磁吸工具的接近點位於磁吸片上方；無動力叉臂的入口點則位於 Body1 方塊前方 60 mm、抬高承托面。本次只移至接近姿態，不會插入、抬起或拾取任何物件。" },
     ],
     guidedSteps: [
-      { en: "Close Training Center to return to the workspace. Your current lesson and completed course progress stay saved; the selected tool and taught points save automatically with this local project. In the Teach panel, select Magnet pickup or Fork pickup and click Teach pick pair. Choose Training in the top bar to resume this lesson; PickApproach will match the selected tool.", "zh-Hant": "先關閉訓練中心返回工作區。本課位置及已完成進度會保留；所選工具和教點會自動儲存到本機專案。在「示教點面板」選擇 「磁吸拾取」 或 「叉臂拾取」，再按 「示教拾取點組」。按頂部的「訓練中心」 即可繼續本課；PickApproach 會配合所選工具。" },
-      { en: "Load this lesson's example and confirm the selected Lua or Python editor replacement. Then press Run editor code; the command uses the saved point, not the preview text in this lesson.", "zh-Hant": "載入本課範例，並確認替換目前選取的 Lua 或 Python 編輯器內容。然後按 「執行編輯器程式」；指令會使用已儲存教點，不會執行課堂內的預覽文字。" },
+      { en: "Choose Load and start practising and confirm replacing the current program. It returns you to the practice guide. Under Tools & settings, select Magnet or Fork, return to Practice, and press Prepare this practice. The simulator creates the matching workpiece and PickApproach point.", "zh-Hant": "按「載入並開始練習」並確認替換目前程式；畫面會返回練習指引。在「工具與設定」選擇磁吸或叉臂，再返回「練習」並按「準備這個練習」。模擬器會建立相配工件及 PickApproach 教點。" },
+      { en: "Press Run practice above the worktable. The command uses the saved PickApproach point, not the read-only code preview in this lesson.", "zh-Hant": "按工作台上方的「執行練習」。指令會使用已儲存的 PickApproach 教點，不會執行本課唯讀預覽中的程式碼。" },
       { en: "Watch the TCP marker and position move to PickApproach. Sync waits until the move finishes. The block stays where it is; no pickup is attempted.", "zh-Hant": "觀察 TCP 標記及位置移至 PickApproach。Sync 會等待移動完成。方塊會留在原位；程式不會嘗試拾取。" },
-      { en: "Try the other tool mode: close the lesson, select that tool, teach the pick pair, reopen the lesson, and run the same example. Compare the TCP display. This is a kinematic simulation and does not check collision clearance.", "zh-Hant": "試用另一種工具模式：關閉課堂、選擇另一工具、教取件點、重新開啟本課，再執行相同範例並比較 TCP 讀數。這是運動學模擬，沒有檢查碰撞間隙。" },
+      { en: "To compare the other tool, change it under Tools & settings, reopen this lesson, load its example, and prepare again. Run the same command and compare the TCP readout. This kinematic simulation does not check collision clearance.", "zh-Hant": "如要比較另一工具，請在「工具與設定」更改工具，重新開啟本課、載入範例並再次準備練習。執行相同指令並比較 TCP 讀數。此運動學模擬不會檢查碰撞間隙。" },
     ],
     practice: { en: "Run the example once in each tool mode. Record the TCP X/Y/Z values at PickApproach and explain why the two approaches differ. Do not add pickup, release, or DO commands.", "zh-Hant": "在兩種工具模式各執行一次範例，記錄 TCP 到達 PickApproach 時的 X／Y／Z 數值，並解釋兩個接近位置為何不同。不要加入拾取、釋放或 DO 指令。" },
     examples: {
@@ -136,7 +136,7 @@ const RAW_LESSONS: Lesson[] = [
     ],
     guidedSteps: [
       { en: "Read the example and predict which message appears when blockHeight is 15.", "zh-Hant": "閱讀範例，預測 blockHeight 為 15 時會顯示哪個訊息。" },
-      { en: "Change blockHeight to 10, then 5. Predict each result before pressing Run, then compare with the output. Notice that Lua uses then/end while Python uses a colon and indentation.", "zh-Hant": "把 blockHeight 改成 10，再改成 5。每次按「執行編輯器程式」 前先預測結果，再對照輸出。留意 Lua 用 then／end，而 Python 用冒號及縮排。" },
+      { en: "Change blockHeight to 10, then 5. Predict each result before pressing Run practice, then compare with the output. Notice that Lua uses then/end while Python uses a colon and indentation.", "zh-Hant": "把 blockHeight 改成 10，再改成 5。每次按「執行練習」前先預測結果，再對照輸出。留意 Lua 用 then／end，而 Python 用冒號及縮排。" },
       { en: "Change one comparison, such as > to >=. Explain which value now enters a different branch; keep this practice free of robot commands.", "zh-Hant": "把其中一個比較符號由 > 改為 >=，說明哪個數值現在會進入不同分支；本練習先不要加入機械臂指令。" },
     ],
     practice: { en: "Write an if/else that prints “ready” when blockHeight is at least 10 and “check height” otherwise. Test both results with print-only code.", "zh-Hant": "寫一個 if／else：blockHeight 大於或等於 10 時輸出「ready」，否則輸出「check height」。用只含 print 的程式測試兩個結果。" },
@@ -216,7 +216,7 @@ const RAW_LESSONS: Lesson[] = [
     guidedSteps: [
       { en: "Find TCP POSITION under the 3D view and note the unit labels.", "zh-Hant": "在 3D 視窗下方找出 TCP POSITION，留意各欄的單位。" },
       { en: "Open Jog, make a small X or Y move, then compare the readout with the grid.", "zh-Hant": "開啟 點動，沿 X 或 Y 軸小幅移動，再對照讀數與網格。" },
-      { en: "Open Tool & pickup and inspect the configured TCP offset and pickup tolerance.", "zh-Hant": "打開 「工具與取件」，查看 TCP 偏移及取件容差。" },
+      { en: "Open Tools & settings and inspect the configured TCP offset and pickup tolerance.", "zh-Hant": "打開「工具與設定」，查看 TCP 偏移及取件容差。" },
     ],
     practice: { en: "For each tool mode, state the block-centre height and the correct pickup/contact height. Explain why the magnet and passive fork use different target heights.", "zh-Hant": "分別寫出兩種工具模式下的方塊中心高度及取件／接觸高度，並解釋磁吸工具與無動力叉臂為何使用不同目標高度。" },
     examples: {
