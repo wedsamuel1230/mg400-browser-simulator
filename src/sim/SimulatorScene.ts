@@ -34,6 +34,7 @@ import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE, WORKSPACE_SCENE_PALETTES } from "./modelPalette";
 import { createReferenceBlock, setWorkpieceColor } from "./blockMarker";
 import { createFallbackForkGeometry, prepareFlangeMountedToolGeometry } from "./toolMount";
+import { fetchGzipModelAsset } from "./gzipModelAsset";
 
 export type SceneState = {
   joints: JointAngles;
@@ -208,17 +209,17 @@ export class SimulatorScene {
       let loaded = 0;
       let failed = false;
       loader.loadMeshCb = (url, manager, material, done) => {
-        meshLoads.push(new Promise<void>((resolve, reject) => {
-          loader.defaultMeshLoader(url, manager, material, (mesh, error) => {
-            if (error || !mesh || (mesh instanceof Mesh && !mesh.geometry.getAttribute("position")?.count)) {
-              failed = true;
-              reject(error ?? new Error(`Could not load MG400 mesh: ${url}`));
-              return;
-            }
-            done(mesh);
-            if (!failed) onStatus({ kind: "loading", message: "Loading MG400 visual meshes…", progress: Math.round((++loaded / meshLoads.length) * 100) });
-            resolve();
-          });
+        meshLoads.push((async () => {
+          const bytes = await fetchGzipModelAsset(`${url}.gz`);
+          const geometry = new STLLoader(manager).parse(bytes);
+          if (!geometry.getAttribute("position")?.count) throw new Error(`Could not load MG400 mesh: ${url}`);
+          done(new Mesh(geometry, material));
+          if (!failed) onStatus({ kind: "loading", message: "Loading MG400 visual meshes…", progress: Math.round((++loaded / meshLoads.length) * 100) });
+        })().catch((error: unknown) => {
+          failed = true;
+          const reason = error instanceof Error ? error : new Error(String(error));
+          done(null!, reason);
+          throw reason;
         }));
       };
       const robot = loader.parse(urdfXml);

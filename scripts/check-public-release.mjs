@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 
 const root = process.cwd();
 const forbiddenNames = /fork\.stl/i;
@@ -25,6 +26,19 @@ for (const directory of ["public", "dist"]) {
   for (const [name, expected] of Object.entries(approvedTools)) {
     const path = join(root, directory, "models/tools", name);
     if (!existsSync(path) || createHash("sha256").update(readFileSync(path)).digest("hex") !== expected) throw new Error(`Missing or altered approved tool model: ${path}`);
+    const compressedPath = `${path}.gz`;
+    if (!existsSync(compressedPath) || !gunzipSync(readFileSync(compressedPath)).equals(readFileSync(path))) throw new Error(`Missing or non-identical compressed tool model: ${compressedPath}`);
+  }
+}
+
+const stlFiles = (directory) => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+  const path = join(directory, entry.name);
+  return entry.isDirectory() ? stlFiles(path) : /\.stl$/i.test(entry.name) ? [path] : [];
+});
+for (const directory of ["public/models/mg400", "dist/models/mg400"]) {
+  for (const path of stlFiles(join(root, directory))) {
+    const compressedPath = `${path}.gz`;
+    if (!existsSync(compressedPath) || !gunzipSync(readFileSync(compressedPath)).equals(readFileSync(path))) throw new Error(`Missing or non-identical compressed MG400 mesh: ${compressedPath}`);
   }
 }
 

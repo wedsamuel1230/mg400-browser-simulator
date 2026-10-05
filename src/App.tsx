@@ -88,6 +88,7 @@ import { CodeAssistant } from "./CodeAssistant";
 import { getRovingFocusIndex } from "./accessibility/rovingFocus";
 import { isLikelyStl } from "./sim/toolImport";
 import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
+import { readGzipModelAsset } from "./sim/gzipModelAsset";
 
 const Editor = lazy(async () => {
   const [editorModule, monaco] = await Promise.all([import("@monaco-editor/react"), import("monaco-editor")]);
@@ -397,9 +398,8 @@ export default function App() {
     const abort = new AbortController();
     const files = ["magnet.stl", "Block.stl", "Body1.stl"];
     void Promise.allSettled(files.map(async (name) => {
-      const response = await fetch(`${import.meta.env.BASE_URL}models/tools/${name}`, { signal: abort.signal });
-      if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
-      const bytes = await response.arrayBuffer();
+      const response = await fetch(`${import.meta.env.BASE_URL}models/tools/${name}.gz`, { signal: abort.signal });
+      const bytes = await readGzipModelAsset(response);
       if (!isLikelyStl(bytes)) throw new Error(`${name}: invalid STL`);
       return bytes;
     })).then(([magnetResult, forkResult, blockResult]) => {

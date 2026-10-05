@@ -1,6 +1,7 @@
 import xml from "../../public/models/mg400/mg400_description/urdf/mg400_description.urdf?raw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import URDFLoader from "urdf-loader";
+// @ts-expect-error Node built-ins are used only by Vitest fixtures; production code stays browser-only.
+import { gzipSync } from "node:zlib";
 import { Box3, BoxGeometry, Mesh, Quaternion, Vector3, type Group, type Scene, type BufferGeometry, type PerspectiveCamera } from "three";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import { MG400Kinematics } from "./mg400Kinematics";
@@ -27,18 +28,13 @@ beforeEach(() => {
     constructor(input: string, init?: RequestInit) { super(new URL(input, "http://localhost").href, init); }
   });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
-  // Keep Three loaders in the test realm; external URDF imports otherwise use
-  // Node's native fetch rather than the jsdom fetch stub.
-  vi.spyOn(URDFLoader.prototype, "defaultMeshLoader").mockImplementation((url, manager, material, done) => {
-    new STLLoader(manager).load(url, (geometry) => done(new Mesh(geometry, material)), undefined, (error) => done(null!, error as Error));
-  });
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it("finishes both overlapping scenes only after all nine real STL callbacks attach", async () => {
   let finish!: () => void;
   const pending = new Promise<void>((resolve) => { finish = resolve; });
-  const fetch = vi.fn(async () => { await pending; return new Response(stl); });
+  const fetch = vi.fn(async () => { await pending; return new Response(gzipSync(stl)); });
   vi.stubGlobal("fetch", fetch);
   const statuses: SceneStatus[][] = [[], []];
   const scenes = statuses.map((list) => SimulatorScene.create(document.createElement("canvas"), xml, (status) => list.push(status)));
@@ -62,10 +58,11 @@ it("reports a failed STL and never emits ready", async () => {
   let release!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
   const responses: Promise<Response>[] = [];
-  vi.stubGlobal("fetch", (request: Request) => {
-    const response = request.url.toLowerCase().endsWith("base_link.stl")
+  vi.stubGlobal("fetch", (request: RequestInfo | URL) => {
+    const url = typeof request === "string" ? request : request instanceof Request ? request.url : String(request);
+    const response = url.toLowerCase().endsWith("base_link.stl.gz")
       ? Promise.resolve(new Response("missing", { status: 404 }))
-      : pending.then(() => new Response(stl));
+      : pending.then(() => new Response(gzipSync(stl)));
     responses.push(response);
     return response;
   });
@@ -82,7 +79,7 @@ it("reports a failed STL and never emits ready", async () => {
 
 
 for (const withPuck of [false, true]) it(`preserves first non-magnet Body1 world transforms (preceding magnet=${withPuck})`, async () => {
-  vi.stubGlobal("fetch", async () => new Response(stl));
+  vi.stubGlobal("fetch", async () => new Response(gzipSync(stl)));
   const view=await SimulatorScene.create(document.createElement("canvas"),xml,()=>undefined);
   const internals=view as unknown as {scene:Scene;toolGroup:Group;block:Mesh;localForkBlockGeometry:BufferGeometry;appliedLocalMeshes:{blockProfile:"body1"};applyRobotAndTool:()=>void};
   const geometry=new BoxGeometry(40,40,40);geometry.translate(0,0,20);
@@ -112,7 +109,7 @@ for (const withPuck of [false, true]) it(`preserves first non-magnet Body1 world
 });
 
 it("uses one shared front platform and keeps explicit magnetic objects above it in fork mode",async()=>{
- vi.stubGlobal("fetch",async()=>new Response(stl));
+ vi.stubGlobal("fetch",async()=>new Response(gzipSync(stl)));
  const view=await SimulatorScene.create(document.createElement("canvas"),xml,()=>undefined);
  const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";
  project.scene.blocks=[project.scene.blocks[0],{id:"magnet",kind:"magnet",color:"neutral",source:"pickup",position:{x:480,y:220},z:25,r:0}];
@@ -130,7 +127,7 @@ it("uses one shared front platform and keeps explicit magnetic objects above it 
 });
 
 it("keeps the platform fixed while supply pieces move and projects placement onto its top", async () => {
- vi.stubGlobal("fetch", async () => new Response(stl));
+ vi.stubGlobal("fetch", async () => new Response(gzipSync(stl)));
  const canvas = document.createElement("canvas");
  vi.spyOn(canvas,"getBoundingClientRect").mockReturnValue({left:0,top:0,width:800,height:600,right:800,bottom:600,x:0,y:0,toJSON:()=>({})});
  const view = await SimulatorScene.create(canvas,xml,()=>undefined);
@@ -151,7 +148,7 @@ it("keeps the platform fixed while supply pieces move and projects placement ont
 });
 
 it("keeps the platform fixed and renders every Body1 layer from the supplied STL without support posts",async()=>{
- vi.stubGlobal("fetch",async()=>new Response(stl));
+ vi.stubGlobal("fetch",async()=>new Response(gzipSync(stl)));
  const view=await SimulatorScene.create(document.createElement("canvas"),xml,()=>undefined);
  const {prepareLessonProject}=await import("../training/practiceSetup");
  const project=prepareLessonProject("intermediate-three-layer-tower");
@@ -183,7 +180,7 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
 });
 
 it("frames the actual output arrangement and its stack height while leaving the teaching platform fixed", async () => {
- vi.stubGlobal("fetch", async () => new Response(stl));
+ vi.stubGlobal("fetch", async () => new Response(gzipSync(stl)));
  const view = await SimulatorScene.create(document.createElement("canvas"), xml, () => undefined);
  const project = structuredClone(DEFAULT_PROJECT);
  project.scene.blocks = [

@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/copy-pyodide-assets.mjs && vite --host 127.0.0.1",
-    "prebuild": "node scripts/copy-pyodide-assets.mjs",
+    "dev": "node scripts/copy-pyodide-assets.mjs && node scripts/compress-model-assets.mjs && vite --host 127.0.0.1",
+    "prebuild": "node scripts/copy-pyodide-assets.mjs && node scripts/compress-model-assets.mjs",
     "build": "tsc -b && vite build",
     "release:check": "node scripts/check-public-release.mjs",
     "preview": "vite preview --host 127.0.0.1",
