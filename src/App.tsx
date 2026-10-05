@@ -251,6 +251,8 @@ export default function App() {
   const [latestPrintOutput, setLatestPrintOutput] = useState<string | null>(null);
   const [programRunLog, setProgramRunLog] = useState<LogEntry[]>([]);
   const activeProgramRunRef = useRef(false);
+  const runStartedAtRef = useRef<number | null>(null);
+  const [lastRunDurationMs, setLastRunDurationMs] = useState<number | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([
     { id: "welcome", time: "READY", message: "Local simulator ready. No robot hardware is connected.", level: "info" },
   ]);
@@ -443,7 +445,7 @@ export default function App() {
     [hasCurrentRun, programRunLog],
   );
   const recommendation = useMemo(
-    () => recommendPickAndPlace(practicePrepared && !freeMode && !attached && status === "complete" ? resetCell(project) : project, project.programmingLanguage, kinematics ?? undefined, modelError, forkProfile, uiLanguage),
+    () => recommendPickAndPlace(practicePrepared && !freeMode && (busy || status === "complete") ? resetCell(project) : project, project.programmingLanguage, kinematics ?? undefined, modelError, forkProfile, uiLanguage),
     [project.points, project.scene, project.tool, project.programmingLanguage, kinematics, modelError, forkProfile, practicePrepared, freeMode, attached, status, uiLanguage],
   );
   const towerBlocks = project.scene.blocks.filter((block) => block.stackLevel !== undefined);
@@ -602,7 +604,14 @@ export default function App() {
         setDigitalOutput: (index, value) => setOutputs((current) => ({ ...current, [index]: value })),
         setStatus: (next) => {
           setStatus(next);
-          if (next === "complete" || next === "stopped" || next === "error") queueMicrotask(() => { activeProgramRunRef.current = false; });
+          if (next === "complete" || next === "stopped" || next === "error") {
+            const startedAt = runStartedAtRef.current;
+            if (startedAt !== null) {
+              setLastRunDurationMs(Math.max(0, performance.now() - startedAt));
+              runStartedAtRef.current = null;
+            }
+            queueMicrotask(() => { activeProgramRunRef.current = false; });
+          }
         },
         addLog,
         setPrintOutput: setLatestPrintOutput,
@@ -627,6 +636,8 @@ export default function App() {
     taskEvidenceRef.current = newTaskEvidence();
     taskStartProjectRef.current = structuredClone(projectRef.current);
     activeProgramRunRef.current = true;
+    runStartedAtRef.current = performance.now();
+    setLastRunDurationMs(null);
     setLatestPrintOutput(null);
     setProgramRunLog([]);
     if (!attachedRef.current) {
@@ -684,6 +695,8 @@ export default function App() {
 
   function resetRobot() {
     activeProgramRunRef.current = false;
+    runStartedAtRef.current = null;
+    setLastRunDurationMs(null);
     controllerRef.current?.stop(false, true);
     const home = projectRef.current.points.find((point) => point.name === "Home" && point.kind === "joint");
     setRobotJoints(home?.kind === "joint" ? [...home.joints] : initialJoints);
@@ -772,7 +785,7 @@ export default function App() {
     const passiveForkEntry = current.tool.mode === "fork" && kind === "pick";
     const approachPose = passiveForkEntry
       ? forkEntryPose(surfacePose)
-      : { ...surfacePose, z: contactHeight + 80 };
+      : { ...surfacePose, z: surfacePose.z + 80 };
     const surface = makeCartesianPoint(surfaceName, surfacePose, existingSurface?.id);
     const approach = makeCartesianPoint(approachName, approachPose, existingApproach?.id);
     const replacedIds = new Set([existingSurface?.id, existingApproach?.id].filter((id): id is string => Boolean(id)));
@@ -1261,35 +1274,50 @@ export default function App() {
   }[status];
 
   const freeModeTopPanel = freeMode ? <section className={`free-mode-panel free-mode-top${showWorkshop ? " free-mode-detailed" : ""}`} aria-label={uiLanguage === "zh-Hant" ? "自由模式工作格" : "Free mode workcell"}>
-    <div className="free-mode-heading"><div><strong>{uiLanguage === "zh-Hant" ? "自由模式 · 自訂工作格" : "Free mode · Custom cell"}</strong><span>{uiLanguage === "zh-Hant" ? "加入物件，再點工作台擺放；拖曳工作台可旋轉視角。" : "Add an object, then click the table to place it. Drag the table to orbit."}</span></div><div className="free-object-actions">
-      <select aria-label={uiLanguage === "zh-Hant" ? "工件類型" : "Workpiece type"} value={pileKind} onChange={event=>setPileKind(event.currentTarget.value as "body1"|"magnet")} disabled={busy}><option value="body1">{uiLanguage === "zh-Hant" ? "Body1 槽積木40×40×40" : "Body1 slotted block40×40×40"}</option><option value="magnet">{uiLanguage === "zh-Hant" ? "磁吸片35×35×4" : "Magnetic puck35×35×4"}</option></select>
-      <NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={pileCount} min={1} max={pileKind==="body1"?3:10} step={1} disabled={busy} onChange={setPileCount}/>
-      <NumericField label="X" value={pileX} suffix="mm" disabled={busy} onChange={setPileX}/><NumericField label="Y" value={pileY} suffix="mm" disabled={busy} onChange={setPileY}/>
-      <button className="secondary-button outlined-button" onClick={()=>addCellObject(pileKind==="body1"?"block":"magnet")} disabled={busy}>{uiLanguage === "zh-Hant" ? "建立堆疊" : "Create pile"}</button>
-      {project.scene.blocks.length > 0 && <button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> {uiLanguage === "zh-Hant" ? "重設" : "Reset"}</button>}
-      {project.scene.blocks.length > 0 && <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>}
-      <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "為工作格寫程式" : "Code for this cell"}<ArrowRight size={16} /></button>
-    </div></div>
-    {project.scene.blocks.length > 0 && <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} className={`free-object-chip ${block.kind === "magnet" ? "magnet-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">■</span> {cellObjectLabel(block)}</button>)}</div>}
-    {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{cellObjectLabel(selected)}</strong><div className="free-selected-fields"><NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={selected.pileId?project.scene.blocks.filter(block=>block.pileId===selected.pileId).length:1} min={1} max={selected.geometry==="body1"?3:10} step={1} disabled={busy} onChange={value=>resizePile(selected.id,value)}/><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><details className="advanced-tool-settings"><summary>{uiLanguage === "zh-Hant" ? "進階" : "Advanced"}</summary><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /></details><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={15} /></button></div></div>; })()}
-    <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? `平台頂面高 ${platformHeight(project.scene)} mm。件數決定垂直層高；接觸點由系統計算。` : `The platform top is ${platformHeight(project.scene)} mm. Count determines the vertical pile; contact heights are calculated.`}</p>
-    <p className="tool-mode-note">{(() => {
-      const item = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0];
-      if (!item) return null;
-      const body1 = project.tool.mode === "fork" && effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, item.id) === "body1";
-      const size = cellBlockSize(item, project.tool.mode);
-      const height = body1 ? 40 : size.z;
-      const support = size.z === 4 ? magneticSurfaceHeight(project.scene) : platformHeight(project.scene) + (body1 ? body1SupportHeight(project.scene) : project.tool.mode === "fork" ? FORK_SUPPORT_HEIGHT_MM : 0);
-      const bottom = (item.z ?? 0) + support + (item.stackLevel ?? 0) * height;
-      const contact=body1?bottom+25:bottom+height;
-      const descent=pose.z-contact;
-      return uiLanguage === "zh-Hant" ? `固定平台 Z110 → 工件底面 Z${bottom} → 頂面 Z${bottom+height} → TCP承托／接觸 Z${contact} mm；目前TCP至接觸點垂直移動${Math.abs(descent).toFixed(1)} mm（${descent>=0?"下降":"上升"}），承托後抬高80 mm；教點對準最上層，一次取一件。` : `Fixed platform Z110 → bottom Z${bottom} → top Z${bottom+height} → TCP load/contact Z${contact} mm; vertical travel ${Math.abs(descent).toFixed(1)} mm ${descent>=0?"down":"up"}, then lift80 mm after pickup. Taught points pick the topmost piece, one per cycle.`;
-    })()}</p><small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "工作台目前是空的；先加入方塊或35×35×4 mm 磁吸片。" : "The table is empty. Add a block or magnetic plate to begin.") : (uiLanguage === "zh-Hant" ? "只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Contact follows simulator rules; magnetic force, collisions and physical stability are not modeled."))}</small>
+    <div className="free-mode-heading">
+      <div><strong>{uiLanguage === "zh-Hant" ? "自由模式 · 自訂工作格" : "Free mode · Custom cell"}</strong><span>{uiLanguage === "zh-Hant" ? "選擇物件、件數和工作台座標，然後建立堆疊。" : "Choose an object, quantity, and worktable position, then create the pile."}</span></div>
+      <div className="free-quick-setup">
+        <div className="free-quick-fields">
+          <select aria-label={uiLanguage === "zh-Hant" ? "工件類型" : "Workpiece type"} value={pileKind} onChange={event=>setPileKind(event.currentTarget.value as "body1"|"magnet")} disabled={busy}><option value="body1">{uiLanguage === "zh-Hant" ? "Body1 槽積木 40×40×40 mm" : "Body1 slotted block · 40×40×40 mm"}</option><option value="magnet">{uiLanguage === "zh-Hant" ? "磁吸片 35×35×4 mm" : "Magnetic plate · 35×35×4 mm"}</option></select>
+          <NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={pileCount} min={1} max={pileKind==="body1"?3:10} step={1} disabled={busy} onChange={setPileCount}/>
+          <NumericField label="X" value={pileX} suffix="mm" disabled={busy} onChange={setPileX}/>
+          <NumericField label="Y" value={pileY} suffix="mm" disabled={busy} onChange={setPileY}/>
+        </div>
+        <div className="free-quick-actions">
+          <button className="secondary-button outlined-button free-create-pile" onClick={()=>addCellObject(pileKind==="body1"?"block":"magnet")} disabled={busy}>{uiLanguage === "zh-Hant" ? `建立 ${pileCount} 件` : `Create ${pileCount} items`}</button>
+          <button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "開始寫程式" : "Write a program"}<ArrowRight size={16} /></button>
+        </div>
+      </div>
+    </div>
+    <p className="free-pile-summary">{uiLanguage === "zh-Hant" ? `會建立 ${pileCount} 件${pileKind === "body1" ? "槽積木" : "磁吸片"}；預計堆高 ${(pileKind === "body1" ? 40 : 4) * pileCount} mm。工作台頂面固定在 Z${platformHeight(project.scene)} mm。開始執行後會顯示程式完成所需時間。` : `Creates ${pileCount} ${pileKind === "body1" ? "slotted blocks" : "magnetic plates"}; pile height ${(pileKind === "body1" ? 40 : 4) * pileCount} mm. The worktable stays at Z${platformHeight(project.scene)} mm. Run-to-finish time appears after execution.`}</p>
+    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "目前沒有物件；設定數量及 X/Y 後建立堆疊。" : "No objects yet. Set a quantity and X/Y, then create the pile.") : (uiLanguage === "zh-Hant" ? "已建立的物件只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Created objects follow simulator contact rules; magnetic force, collision, and physical stability are not modeled."))}</small>
+    {project.scene.blocks.length > 0 && <details className="free-advanced-settings">
+      <summary>{uiLanguage === "zh-Hant" ? "進階工作格設定" : "Advanced workcell settings"}</summary>
+      <div className="free-advanced-actions">
+        <button className="secondary-button outlined-button" onClick={resetFreeCell} disabled={busy}><RotateCcw size={14} /> {uiLanguage === "zh-Hant" ? "重設工作格" : "Reset workcell"}</button>
+        <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>
+      </div>
+      <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} aria-pressed={freeSelectedId === block.id} className={`free-object-chip ${block.kind === "magnet" ? "magnet-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">■</span> {cellObjectLabel(block)}</button>)}</div>
+      {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{cellObjectLabel(selected)}</strong><div className="free-selected-fields"><NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={selected.pileId?project.scene.blocks.filter(block=>block.pileId===selected.pileId).length:1} min={1} max={selected.geometry==="body1"?3:10} step={1} disabled={busy} onChange={value=>resizePile(selected.id,value)}/><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><details className="advanced-tool-settings"><summary>{uiLanguage === "zh-Hant" ? "高度與方向" : "Height and orientation"}</summary><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /></details><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy}><Trash2 size={15} /></button></div></div>; })()}
+      <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? `工作台頂面 Z${platformHeight(project.scene)} mm；件數決定垂直堆疊高度，接觸點由系統計算。` : `Worktable top Z${platformHeight(project.scene)} mm; count sets the pile height and contact points are calculated.`}</p>
+      <p className="tool-mode-note">{(() => {
+        const item = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0];
+        if (!item) return null;
+        const body1 = project.tool.mode === "fork" && effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, item.id) === "body1";
+        const size = cellBlockSize(item, project.tool.mode);
+        const height = body1 ? 40 : size.z;
+        const support = size.z === 4 ? magneticSurfaceHeight(project.scene) : platformHeight(project.scene) + (body1 ? body1SupportHeight(project.scene) : project.tool.mode === "fork" ? FORK_SUPPORT_HEIGHT_MM : 0);
+        const bottom = (item.z ?? 0) + support + (item.stackLevel ?? 0) * height;
+        const contact=body1?bottom+25:bottom+height;
+        const descent=pose.z-contact;
+        return uiLanguage === "zh-Hant" ? `工件底面 Z${bottom} → 頂面 Z${bottom+height} → TCP承托／接觸 Z${contact} mm；目前 TCP 垂直移動 ${Math.abs(descent).toFixed(1)} mm（${descent>=0?"下降":"上升"}）。教點會對準最上層，每次取一件。` : `Part bottom Z${bottom} → top Z${bottom+height} → TCP load/contact Z${contact} mm; current vertical TCP travel ${Math.abs(descent).toFixed(1)} mm ${descent>=0?"down":"up"}. Points target the topmost piece, one per cycle.`;
+      })()}</p>
+    </details>}
   </section> : null;
 
   return (
     <main className="app-shell learning-studio">
-      {project.scene.platformMigrationFromMm !== undefined && <p role="status">平台已固定為110 mm（原{project.scene.platformMigrationFromMm} mm）；原程式及教點已保留，執行前須重新示教。 / Platform normalized to110 mm; saved code and points preserved. Re-teach before running.</p>}
+      {project.scene.platformMigrationFromMm !== undefined && <p role="status">{uiLanguage === "zh-Hant" ? `平台已標準化為 110 mm（原為 ${project.scene.platformMigrationFromMm} mm），已保留程式及教點；執行前請重新示教。` : `Platform normalized to 110 mm (previously ${project.scene.platformMigrationFromMm} mm). Code and points are preserved; re-teach before running.`}</p>}
       <header className="topbar">
         <a className="brand-lockup" href="#" onClick={(event) => { event.preventDefault(); openWorkbench("practice"); if (!busy) { setPracticeLessonId(null); setPracticePrepared(false); } }} aria-label={uiLanguage === "zh-Hant" ? "返回練習首頁" : "Practice home"}>
           <div className="brand-mark"><Activity size={24} /></div><div><strong>MG400 Lab</strong><small>{uiLanguage === "zh-Hant" ? "機械臂學習工作台" : "Robot learning studio"}</small></div>
@@ -1340,7 +1368,7 @@ export default function App() {
               <button className="text-button" onClick={() => { setTrainingLessonId(practiceLesson.id); setShowTraining(true); }}>{uiLanguage === "zh-Hant" ? "閱讀這課的說明與小測" : "Read this lesson and quiz"}<BookOpenCheck size={17} /></button>
             </>}
           </section>
-          <section className="free-workspace" hidden={workbenchView !== "objects"}><h1>{uiLanguage === "zh-Hant" ? "自由擺放" : "Free play"}</h1><p>{uiLanguage === "zh-Hant" ? "加入物件，選取它，再點工作台決定位置。" : "Add an object, select it, then click the worktable to place it."}</p>{freeModeTopPanel}</section>
+          <section className="free-workspace" hidden={workbenchView !== "objects"}><h1>{uiLanguage === "zh-Hant" ? "自由擺放" : "Free play"}</h1><p>{uiLanguage === "zh-Hant" ? "選擇工件、數量和工作台 X/Y 座標，建立堆疊後即可編寫程式。" : "Choose a workpiece, count, and worktable X/Y to create a pile, then write a program."}</p>{freeModeTopPanel}</section>
           <section className="settings-intro" hidden={workbenchView !== "settings"}><h1>{uiLanguage === "zh-Hant" ? "工具與設定" : "Tools & settings"}</h1><p>{uiLanguage === "zh-Hant" ? "日常練習已備好工具。只有使用不同模型或自訂工作格時，才需要調整以下設定。" : "Practices configure the tool for you. Adjust these settings for custom models or cells."}</p></section>
           <section className="panel code-panel" hidden={workbenchView !== "program"}>
             <div className="panel-heading code-heading">
@@ -1700,6 +1728,7 @@ export default function App() {
           <section className={`practice-result result-${status}`} aria-label={uiLanguage === "zh-Hant" ? "執行結果" : "Run result"} aria-live="polite">
             <h2>{uiLanguage === "zh-Hant" ? "執行結果" : "Run result"}</h2>
             {status === "running" || status === "paused" ? <p>{uiLanguage === "zh-Hant" ? (status === "paused" ? "已暫停；按「繼續模擬」完成練習。" : "程式執行中，觀察工作台上的動作。") : (status === "paused" ? "Paused. Resume to continue." : "Running. Watch the worktable.")}</p> : status === "error" ? <><p className="result-error">{resultError ? localizeWorkspaceMessage(resultError.message, uiLanguage) : (uiLanguage === "zh-Hant" ? "程式未完成，請查看執行記錄。" : "The program did not complete. Review the run log.")}</p><button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "打開程式與記錄" : "Open code and log"}<ArrowRight size={16} /></button></> : latestPrintOutput ? <><pre>{latestPrintOutput}</pre><p>{uiLanguage === "zh-Hant" ? "這是你的程式輸出的文字。" : "This is the message your program printed."}</p></> : <p>{status === "complete" ? (uiLanguage === "zh-Hant" ? "程式已完成。看看工件位置有甚麼改變。" : "Program finished. Check where the workpiece is now.") : (uiLanguage === "zh-Hant" ? "執行後，你會在這裡看到程式訊息及完成狀態。" : "Program messages and completion status appear here after you run.")}</p>}
+            {lastRunDurationMs !== null && (status === "complete" || status === "stopped" || status === "error") && <p className="run-duration" role="status">{uiLanguage === "zh-Hant" ? `本次實際用時：${(lastRunDurationMs / 1000).toFixed(1)} 秒（由執行至結束，包含程式載入和暫停）` : `Actual run time: ${(lastRunDurationMs / 1000).toFixed(1)} s (from Run to finish, including startup and pauses)`}</p>}
             {taskChecks.length > 0 && <div className="task-assessment" data-task-passed={taskChecks.every(check => check.passed)}><strong>{uiLanguage === "zh-Hant" ? (taskChecks.every(check => check.passed) ? "任務驗證通過" : "程式已結束，任務仍有步驟待完成") : (taskChecks.every(check => check.passed) ? "Task verified" : "Program ended; some task steps remain")}</strong><ul>{taskChecks.map(check => <li key={check.id} data-check={check.id} data-passed={check.passed}>{check.passed ? "✓" : "○"} {uiLanguage === "zh-Hant" ? check.zh : check.en}</li>)}</ul></div>}
             {workbenchView === "practice" && practicePrepared && status === "complete" && <><p>{uiLanguage === "zh-Hant" ? (taskChecks.some(check => !check.passed) ? "下一步：對照上方 ○ 項目，查看程式與教點，修改後再執行。" : practiceIsPrint ? "下一步：打開「程式」，把問候文字改成你的名字，再執行一次。" : "下一步：打開「程式」，試改一個數值，再觀察動作有甚麼改變。") : (taskChecks.some(check => !check.passed) ? "Next: review the unchecked steps, code and points, then try again." : practiceIsPrint ? "Next: open Code, change the greeting to your name, and run again." : "Next: open Code, change one value, and watch how the motion changes.")}</p><button className="text-button" onClick={() => openWorkbench("program")}>{uiLanguage === "zh-Hant" ? "打開程式" : "Open code"}<ArrowRight size={16} /></button></>}
             {practiceLessonId === "intermediate-three-layer-tower" && <p>{uiLanguage === "zh-Hant" ? `已放置 ${towerBlocks.length} / 3 層` : `${towerBlocks.length} / 3 layers placed`}</p>}

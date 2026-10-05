@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Student Guide
 
-**Course release:** 1.3.6
+**Course release:** 1.3.7
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 4 October 2026
+**Last checked against the app:** 5 October 2026
 
 ## What this simulator can do
 
@@ -21,7 +21,7 @@ There is no physical robot connection, collision-safety system, contact-force mo
 4. To practise an example, choose **Load this example…** and confirm the replacement. The current editor program stays until you confirm.
 5. Return to the workspace and choose **Run editor code**. Watch the robot, TCP position, run status, and log. **Stop** cancels a run; after an error, read the first error in the log before trying again.
 
-The first lesson is print-only. It needs no API key and does not move the robot. The first-motion lesson moves only to the selected tool's saved `PickApproach` point; it does not pick up the block. In the Intermediate fork sequence, first practise one normal Body1 pickup, then the carried +90° turn, then the three-layer tower whose middle layer alone turns. The black/white magnetic-plate stacks are a separate task.
+The first lesson is print-only. It needs no API key and does not move the robot. The first-motion lesson moves only to the selected tool's saved `PickApproach` point; it does not pick up the block. Recommended Intermediate order: practise the one-block Body1 passive-fork slide, lift, and release first (no DO); then practise a carried turn; then stack three blocks vertically with bottom/top at 0° and only the middle at +90°. Continue with RelMovL, single-plate magnet pickup, then four 35 × 35 × 4 mm magnetic plates sorted into separate black and white stacks.
 
 ## Choose a tool and teach points
 
@@ -35,7 +35,7 @@ Choose the tool before teaching or refreshing its points. A saved point is a pos
 
 | Tool | What the simulator represents | Program behavior |
 |---|---|---|
-| **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the block's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the black/white stacking lesson, the white plate is attached and lifted before the wrist turns +45°. |
+| **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the workpiece's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the black/white stacking lesson, the white plate is attached and lifted before the wrist turns +45°. |
 | **Fork** | The supplied printed fork enters the 40 × 40 × 40 mm Body1 grooves. Body1 rests directly on the shared platform at Z = 110 mm; the fork insertion TCP is Z = 132.5 mm and the support/release height is Z = 135 mm. | Move to the entry point, slide under the block, lift to pick it up, then lower it to release. No `DO`, `Pick()`, or `Place()` call is needed. |
 
 The fork is passive: it has no motor or powered fingers. The app models support and release with deterministic simulator rules, not rigid-body physics. A completed run is evidence about this simulator only.
@@ -62,6 +62,8 @@ Start with the course examples and the simulator's current program recommendatio
 
 `RelMovL` moves linearly by an offset in the simulator's base Cartesian frame. Lua uses `RelMovL` and uppercase option names such as `CP`; Python uses the simulator-only `rel_mov_l` API and Python-style option names. Motion timing is simulated. User-frame/tool-frame motion and continuous path blending are not implemented.
 
+The RelMovL lesson's interactive diagram compares named target coordinates with repeated equal offsets. It defines `N` as the piece count, starts target index `i` at zero, uses `h` for stack height, and uses `w + gap` for row spacing. The first target is P₀; the program then repeats the same relative step `N−1` times. Use the matching Lua or Python **Copy** button for the selected pattern and count. **Load the two-move demo** is a separate fixed example: it moves to sample P₀, then +Z 20 mm and +X 15 mm. It does not pick up or release an object.
+
 If a run stops or reports an error:
 
 1. Read the first error line.
@@ -70,6 +72,31 @@ If a run stops or reports an error:
 4. Change one thing, run again, and compare the TCP and block position.
 
 The simulator does not check every possible path collision or prove real-world safety.
+
+## External controller reference: function registry
+
+The user-supplied `roboarm-master.zip` contains this registry-and-call pattern in `roboarm-master/dobot_controller.py`, lines 309–319 (abridged):
+
+```python
+functions = [AI_TickTacToe, TickTacToe, student_id, exit]
+menu_items = dict(enumerate(functions, start=1))
+selection = int(input("input: "))
+selected_value = menu_items[selection]
+selected_value()
+```
+
+The list stores function objects; the selected function runs when `selected_value()` is called. `student_id` here is a function name, not a student's identifier value. The functions must already be defined in that external program.
+
+This is an external controller reference, not a browser simulator program. The archive's controller imports `roboarm-master/dobot_api.py` and connects to real controller dashboard, motion, and feedback services. Its connection setup, menu input, and controller API are outside this simulator's API.
+
+For browser practice, keep using the simulator's lesson commands inside an ordinary function, then call it without `await`. A print-only example is:
+
+```python
+def task():
+    print("Ready for simulator practice")
+
+task()
+```
 
 ## Optional AI code coach
 
@@ -108,7 +135,7 @@ The browser saves the current robot project locally. You can export a project JS
 4. 如要練習範例，選擇 **Load this example…** 並確認替換。確認之前，編輯器內原有程式不會被覆蓋。
 5. 返回工作區，選擇 **Run editor code**。留意機械臂、TCP 位置、執行狀態及記錄。**Stop** 可取消執行；遇到錯誤後，先閱讀記錄中的第一個錯誤再重試。
 
-第一課只會輸出文字，不需 API key，也不會移動機械臂。第一次移動課只會移至目前工具已儲存的 **PickApproach** 接近點，不會拾起方塊。中階叉臂課先學一件 Body1 的普通取放，再學攜件旋轉，最後建三層塔（0°／90°／0°）；黑白磁吸片則是獨立分類及分開堆疊任務。
+第一課只會輸出文字，不需 API key，也不會移動機械臂。第一次移動課只會移至目前工具已儲存的 **PickApproach** 接近點，不會拾起方塊。建議中階次序：先用一件 Body1 練習被動叉臂沿槽滑入、抬起及釋放（不需 DO）；再練習攜件旋轉；然後以三件方塊垂直建塔，底層及頂層保持 0°，只有中層轉 +90°。之後學 RelMovL、單件磁吸取放，再用四塊 35 × 35 × 4 mm 磁吸片把黑白分成兩疊。
 
 ### 選擇工具及建立教點
 
@@ -149,6 +176,8 @@ The browser saves the current robot project locally. You can export a project JS
 
 **RelMovL** 會在本模擬器的基座笛卡兒座標系中按偏移作直線移動。Lua 使用 **RelMovL** 和 **CP** 等大寫選項名稱；Python 使用模擬器專用 **rel_mov_l** API 及 Python 風格的選項名稱。移動時間是模擬值；本模擬器不支援使用者座標系、工具座標系或連續路徑平滑。
 
+RelMovL 課程中的互動圖會比較逐點指定座標與重複固定偏移。`N` 代表件數，目標序號 `i` 由 0 起算，`h` 代表堆疊高度，`w + gap` 代表列排列步距。程式先到首個目標 P₀，再重複相同步進 `N−1` 次。要載入所選排列及件數，請按相應語言的「複製程式碼」按鈕。「載入兩步移動示範」是另一個固定範例：先移至示範首點 P₀，再 +Z 20 mm 及 +X 15 mm。範例只會移動，不會取件或釋放物件。
+
 如程式停止或顯示錯誤：
 
 1. 閱讀記錄中的第一個錯誤。
@@ -157,6 +186,31 @@ The browser saves the current robot project locally. You can export a project JS
 4. 每次只改一項，再執行並比較 TCP 和方塊位置。
 
 模擬器不會檢查所有可能的路徑碰撞，也不能證明實體運作安全。
+
+### 外部控制器參考：函式表
+
+使用者提供的 `roboarm-master.zip` 中，`roboarm-master/dobot_controller.py` 第 309–319 行包含以下函式表及呼叫模式（節錄）：
+
+```python
+functions = [AI_TickTacToe, TickTacToe, student_id, exit]
+menu_items = dict(enumerate(functions, start=1))
+selection = int(input("input: "))
+selected_value = menu_items[selection]
+selected_value()
+```
+
+串列存放函式物件；呼叫 `selected_value()` 才會執行所選函式。此處 `student_id` 是函式名稱，不是學生編號的數值。這些函式須已在該外部程式中定義。
+
+這是外部控制器參考，不能當作瀏覽器模擬器程式執行。壓縮檔內的控制程式匯入 `roboarm-master/dobot_api.py`，並連接實體控制器的 dashboard、移動及回饋服務；其連線設定、選單輸入及控制器 API 均不屬於本模擬器 API。
+
+瀏覽器練習仍使用課程中的模擬器指令，寫在普通函式內，再直接呼叫，毋須 `await`。只輸出文字的例子：
+
+```python
+def task():
+    print("Ready for simulator practice")
+
+task()
+```
 
 ### 選用 AI 程式教練
 

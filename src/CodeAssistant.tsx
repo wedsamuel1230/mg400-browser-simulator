@@ -16,6 +16,7 @@ type SetupCheck = { title: string; status: "pass" | "action" | "waiting" | "info
 type VerificationCheck = { label: string; value: string; status: "checked" | "partial" | "problem" | "not-checked" | "informational" };
 type VerificationSummary = { title?: string; checks: VerificationCheck[]; findings?: Array<{ line: number; message: string }>; emptyMessage?: string };
 type CoachMessage = { role: "user" | "assistant"; content: string; includedProjectContext: boolean; language: ProgramLanguage; toolMode: ToolMode; programVerification?: VerificationSummary; verification?: VerificationSummary };
+type LocalProgramReview = { code: string; language: ProgramLanguage; toolMode: ToolMode; points: string; summary: VerificationSummary };
 type CodeAssistantProps = {
   uiLanguage?: CoachLanguage;
   onUiLanguageChange?: (language: CoachLanguage) => void;
@@ -131,7 +132,7 @@ async function validateCodeExamples(
       { label: "Reachability", value: "not checked", status: "not-checked" },
       { label: "Simulator run", value: "not run", status: "not-checked" },
       ...(toolMode === "fork" ? [
-        { label: "Passive fork", value: "no DO/Pick/Place calls detected", status: "checked" as const },
+        { label: "Passive fork", value: "no powered pickup/release command found", status: "checked" as const },
         { label: "Fork motion order", value: "approach/slide/lift/lower sequence not checked", status: "not-checked" as const },
       ] : []),
     ],
@@ -181,12 +182,15 @@ async function checkCodeLocally(
   }
 }
 
-function buildProgramVerification(result: CodeCheckResult, language: ProgramLanguage, toolMode: ToolMode): VerificationSummary {
+function buildProgramVerification(result: CodeCheckResult, language: ProgramLanguage, toolMode: ToolMode, title = "Your shared program"): VerificationSummary {
   const findings = result.findings ?? [];
+  const syntaxOk = result.syntaxOk;
   const unsupported = findings.some((finding) => finding.kind === "unsupported-api" || finding.kind === "api-shadowed");
   const invalidPoints = findings.some((finding) => finding.kind === "missing-point" || finding.kind === "wrong-point-kind");
   const passiveForkIssue = findings.some((finding) => finding.kind === "passive-fork-action");
-  const pointCheck: VerificationCheck = (result.pointTargetCount ?? 0) === 0
+  const pointCheck: VerificationCheck = !syntaxOk
+    ? { label: "Saved point names", value: "not checked because syntax failed", status: "not-checked" }
+    : (result.pointTargetCount ?? 0) === 0
     ? { label: "Saved point names", value: "no named motion targets", status: "informational" }
     : result.pointsStatus === "not-shared"
       ? { label: "Saved point names", value: "not checked · project points were not shared", status: "not-checked" }
@@ -195,14 +199,17 @@ function buildProgramVerification(result: CodeCheckResult, language: ProgramLang
         : (result.unresolvedLocalTargetCount ?? 0) > 0
           ? { label: "Saved point names", value: "local target variables are not type-checked", status: "partial" }
           : { label: "Saved point names", value: "names and direct point types checked", status: "checked" };
+  const commandCheck: VerificationCheck = !syntaxOk
+    ? { label: "Robot API names", value: "not checked because syntax failed", status: "not-checked" }
+    : { label: "Robot API names", value: unsupported ? "unsupported command found" : (result.robotCallCount ?? 0) > 0 ? "known names checked against this subset" : "no robot commands to check", status: unsupported ? "problem" : (result.robotCallCount ?? 0) > 0 ? "checked" : "informational" };
   return {
-    title: "Your shared program",
+    title,
     checks: [
       { label: "Syntax", value: result.syntaxOk ? `valid ${language === "lua" ? "Lua" : "Python"} syntax` : `needs attention${result.error ? ` · ${result.error}` : ""}`, status: result.syntaxOk ? "checked" : "problem" },
-      { label: "Robot API names", value: unsupported ? "unsupported command found" : (result.robotCallCount ?? 0) > 0 ? "known names checked against this subset" : "no robot commands to check", status: unsupported ? "problem" : (result.robotCallCount ?? 0) > 0 ? "checked" : "informational" },
+      commandCheck,
       pointCheck,
       ...(toolMode === "fork" ? [
-        { label: "Passive fork", value: passiveForkIssue ? "powered pickup/release command found" : "no DO/Pick/Place call detected", status: passiveForkIssue ? "problem" as const : "checked" as const },
+        { label: "Passive fork", value: !syntaxOk ? "not checked because syntax failed" : passiveForkIssue ? "powered pickup/release command found" : "no powered pickup/release command found", status: !syntaxOk ? "not-checked" as const : passiveForkIssue ? "problem" as const : "checked" as const },
         { label: "Fork motion order", value: "approach/slide/lift/lower sequence not checked", status: "not-checked" as const },
       ] : []),
       { label: "Reachability", value: "not checked", status: "not-checked" },
@@ -213,11 +220,11 @@ function buildProgramVerification(result: CodeCheckResult, language: ProgramLang
   };
 }
 
-function notCheckedProgramReview(language: ProgramLanguage, reason: string): { review: StaticProgramReview; verification: VerificationSummary } {
+function notCheckedProgramReview(language: ProgramLanguage, reason: string, title = "Your shared program"): { review: StaticProgramReview; verification: VerificationSummary } {
   return {
     review: { status: "not-checked", language, findings: [], reason },
     verification: {
-      title: "Your shared program",
+      title,
       checks: [
         { label: "Syntax", value: "not checked", status: "not-checked" },
         { label: "Robot API names", value: "not checked", status: "not-checked" },
@@ -230,9 +237,9 @@ function notCheckedProgramReview(language: ProgramLanguage, reason: string): { r
   };
 }
 
-async function reviewSharedProgram(code: string, language: ProgramLanguage, savedPoints: TeachPoint[], toolMode: ToolMode) {
-  if (!code.trim()) return notCheckedProgramReview(language, "The shared editor is empty; no source program was checked or run.");
-  if (code.length > 8_000) return notCheckedProgramReview(language, "The program is longer than the local checker's 8,000-character limit; shorten it for a local static review.");
+async function reviewSharedProgram(code: string, language: ProgramLanguage, savedPoints: TeachPoint[], toolMode: ToolMode, title = "Your shared program") {
+  if (!code.trim()) return notCheckedProgramReview(language, title === "Local program" ? "The editor is empty; no source was checked or run." : "The shared editor is empty; no source program was checked or run.", title);
+  if (code.length > 8_000) return notCheckedProgramReview(language, "The program is longer than the local checker's 8,000-character limit; shorten it for a local static review.", title);
   try {
     const [result] = await checkCodeLocally(language, [code], savedPoints, true, toolMode);
     const review: StaticProgramReview = {
@@ -246,10 +253,10 @@ async function reviewSharedProgram(code: string, language: ProgramLanguage, save
       unresolvedLocalTargetCount: result.unresolvedLocalTargetCount,
       pointsStatus: result.pointsStatus,
     };
-    return { review, verification: buildProgramVerification(result, language, toolMode) };
+    return { review, verification: buildProgramVerification(result, language, toolMode, title) };
   } catch (cause) {
     const reason = cause instanceof Error ? cause.message : "The local code checker could not complete.";
-    return notCheckedProgramReview(language, `${reason} The program was not run; the AI review is still static.`);
+    return notCheckedProgramReview(language, `${reason} The program was not run; this is still a static review.`, title);
   }
 }
 
@@ -259,7 +266,7 @@ function renderVerificationSummary(summary: VerificationSummary | undefined) {
   return <section className="ai-response-verification" aria-label={sectionLabel}>
     <div className="ai-response-verification-heading"><ShieldCheck size={13} aria-hidden="true" /><strong>{summary.title ?? "Suggested code"} · local static checks</strong><span>code not run</span></div>
     {summary.checks.length > 0
-      ? <ul className="ai-response-checks" aria-label={summary.title === "Your shared program" ? "Shared program check results" : "Code example check results"}>
+      ? <ul className="ai-response-checks" aria-label={summary.title === "Your shared program" ? "Shared program check results" : summary.title === "Local program" ? "Local program check results" : "Code example check results"}>
         {summary.checks.map((check) => <li className="ai-response-check" data-status={check.status} key={check.label}>
           <span>{check.label}</span><strong>{check.value}</strong>
         </li>)}
@@ -317,6 +324,8 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedFunctionLanguage, setCopiedFunctionLanguage] = useState<ProgramLanguage | null>(null);
+  const [localReviewLoading, setLocalReviewLoading] = useState(false);
+  const [localReview, setLocalReview] = useState<LocalProgramReview | null>(null);
 
   const setupSummary = useMemo(
     () => setupChecks.slice(0, 12).map(({ title, status, detail }) => `${title}: ${status.toUpperCase()} — ${detail}`.slice(0, 240)),
@@ -328,6 +337,9 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
     && isOpenRouterEndpoint(endpointCheck.value);
   const lastMessage = messages.at(-1);
   const latestReply = lastMessage?.role === "assistant" ? lastMessage.content : "";
+  const localReviewPoints = JSON.stringify(savedPoints.map(({ name, kind }) => [name, kind]));
+  const localReviewMatchesCurrentProgram = localReview?.code === code && localReview.language === language &&
+    localReview.toolMode === toolMode && localReview.points === localReviewPoints;
   const functionExample = language === "python"
     ? "def go_to_pickup():\n    mov_j(PickApproach, cp=0)\n    sync()\n\ngo_to_pickup()"
     : "local function goToPickup()\n  MovJ(PickApproach, {CP=0})\n  Sync()\nend\n\ngoToPickup()";
@@ -429,6 +441,19 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
       setError(cause instanceof Error ? cause.message : "Could not reach the AI coach.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function checkProgramLocally() {
+    if (localReviewLoading || loading) return;
+    const reviewContext = { code, language, toolMode, points: localReviewPoints };
+    setLocalReview(null);
+    setLocalReviewLoading(true);
+    try {
+      const { verification } = await reviewSharedProgram(code, language, savedPoints, toolMode, "Local program");
+      setLocalReview({ ...reviewContext, summary: verification });
+    } finally {
+      setLocalReviewLoading(false);
     }
   }
 
@@ -561,11 +586,16 @@ export function CodeAssistant({ uiLanguage = "zh-Hant", onUiLanguageChange, code
       {includeProjectContext && !hasCurrentRun && <p className="ai-sharing-help">No run log is available for this exact project state. The coach will receive the current program, saved point names, and setup checks only; run this version yourself first to include results.</p>}
 
       <div className="ai-coach-actions">
+        <button type="button" className="ai-local-review-button" onClick={() => void checkProgramLocally()} disabled={localReviewLoading || loading}>
+          {localReviewLoading ? "Checking locally…" : "Check this program locally"}
+        </button>
         <button type="button" className="ai-ask-button" onClick={() => void askCoach()} disabled={!apiKey.trim() || !endpointCheck.ok || !question.trim() || loading}>
           {loading ? <LoaderCircle className="spin" size={14} /> : <Sparkles size={14} />}{loading ? "Reviewing…" : "Ask the coach"}
         </button>
         <span>Setup checks: {setupReady ? "ready" : "needs attention"}</span>
       </div>
+      <p className="ai-sharing-help">This check runs only on this device. It checks syntax, known API names, direct saved points, and selected tool rules; it does not send your program, execute it, or prove reachability or motion behavior.</p>
+      {localReviewMatchesCurrentProgram && localReview && <div aria-live="polite">{renderVerificationSummary(localReview.summary)}</div>}
 
       <details className="ai-transparency">
         <summary>Privacy and how suggestions are checked</summary>

@@ -32,7 +32,7 @@ export type Track = {
   summary: LocalizedText;
 };
 
-export const CURRICULUM_VERSION = "1.3.6";
+export const CURRICULUM_VERSION = "1.3.7";
 
 export const TRACKS: Track[] = [
   {
@@ -285,21 +285,23 @@ const RAW_LESSONS: Lesson[] = [
     durationMinutes: 18,
     evidenceProfile: { en: "Official DobotStudio Pro V2.8.0 guide · RelMovL", "zh-Hant": "DobotStudio Pro V2.8.0 官方手冊 · RelMovL" },
     title: { en: "Relative linear motion with RelMovL", "zh-Hant": "RelMovL 相對直線移動" },
-    outcome: { en: "Practice RelMovL with the simulator's base-frame Cartesian offset from the current TCP.", "zh-Hant": "按模擬器的基座座標設定，練習以 RelMovL 從目前 TCP 作笛卡兒偏移。" },
+    outcome: { en: "Calculate regular object spacing, then practise RelMovL with the simulator's base-frame Cartesian offset from the current TCP.", "zh-Hant": "計算規律物件間距，再按模擬器的基座座標設定，練習以 RelMovL 從目前 TCP 作笛卡兒偏移。" },
     prerequisite: { en: "Understand TCP coordinates and MovL from the Foundation track.", "zh-Hant": "先理解初階課程中的 TCP 座標及 MovL。" },
     explanation: [
       { en: "The official DobotStudio Pro V2.8.0 MG400 guide documents RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR}) with CP, SpeedL, AccL, and SYNC options. It defines X/Y/Z in millimetres and R in degrees, but this command description does not name a base, user, or tool frame. The native Lua form is a four-value positional table.", "zh-Hant": "DobotStudio Pro V2.8.0 MG400 官方手冊記載 RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR})，並列出 CP、SpeedL、AccL 及 SYNC 選項。X/Y/Z 用毫米，R 用角度；但手冊沒有指出此指令使用基座、使用者或工具座標系。原生 Lua 寫法使用四個依序排列的數值。" },
       { en: "For practice, this simulator adds each offset to the current TCP pose in its base frame when the queued action starts. Treat that frame choice as a simulator convention; actual controller frame behavior is not verified. CP is the path-blending option, not a TCP coordinate. This simulator currently supports CP=0 only; nonzero path blending is not simulated. Speed and acceleration affect simulated time, not robot dynamics.", "zh-Hant": "練習時，模擬器會在佇列中的指令開始執行時，把偏移量加到目前 TCP 的基座座標姿態。這是模擬器的座標設定，尚未驗證實體控制器是否相同。CP 是路徑混合選項，不是 TCP 座標。模擬器目前只支援 CP=0，未模擬非零 CP 的路徑混合；速度和加速度只影響模擬時間，不代表機械臂動力學。" },
+      { en: "For regular spacing, use the object's dimension along the travel direction: a 40 mm block layer gives Z offsets 0, 40, 80 mm for three targets; a 4 mm magnet plate gives 0, 4, 8 mm. A row uses width plus a chosen gap (zero gap here): 40 mm for Body1 or 35 mm for the magnet plate. With zero-based i, Pᵢ = P₀ + i·h for a stack or Pᵢ = P₀ + i·(w+gap) for a row, where i = 0…N−1. The last-target offset is (N−1) steps; total stack height is N steps.", "zh-Hant": "規律排列時，使用物件沿移動方向的尺寸：40 mm 方塊堆疊三件，目標 Z 偏移為 0、40、80 mm；4 mm 磁石板則為 0、4、8 mm。排成一列時，使用寬度加上所選空隙（此處為零）：Body1 為 40 mm，磁石板為 35 mm。以零起算的 i 表示目標序號，堆疊公式為 Pᵢ = P₀ + i·h，列排列公式為 Pᵢ = P₀ + i·(w+gap)，其中 i = 0…N−1。末目標偏移是 (N−1) 個增量；堆疊總高度則是 N 個增量。" },
+      { en: "RelMovL is concise when successive targets share a regular fixed offset. Named points with MovL are clearer for unrelated fixed station positions. The interactive graph below illustrates arithmetic only; it does not command the robot.", "zh-Hant": "連續目標有規律固定偏移時，RelMovL 較簡潔；互不相關的固定工作站位置，使用命名教點配合 MovL 會更清楚。下方互動圖只用來說明計算，不會控制機械臂。" },
     ],
     guidedSteps: [
-      { en: "Copy the example, then return to the simulator and paste it into the program editor.", "zh-Hant": "複製範例，返回模擬器後貼到程式編輯器。" },
-      { en: "Run it after moving to a safe point; watch TCP Z and the run log.", "zh-Hant": "先移至安全教點再執行；觀察 TCP Z 讀數及執行紀錄。" },
-      { en: "Change the third offset and predict the new Z before running again.", "zh-Hant": "修改第三個偏移值，先預測新 Z，再重新執行。" },
+      { en: "In the math activity, choose the object, stack or row, and piece count. Compare its named targets with the relative offsets, then use the matching Lua or Python Copy button.", "zh-Hant": "在互動數學練習選擇物件、堆疊或排列方式及件數。比較命名目標與相對偏移，再按相應的 Lua 或 Python「複製程式碼」。" },
+      { en: "Paste that generated program into the editor. It moves to sample P₀ first, so no manual pre-position is needed, then repeats the selected offset N−1 times. Confirm P₀ is reachable before running; watch the TCP position and run log.", "zh-Hant": "把產生的程式貼到編輯器。程式會先移至示範首點 P₀，毋須手動預移，再重複所選偏移 N−1 次。執行前確認 P₀ 可達，並觀察 TCP 位置及執行記錄。" },
+      { en: "Change the Z or Y component of each RelMovL step (Z for a stack, Y for a row; keep the other components at 0), then predict the final target before running again.", "zh-Hant": "修改每次 RelMovL 相對步進向量的 Z／Y 分量（堆疊改 Z；排成一列改 Y），其餘分量維持 0；先預測末目標座標，再重新執行。" },
     ],
     practice: { en: "Move the TCP upward by 20 mm, then sideways by 15 mm in the base frame. Explain why each offset must be evaluated at execution time in a queued program.", "zh-Hant": "先令 TCP 向上移 20 mm，再沿基座座標側移 15 mm。解釋為何佇列程式應在執行當刻計算偏移目標。" },
     examples: {
-      lua: "-- Offset order: X, Y, Z (mm), R (degrees)\nRelMovL({0, 0, 20, 0}, {CP=0, SpeedL=50, AccL=20})\nRelMovL({15, 0, 0, 0}, {CP=0})\nSync()",
-      python: "def task():\n    # Simulator Python offsets: [x, y, z, r]\n    rel_mov_l([0, 0, 20, 0], cp=0, speed_l=50, acc_l=20)\n    rel_mov_l([15, 0, 0, 0], cp=0)\n    sync()\ntask()",
+      lua: "-- P0 is a sample first target; choose a reachable point for your cell.\n-- Offset order: X, Y, Z (mm), R (degrees)\nlocal P0 = {coordinate = {x=300, y=80, z=135, r=-90}}\nMovJ(P0, {CP=0, SYNC=1})\nRelMovL({0, 0, 20, 0}, {CP=0, SpeedL=50, AccL=20, SYNC=1})\nRelMovL({15, 0, 0, 0}, {CP=0, SYNC=1})\nSync()",
+      python: "def task():\n    # P0 is a sample first target; choose a reachable point for your cell.\n    P0 = {\"coordinate\": {\"x\": 300, \"y\": 80, \"z\": 135, \"r\": -90}}\n    # Simulator Python offsets: [x, y, z, r]\n    mov_j(P0, cp=0)\n    rel_mov_l([0, 0, 20, 0], cp=0, speed_l=50, acc_l=20)\n    rel_mov_l([15, 0, 0, 0], cp=0)\n    sync()\ntask()",
     },
     questions: [
       {
@@ -323,19 +325,19 @@ const RAW_LESSONS: Lesson[] = [
     track: "intermediate",
     durationMinutes: 18,
     evidenceProfile: { en: "Magnet mode · simulator-only logical DO", "zh-Hant": "磁吸模式 · 模擬器邏輯 DO" },
-    title: { en: "Pick and place with the magnet", "zh-Hant": "使用磁吸工具取放方塊" },
-    outcome: { en: "Order approach, pickup, retreat, placement, and release actions for the 35 × 35 × 4 mm block.", "zh-Hant": "按次序安排接近、取件、撤離、放置及釋放 35 × 35 × 4 mm 方塊。" },
-    prerequisite: { en: "Complete the Foundation track and Relative linear motion.", "zh-Hant": "先完成初階課程及「RelMovL 相對直線移動」。" },
+    title: { en: "Pick and place a magnetic plate", "zh-Hant": "磁吸片取放" },
+    outcome: { en: "Order approach, pickup, retreat, placement, and release actions for the 35 × 35 × 4 mm magnetic plate.", "zh-Hant": "按次序安排接近、取件、撤離、放置及釋放 35 × 35 × 4 mm 磁吸片。" },
+    prerequisite: { en: "Complete Foundation and Relative linear motion; use this magnetic-tool lesson after the Body1 fork progression.", "zh-Hant": "完成初階課程及「RelMovL 相對直線移動」；建議在 Body1 叉臂系列之後學習本磁吸工具課。" },
     explanation: [
-      { en: "In Magnet mode, approach above the part, descend linearly, use DO1 to attach, retreat, travel to the destination, descend, use DO1 to release, and retract.", "zh-Hant": "磁吸模式會先移至工件上方，再直線下降、用 DO1 附上方塊、撤離、移至目的地、下降、用 DO1 釋放，最後退回。" },
-      { en: "Here DO(1, ON) and DO(1, OFF) map to the simulator's logical magnet attach/release actions. The 3D block follows the configured TCP transform; this is not force, vacuum, contact, or grasp physics.", "zh-Hant": "此模擬器把 DO(1, ON) 及 DO(1, OFF) 映射成磁吸工具的邏輯附上／釋放動作。3D 方塊會跟隨設定的 TCP 變換，並非力度、真空、接觸或抓取物理模擬。" },
+      { en: "In Magnet mode, approach above the plate, descend linearly, use DO1 to attach it, retreat, travel to the destination, descend, use DO1 to release it, and retract.", "zh-Hant": "磁吸模式會先移至磁吸片上方，再直線下降；用 DO1 邏輯附上磁吸片後，撤離並移至目的地，再下降、用 DO1 釋放，最後退回。" },
+      { en: "Here DO(1, ON) and DO(1, OFF) map to the simulator's logical magnet attach/release actions. The 3D plate follows the configured TCP transform; this is not force, vacuum, contact, or grasp physics.", "zh-Hant": "此模擬器把 DO(1, ON) 及 DO(1, OFF) 映射成磁吸工具的邏輯附上／釋放動作。3D 磁吸片會跟隨設定的 TCP 變換；這不會模擬磁力、真空、接觸或抓取物理。" },
     ],
     guidedSteps: [
       { en: "Select Magnet pickup, then use Teach pick pair and Teach place pair to create the contact and approach points.", "zh-Hant": "選擇 「磁吸拾取」，再按 「示教拾取點組」 及 「示教放置點組」 建立接觸點及接近點。" },
-      { en: "Keep the descent and retreat as MovL. Use DO(1, ON) only after reaching the magnet contact point; release with DO(1, OFF) at the place point.", "zh-Hant": "以 MovL 作下降及撤離。到達磁吸接觸點後才執行 DO(1, ON)；到達放置點後用 DO(1, OFF) 釋放。" },
+      { en: "Keep the descent and retreat as MovL. Use DO(1, ON) only after reaching the plate's top contact point; release with DO(1, OFF) at the place point.", "zh-Hant": "以 MovL 作下降及撤離。到達磁吸片頂面接觸點後才執行 DO(1, ON)；到達放置點後用 DO(1, OFF) 釋放磁吸片。" },
       { en: "Run the reference program and inspect the success messages in Run log.", "zh-Hant": "執行示範程式，並在 「執行記錄」 查看成功訊息。" },
     ],
-    practice: { en: "Move the drop point, regenerate its taught pair, then describe which action actually attaches the block and which merely moves it.", "zh-Hant": "移動放置位置、重新教出放置點組合，再說明哪個指令會附上方塊，哪些指令只負責移動。" },
+    practice: { en: "Move the drop point, regenerate its taught pair, then describe which action attaches the plate and which commands only move the robot.", "zh-Hant": "移動放置位置、重新教出放置點組合，再說明哪個指令會附上磁吸片，哪些指令只負責移動機械臂。" },
     examples: {
       lua: "MovJ(PickApproach, {CP=0})\nMovL(PickPoint, {CP=0})\nDO(1, ON)\nRelMovL({0, 0, 80, 0}, {CP=0})\nMovJ(PlaceApproach, {CP=0})\nMovL(PlacePoint, {CP=0})\nDO(1, OFF)\nSync()",
       python: "def task():\n    mov_j(PickApproach, cp=0)\n    mov_l(PickPoint, cp=0)\n    do(1, ON)\n    rel_mov_l([0, 0, 80, 0], cp=0)\n    mov_j(PlaceApproach, cp=0)\n    mov_l(PlacePoint, cp=0)\n    do(1, OFF)\n    sync()\ntask()",
@@ -344,16 +346,16 @@ const RAW_LESSONS: Lesson[] = [
       {
         en: "Does this simulator animate gripper fingers when DO(1, ON) runs?",
         "zh-Hant": "執行 DO(1, ON) 時，模擬器會否顯示夾爪手指開合？",
-        options: { en: ["No. It logically attaches the block when the TCP is in the pickup zone", "Yes, it animates a vacuum cup", "It connects to the real tool IO"], "zh-Hant": ["不會。TCP 位於取件範圍時，它會以邏輯方式附上方塊", "會，並會播放吸盤動畫", "會連接實體工具 IO"] },
+        options: { en: ["No. It logically attaches the plate when the TCP is in the pickup zone", "Yes, it animates a vacuum cup", "It connects to the real tool IO"], "zh-Hant": ["不會。TCP 位於取件範圍時，它會以邏輯方式附上磁吸片", "會，並會播放吸盤動畫", "會連接實體工具 IO"] },
         answer: 0,
-        explanation: { en: "The implemented workpiece operation is logical attachment only, with a geometric pickup-zone check and no hardware path.", "zh-Hant": "目前是經幾何取件範圍檢查後，以邏輯方式附上工件，沒有硬件連線。" },
+        explanation: { en: "The implemented plate operation is logical attachment only, with a geometric pickup-zone check and no hardware path.", "zh-Hant": "程式只會經過幾何取件範圍檢查，再以邏輯方式附上磁吸片；沒有硬件連線。" },
       },
       {
-        en: "What is a useful reason to use a taught approach point above the block?",
-        "zh-Hant": "在方塊上方教一個接近點，有甚麼好處？",
-        options: { en: ["It separates safe travel from the final linear pickup", "It makes CP blending physically accurate", "It changes the block dimensions"], "zh-Hant": ["把上方移動與最後直線取件分開", "令 CP 混合變成真實物理模擬", "改變方塊尺寸"] },
+        en: "What is a useful reason to use a taught approach point above the magnetic plate?",
+        "zh-Hant": "在磁吸片上方教一個接近點，有甚麼好處？",
+        options: { en: ["It separates travel above the magnetic plate from the final linear pickup", "It makes CP blending physically accurate", "It changes the magnetic plate dimensions"], "zh-Hant": ["把磁吸片上方移動與最後直線取件分開", "令 CP 混合變成真實物理模擬", "改變磁吸片尺寸"] },
         answer: 0,
-        explanation: { en: "The approach waypoint provides a clear sequence: travel above the part, then make a short linear descent.", "zh-Hant": "接近點讓流程清晰：先移至工件上方，再作短距離直線下降。" },
+        explanation: { en: "The approach waypoint provides a clear sequence: travel above the plate, then make a short linear descent.", "zh-Hant": "接近點讓流程清晰：先移至磁吸片上方，再作短距離直線下降。" },
       },
     ],
   },
@@ -361,7 +363,7 @@ const RAW_LESSONS: Lesson[] = [
     id: "intermediate-rotate-carried-block", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
     title: {"en": "Body1 pickup then carried 90° turn", "zh-Hant": "Body1 取件後旋轉 90°"}, outcome: {"en": "Use the passive fork with the supplied 40 × 40 × 40 Body1. Pick up at 135 mm, lift 80 mm, turn the held tool +90°, lower to 135 mm, then clear at 132.5 mm and withdraw 60 mm horizontally.", "zh-Hant": "以被動叉臂取起原裝 40 × 40 × 40 Body1：在 135 mm 承托，先抬高 80 mm，攜件工具才轉 +90°；降至 135 mm 放置，降回 132.5 mm，再水平退出 60 mm。"},
-    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    prerequisite: {"en": "First practise the one-block Body1 passive-fork pickup. This lesson repeats that single-block task and adds a +90° turn only after pickup and an 80 mm lift; it prepares you for the tower's middle layer.", "zh-Hant": "先練習單件 Body1 被動叉臂取放。本課仍只用一件方塊，並在取件及抬高 80 mm 後增加 +90° 旋轉，為三層塔的中層作準備。"},
     explanation: [{"en": "Use the passive fork with the supplied 40 × 40 × 40 Body1. Pick up at 135 mm, lift 80 mm, turn the held tool +90°, lower to 135 mm, then clear at 132.5 mm and withdraw 60 mm horizontally.", "zh-Hant": "以被動叉臂取起原裝 40 × 40 × 40 Body1：在 135 mm 承托，先抬高 80 mm，攜件工具才轉 +90°；降至 135 mm 放置，降回 132.5 mm，再水平退出 60 mm。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
     guidedSteps: [{"en": "Confirm that the supplied Body1 and passive fork are in the source cell.", "zh-Hant": "確認來源工作格內有原裝 Body1 及被動叉臂。"}, {"en": "Insert the fork at TCP Z = 132.5 mm and support the block at Z = 135 mm.", "zh-Hant": "在 TCP Z = 132.5 mm 沿槽插入叉臂，並在 Z = 135 mm 承托方塊。"}, {"en": "Lift 80 mm, turn the held tool +90°, and lower to Z = 135 mm to place the block.", "zh-Hant": "抬高 80 mm，攜件工具轉 +90°，再降至 Z = 135 mm 放置方塊。"}, {"en": "Lower to Z = 132.5 mm, withdraw 60 mm horizontally, and inspect the result. Do not use DO.", "zh-Hant": "降回 Z = 132.5 mm，水平退出 60 mm，再檢查結果；不要使用 DO。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
@@ -372,7 +374,7 @@ const RAW_LESSONS: Lesson[] = [
     id: "intermediate-three-layer-tower", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
     title: {"en": "Body1 three-layer tower 0° / 90° / 0°", "zh-Hant": "Body1 三層塔 0°／90°／0°"}, outcome: {"en": "Stack three supplied 40 × 40 × 40 Body1 blocks vertically at one XY position. Their bottom heights are 110, 150, and 190 mm; TCP release heights are 135, 175, and 215 mm. Only the middle layer turns +90° after pickup and an 80 mm lift; the outer layers stay at 0°. Restore slot clearance and withdraw 60 mm after each release.", "zh-Hant": "把三件原裝 40 × 40 × 40 Body1 置於同一 XY 位置垂直堆疊。底面高度為 110、150、190 mm；TCP 釋放高度為 135、175、215 mm。只有中層先取件及抬高 80 mm，再轉 +90°；上下層保持 0°。每次放置後恢復槽內間隙，再水平退出 60 mm。"},
-    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    prerequisite: {"en": "First complete the one-block passive-fork and carried-rotation practices. This lesson supplies three Body1 blocks for one vertical stack: bottom layer 0°, middle layer +90° after pickup and lift, top layer 0° at the same XY.", "zh-Hant": "先完成單件被動叉臂取放及攜件旋轉練習。本課提供三件 Body1 作垂直堆疊：底層 0°、中層取件及抬高後轉 +90°、頂層 0°；三層位於相同 XY。"},
     explanation: [{"en": "Stack three supplied 40 × 40 × 40 Body1 blocks vertically at one XY position. Their bottom heights are 110, 150, and 190 mm; TCP release heights are 135, 175, and 215 mm. Only the middle layer turns +90° after pickup and an 80 mm lift; the outer layers stay at 0°. Restore slot clearance and withdraw 60 mm after each release.", "zh-Hant": "把三件原裝 40 × 40 × 40 Body1 置於同一 XY 位置垂直堆疊。底面高度為 110、150、190 mm；TCP 釋放高度為 135、175、215 mm。只有中層先取件及抬高 80 mm，再轉 +90°；上下層保持 0°。每次放置後恢復槽內間隙，再水平退出 60 mm。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
     guidedSteps: [{"en": "Confirm three supplied Body1 blocks and the passive fork in the source cell.", "zh-Hant": "確認來源工作格內有三件原裝 Body1 及被動叉臂。"}, {"en": "Stack the blocks vertically at one XY position, using release heights 135, 175, and 215 mm.", "zh-Hant": "把方塊置於同一 XY 位置垂直堆疊，使用 135、175、215 mm 的釋放高度。"}, {"en": "Keep the outer layers at 0°; rotate only the middle layer +90° after pickup and an 80 mm lift.", "zh-Hant": "上下層保持 0°；只有中層在取件及抬高 80 mm 後才轉 +90°。"}, {"en": "After each release, restore slot clearance and withdraw 60 mm horizontally, then inspect the tower.", "zh-Hant": "每次放置後恢復槽內間隙，水平退出 60 mm，再檢查塔形堆疊。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
@@ -383,7 +385,7 @@ const RAW_LESSONS: Lesson[] = [
     id: "intermediate-black-white-sort", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Magnet · two independent stacks", "zh-Hant": "磁吸工具 · 兩個獨立堆疊"},
     title: {"en": "Black and white magnetic plate stacks", "zh-Hant": "黑白磁吸片獨立堆疊"}, outcome: {"en": "Process plates in the displayed black/white/black/white order. Stack black plates at (250, 80) and white plates separately at (350, 80). Count each colour's layers separately; each stack reaches 114 mm, then 118 mm. Turn a white plate +45° only after lifting it 80 mm. Finish with two visible stacks of two plates; do not unload them.", "zh-Hant": "依畫面顯示的黑／白／黑／白次序處理磁吸片。黑片疊在 (250, 80)，白片另疊在 (350, 80)。兩種顏色分開計層；每疊頂面先到 114 mm，再到 118 mm。白片抬高 80 mm 後才轉 +45°。完成後保留兩個可見的兩層堆疊，不再卸載。"},
-    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    prerequisite: {"en": "Complete or review the magnetic-plate pickup lesson first. This task uses four 35 × 35 × 4 mm plates and keeps black and white in separate vertical stacks.", "zh-Hant": "先完成或重溫磁吸片取放課。本課使用四塊 35 × 35 × 4 mm 磁吸片，黑白各自垂直堆疊，不會混放。"},
     explanation: [{"en": "Process plates in the displayed black/white/black/white order. Stack black plates at (250, 80) and white plates separately at (350, 80). Count each colour's layers separately; each stack reaches 114 mm, then 118 mm. The white plate turns +45° only after an 80 mm lift. Finish with two visible stacks of two plates; do not unload them.", "zh-Hant": "依畫面顯示的黑／白／黑／白次序處理磁吸片。黑片疊在 (250, 80)，白片另疊在 (350, 80)。兩種顏色分開計層；每疊頂面先到 114 mm，再到 118 mm。白片抬高 80 mm 後才轉 +45°。完成後保留兩個可見的兩層堆疊，不再卸載。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
     guidedSteps: [{"en": "Follow the displayed feeder order and check both stack positions.", "zh-Hant": "依畫面顯示的供料次序，確認兩個堆疊位置。"}, {"en": "Stack black plates at (250, 80) and white plates separately at (350, 80).", "zh-Hant": "黑片疊在 (250, 80)，白片另疊在 (350, 80)。"}, {"en": "For each white plate, lift 80 mm before turning +45°; keep one stack per colour.", "zh-Hant": "每塊白片都要先抬高 80 mm，再轉 +45°；每種顏色各自堆成一疊。"}, {"en": "Finish with two visible stacks of two plates and inspect them. Do not unload them.", "zh-Hant": "完成兩個可見的兩層堆疊並檢查結果，不要再卸載。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
@@ -394,7 +396,7 @@ const RAW_LESSONS: Lesson[] = [
     id: "intermediate-passive-fork", track: "intermediate", durationMinutes: 20,
     evidenceProfile: {"en": "Passive fork · supplied Body1", "zh-Hant": "被動叉臂 · 原裝 Body1"},
     title: {"en": "Body1 passive fork pickup", "zh-Hant": "Body1 被動叉臂取放"}, outcome: {"en": "One supplied 40 × 40 × 40 Body1 rests directly on the common Z = 110 mm platform. Insert at TCP Z = 132.5 mm, take the load at Z = 135 mm, lift 80 mm, place at Z = 135 mm, lower to Z = 132.5 mm, and withdraw 60 mm horizontally. Do not use DO.", "zh-Hant": "一件原裝 40 × 40 × 40 Body1 直接放在共用 Z = 110 mm 平台；TCP 在 Z = 132.5 mm 沿槽插入，在 Z = 135 mm 承托，再抬高 80 mm。降至 Z = 135 mm 放置，降回 Z = 132.5 mm，再水平退出 60 mm；不使用 DO。"},
-    prerequisite: {"en": "Prepare this practice; its tool, cell and taught points are supplied.", "zh-Hant": "準備本練習；系統會提供工具、工作格及教點。"},
+    prerequisite: {"en": "Complete Foundation before this first fork practice. The simulator supplies exactly one 40 × 40 × 40 Body1 block and a passive fork; slide under the block, then lift and release by motion. No DO is needed.", "zh-Hant": "首次學習叉臂前先完成初階課程。模擬器只提供一件 40 × 40 × 40 Body1 及無動力叉臂；沿槽滑入後，以移動抬起及釋放方塊，毋須 DO。"},
     explanation: [{"en": "One supplied 40 × 40 × 40 Body1 rests directly on the common Z = 110 mm platform. Insert at TCP Z = 132.5 mm, take the load at Z = 135 mm, lift 80 mm, place at Z = 135 mm, lower to Z = 132.5 mm, and withdraw 60 mm horizontally. Do not use DO.", "zh-Hant": "一件原裝 40 × 40 × 40 Body1 直接放在共用 Z = 110 mm 平台；TCP 在 Z = 132.5 mm 沿槽插入，在 Z = 135 mm 承托，再抬高 80 mm。降至 Z = 135 mm 放置，降回 Z = 132.5 mm，再水平退出 60 mm；不使用 DO。"}, {"en": "Deterministic teaching contact sequence; no arbitrary mesh collision or real hardware physics.", "zh-Hant": "這是確定性教學接觸流程，並非任意模型碰撞或實體機械物理。"}],
     guidedSteps: [{"en": "Confirm the supplied Body1 is on the common Z = 110 mm platform.", "zh-Hant": "確認原裝 Body1 已放在共用 Z = 110 mm 平台。"}, {"en": "Insert the passive fork at TCP Z = 132.5 mm and support the load at Z = 135 mm.", "zh-Hant": "在 TCP Z = 132.5 mm 沿槽插入被動叉臂，並在 Z = 135 mm 承托負載。"}, {"en": "Lift 80 mm, place the block at Z = 135 mm, and lower to Z = 132.5 mm.", "zh-Hant": "抬高 80 mm，在 Z = 135 mm 放置方塊，再降回 Z = 132.5 mm。"}, {"en": "Withdraw 60 mm horizontally and inspect the result. Do not use DO, Pick, or Place.", "zh-Hant": "水平退出 60 mm，再檢查結果；不要使用 DO、Pick 或 Place。"}],
     practice: {"en": "Reset the robot to restore the arranged source cell and repeat.", "zh-Hant": "重設機械臂以還原來源排列，再重複操作。"},
@@ -482,11 +484,11 @@ const RAW_LESSONS: Lesson[] = [
 ];
 
 const INTERMEDIATE_LESSON_ORDER = [
-  "intermediate-relative-linear-motion",
-  "intermediate-pick-and-place",
   "intermediate-passive-fork",
   "intermediate-rotate-carried-block",
   "intermediate-three-layer-tower",
+  "intermediate-relative-linear-motion",
+  "intermediate-pick-and-place",
   "intermediate-black-white-sort",
  ] as const;
 

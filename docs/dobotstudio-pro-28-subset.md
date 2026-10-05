@@ -16,6 +16,30 @@ This app supports a documented educational subset. It does not promise VM identi
 - `Wait(time)` waits for queued motion to finish, then delays delivery of the next command; `Sleep(time)` delays the program while already queued motion may continue. Both use milliseconds.
 - `DO(index,status)` is virtual simulator IO. In this reference cell, only `DO(1, ON)` (attach block) and `DO(1, OFF)` (release block) are mapped to the logical pickup tool. This is not a hardware port mapping.
 
+## V1 compatibility labels
+
+The labels below describe the product promise. `Verified` means the named behavior or signature is documented by the hash-matched V2.8.0 guide cited under Sources. `Simulator-only` means it is an educational implementation in this app, not a controller compatibility claim. `Unsupported` means V1 rejects it. `Unknown` means the cited sources do not establish it.
+
+| API or syntax | Label | V1 contract |
+| --- | --- | --- |
+| `MovJ(P, options)` | Verified + simulator-only timing | Cartesian target with joint point-to-point motion; `SpeedJ`/`AccJ` are 1–100, `SYNC` is 0/1, and omitted `SYNC` is asynchronous. V1 accepts only `CP=0`. |
+| `MovL(P, options)` | Verified + simulator-only timing | Cartesian linear motion; `SpeedL`/`AccL` are 1–100, `SYNC` is 0/1, and omitted `SYNC` is asynchronous. V1 accepts only `CP=0`. |
+| `JointMovJ(J, options)` | Verified + simulator-only timing | Four joint-angle target values; `SpeedJ`/`AccJ` are 1–100, `SYNC` is 0/1. |
+| `RelMovL({OffsetX,OffsetY,OffsetZ,OffsetR}, options)` | Verified + simulator-only frame/timing | Four positional values are the native documented form; X/Y/Z are millimetres and R is degrees. `SpeedL`/`AccL` are 1–100 and `SYNC` is 0/1. V1 resolves the target in its modeled base frame. |
+| `Sync()` | Verified + simulator-only scheduler | Queue barrier; waits until queued simulator actions are idle. |
+| `Wait(milliseconds)` | Verified + simulator-only scheduler | Non-negative finite milliseconds; waits for queued motion, then delays the next statement. |
+| `Sleep(milliseconds)` | Verified + simulator-only scheduler | Non-negative finite milliseconds; delays Lua while queued motion may continue. |
+| `GetPose()` / `GetAngle()` | Verified signature, simulator-only state | Returns current Cartesian pose / four joint angles from simulator state. Physical telemetry is unsupported. |
+| `SpeedJ(value)`, `SpeedL(value)`, `AccJ(value)`, `AccL(value)` | Verified + simulator-only state | Persistent simulator defaults; setter values are 0–100. Motion options use 1–100. |
+| `DO(index, status)` | Verified signature, simulator-only IO | V1 maps virtual indices 1–8 and ON/OFF (or boolean/0/1) to the logical cell; no hardware output is made. |
+| `Pick()` / `Place()` | Simulator-only | Logical tool actions for the educational cell; not Dobot hardware IO. Passive-fork lessons reject these actions. |
+| `CP=1..100` / continuous-path blending | Unsupported in V1 | The guide documents the option, but V1 rejects nonzero `CP` with a visible `UNSUPPORTED_OPTION` diagnostic. |
+| Unknown command, malformed signature, invalid option, or invalid numeric range | Unsupported | The Lua worker emits a visible run diagnostic and does not queue the invalid action. |
+| `io`, `os`, `package`, `debug`, `dofile`, `loadfile`, `load`, `require`, filesystem, sockets, hardware APIs | Unsupported | The worker removes these escape paths; attempts fail as unsupported Lua/runtime operations. |
+| Exact embedded Dobot Lua VM build and full controller compatibility | Unknown | No checked official source identifies the embedded VM build. V1 makes no VM identity or physical-controller equivalence claim. |
+
+Unknown Lua syntax is therefore outside the product promise: syntax/runtime errors are surfaced by the isolated worker, while only the table above is the supported educational subset.
+
 ## `RelMovL` verified in DobotStudio Pro V2.8.0
 
 - The official MG400/M1 Pro guide documents `RelMovL({OffsetX, OffsetY, OffsetZ, OffsetR}, {CP=1, SpeedL=50, AccL=20, SYNC=0})` on page 172. It describes a straight-line move from the current position to the Cartesian offset position; X/Y/Z offsets are millimetres and R is degrees. `SYNC=0` is asynchronous and `SYNC=1` waits for motion completion.

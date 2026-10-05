@@ -28,6 +28,7 @@ function stubSyntaxWorker(
   requests?: WorkerRequest[],
   findings: Array<{ kind?: string; line: number; message: string }> = [],
   pointTargetCount = 0,
+  unresolvedLocalTargetCount = pointTargetCount,
 ) {
   class MockSyntaxWorker {
     onmessage: ((event: MessageEvent) => void) | null = null;
@@ -43,7 +44,7 @@ function stubSyntaxWorker(
           findings,
           robotCallCount: pointTargetCount > 0 ? 1 : 0,
           pointTargetCount,
-          unresolvedLocalTargetCount: pointTargetCount,
+          unresolvedLocalTargetCount,
         })),
       } } as MessageEvent));
     }
@@ -146,6 +147,7 @@ describe("AI coding coach", () => {
 
     expect(await screen.findByRole("list", { name: "Code example check results" })).toHaveTextContent("SyntaxOK · Lua");
     expect(screen.getByRole("list", { name: "Code example check results" })).toHaveTextContent("Fork motion orderapproach/slide/lift/lower sequence not checked");
+    expect(screen.getByRole("list", { name: "Code example check results" })).toHaveTextContent("Passive forkno powered pickup/release command found");
     expect(screen.getByText(/If you do, then the loop will run again/)).toBeVisible();
     expect(screen.getByText("if ready then print('go') end")).toBeVisible();
   });
@@ -488,6 +490,124 @@ describe("AI coding coach", () => {
     expect(body.messages.at(-1)?.content).not.toContain("PickPoint");
   });
 
+  it("checks the current Lua program locally with no key or sharing and has no provider or simulator side effects", async () => {
+    const fetchMock = vi.fn();
+    const checked: WorkerRequest[] = [];
+    vi.stubGlobal("fetch", fetchMock);
+    stubSyntaxWorker(true, checked, [], 1, 0);
+    const source = "MovL(PickPoint, {CP=0})";
+    const { rerender } = render(<CodeAssistant uiLanguage="en" code={source} savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
+
+    expect(screen.getByRole("checkbox", { name: /share current lua program/i })).not.toBeChecked();
+    expect(screen.getByLabelText("Your provider API key")).toHaveValue("");
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+
+    const report = await screen.findByRole("list", { name: "Local program check results" });
+    expect(report).toHaveTextContent("Syntaxvalid Lua syntax");
+    expect(report).toHaveTextContent("Saved point namesnames and direct point types checked");
+    expect(report).toHaveTextContent("Reachabilitynot checked");
+    expect(report).toHaveTextContent("Simulator runnot run");
+    expect(screen.getByRole("region", { name: "Local program · local static checks" })).toHaveTextContent("code not run");
+    expect(checked).toEqual([{
+      type: "check-code", language: "lua", sources: [source],
+      points: [{ name: "PickPoint", kind: "cartesian" }], checkPoints: true, toolMode: "magnet",
+    }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Ask the coach" })).toBeDisabled();
+
+    rerender(<CodeAssistant uiLanguage="en" code="print('updated')" savedPoints={savedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
+    expect(screen.queryByRole("list", { name: "Local program check results" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+    expect(await screen.findByRole("list", { name: "Local program check results" })).toHaveTextContent("valid Lua syntax");
+
+    const changedPoints: TeachPoint[] = [{ ...savedPoints[0], name: "PlacePoint" }];
+    rerender(<CodeAssistant uiLanguage="en" code="print('updated')" savedPoints={changedPoints} language="lua" toolMode="magnet" setupReady setupChecks={setupChecks} recentRunLog={[]} hasCurrentRun={false} />);
+    expect(screen.queryByRole("list", { name: "Local program check results" })).not.toBeInTheDocument();
+  });
+
+  it("checks Python locally and reports passive-fork findings without running or changing the program", async () => {
+    const fetchMock = vi.fn();
+    const checked: WorkerRequest[] = [];
+    vi.stubGlobal("fetch", fetchMock);
+    stubSyntaxWorker(true, checked, [{ kind: "passive-fork-action", line: 1, message: "The unpowered fork cannot use do." }]);
+    const source = "do(1, ON)";
+    render(<CodeAssistant uiLanguage="en" code={source} savedPoints={[]} language="python" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+
+    expect(await screen.findByText("Line 1: The unpowered fork cannot use do.")).toBeVisible();
+    const report = screen.getByRole("list", { name: "Local program check results" });
+    expect(report).toHaveTextContent("Syntaxvalid Python syntax");
+    expect(report).toHaveTextContent("Passive forkpowered pickup/release command found");
+    expect(report).toHaveTextContent("Fork motion orderapproach/slide/lift/lower sequence not checked");
+    expect(report).toHaveTextContent("Simulator runnot run");
+    expect(checked).toEqual([{
+      type: "check-code", language: "python", sources: [source], points: [], checkPoints: true, toolMode: "fork",
+    }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /run program/i })).not.toBeInTheDocument();
+  });
+
+  it("reports empty and oversized programs as not checked instead of passing them", async () => {
+    const fetchMock = vi.fn();
+    const checked: WorkerRequest[] = [];
+    vi.stubGlobal("fetch", fetchMock);
+    stubSyntaxWorker(true, checked);
+    const { rerender } = render(<CodeAssistant uiLanguage="en" code="" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+    expect(await screen.findByText("The editor is empty; no source was checked or run.")).toBeVisible();
+    expect(screen.getByRole("list", { name: "Local program check results" })).toHaveTextContent("Syntaxnot checked");
+    expect(checked).toHaveLength(0);
+
+    rerender(<CodeAssistant uiLanguage="en" code={"x".repeat(8_001)} savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+    expect(await screen.findByText(/longer than the local checker.s 8,000-character limit/i)).toBeVisible();
+    expect(screen.getByRole("list", { name: "Local program check results" })).toHaveTextContent("Syntaxnot checked");
+    expect(checked).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows worker failures as not checked rather than a clean result", async () => {
+    const fetchMock = vi.fn();
+    class FailedSyntaxWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: (() => void) | null = null;
+      postMessage() { queueMicrotask(() => this.onerror?.()); }
+      terminate() {}
+    }
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("Worker", FailedSyntaxWorker);
+    render(<CodeAssistant uiLanguage="en" code="print('hello')" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+
+    expect(await screen.findByText(/local code checker could not start/i)).toBeVisible();
+    const report = screen.getByRole("list", { name: "Local program check results" });
+    expect(report).toHaveTextContent("Syntaxnot checked");
+    expect(report).toHaveTextContent("Simulator runnot run");
+    expect(report).not.toHaveTextContent("valid Lua syntax");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks API, point, and fork evidence unchecked when parsing fails", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    stubSyntaxWorker(false);
+    render(<CodeAssistant uiLanguage="en" code="if ready then" savedPoints={savedPoints} language="lua" toolMode="fork" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Check this program locally" }));
+
+    const report = await screen.findByRole("list", { name: "Local program check results" });
+    expect(report).toHaveTextContent("Syntaxneeds attention");
+    expect(report).toHaveTextContent("Robot API namesnot checked because syntax failed");
+    expect(report).toHaveTextContent("Saved point namesnot checked because syntax failed");
+    expect(report).toHaveTextContent("Passive forknot checked because syntax failed");
+    expect(report).toHaveTextContent("Fork motion orderapproach/slide/lift/lower sequence not checked");
+    expect(report).toHaveTextContent("Simulator runnot run");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("holds back code examples that fail local syntax checking", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -553,6 +673,8 @@ it("defaults all coach controls/privacy and free function teaching to Traditiona
   expect(screen.getByText("函式與呼叫 · 免費導學")).toBeInTheDocument();
   expect(screen.getByText("私隱與建議檢查方式")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "詢問教練" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "在本機檢查程式" })).toBeEnabled();
+  expect(screen.getByText(/此檢查只在本機執行.*不會傳送或執行程式/)).toBeVisible();
   expect(screen.getByPlaceholderText("描述預期結果、實際情況，或想學習的概念…")).toBeInTheDocument();
   expect(container.querySelector(".ai-local-function-example code")?.textContent).toBe("def go_to_pickup():\n    mov_j(PickApproach, cp=0)\n    sync()\n\ngo_to_pickup()");
   expect(container.textContent).toContain("把移動步驟寫進有名稱的函式");
@@ -569,6 +691,19 @@ it("defaults all coach controls/privacy and free function teaching to Traditiona
   expect(container.textContent).toContain("Put robot steps in a named function");
   rerender(<CodeAssistant {...props} language="lua" uiLanguage="zh-Hant" />);
   expect(container.querySelector(".ai-local-function-example code")?.textContent).toBe("local function goToPickup()\n  MovJ(PickApproach, {CP=0})\n  Sync()\nend\n\ngoToPickup()");
+});
+
+it("renders local static-check status in Traditional Chinese", async () => {
+  stubSyntaxWorker();
+  render(<CodeAssistant code="print('hello')" savedPoints={[]} language="lua" toolMode="magnet" setupReady setupChecks={[]} recentRunLog={[]} hasCurrentRun={false} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "在本機檢查程式" }));
+
+  expect(await screen.findByRole("list", { name: "本機程式檢查結果" })).toHaveTextContent("語法有效的 Lua 語法");
+  expect(screen.getByRole("region", { name: "本機程式 · 本機靜態檢查" })).toBeVisible();
+  const report = screen.getByRole("list", { name: "本機程式檢查結果" });
+  expect(report).toHaveTextContent("可達性未檢查");
+  expect(report).toHaveTextContent("模擬器執行未執行");
 });
 
 it("copies the selected-language robot function example without changing or running the program", async () => {

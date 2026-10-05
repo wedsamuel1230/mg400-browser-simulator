@@ -3,6 +3,7 @@ import { BookOpenCheck, Check, ChevronLeft, ChevronRight, Clipboard, X } from "l
 import { type ForkContactProfile, type ProgramLanguage } from "../domain";
 import { CURRICULUM_VERSION, LESSONS, TRACKS, type CourseLanguage, type Lesson } from "./curriculum";
 import { loadCourseProgress, saveCourseProgress, type CourseProgress } from "./courseProgress";
+import { RelMovLMathActivity } from "./RelMovLMathActivity";
 
 type Props = {
   open: boolean;
@@ -15,6 +16,7 @@ type Props = {
 
 export function TrainingCenter({ open, programLanguage, initialLessonId, onClose, onUseExample }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [progress, setProgress] = useState<CourseProgress>(() => loadCourseProgress());
   const [lessonId, setLessonId] = useState(progress.lastLessonId);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -37,8 +39,17 @@ export function TrainingCenter({ open, programLanguage, initialLessonId, onClose
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      const activeElement = document.activeElement;
+      returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+      dialog.showModal();
+    }
+    if (!open && dialog.open) {
+      dialog.close();
+      const returnFocusTo = returnFocusRef.current;
+      returnFocusRef.current = null;
+      if (returnFocusTo?.isConnected && !returnFocusTo.hasAttribute("disabled")) returnFocusTo.focus();
+    }
   }, [open]);
 
   useEffect(() => {
@@ -187,9 +198,10 @@ export function TrainingCenter({ open, programLanguage, initialLessonId, onClose
             <h3>{displayText(lesson.title)}</h3>
             <div className="lesson-outcome"><strong>{strings.outcome}</strong><span>{displayText(lesson.outcome)}</span></div>
             <section className="lesson-section"><h4>{strings.guidedActivity}</h4><ol>{guidedSteps.map((item, index) => <li key={index}>{item}</li>)}</ol></section>
+            {lesson.id === "intermediate-relative-linear-motion" && <RelMovLMathActivity language={courseLanguage} />}
             <section className="lesson-launch" aria-label={strings.startPractice}>
-              <button className="training-use-button" onClick={useExample} aria-expanded={confirmExampleReplacement}>{strings.useExample}</button>
-              <p className="lesson-launch-hint">{lesson.id === "foundation-first-program" ? strings.firstProgramHint : strings.launchHint}</p>
+              <button className="training-use-button" onClick={useExample} aria-expanded={confirmExampleReplacement}>{lesson.id === "intermediate-relative-linear-motion" ? strings.loadRelMovLDemo : strings.useExample}</button>
+              <p className="lesson-launch-hint">{lesson.id === "foundation-first-program" ? strings.firstProgramHint : lesson.id === "intermediate-relative-linear-motion" ? strings.relmovlLaunchHint : strings.launchHint}</p>
               {confirmExampleReplacement && <div className="training-example-confirmation" role="alert">
                 <p>{strings.replaceWarning[programLanguage]}</p>
                 <div className="training-example-confirmation-actions">
@@ -245,6 +257,7 @@ const englishUi = {
   pythonApi: "Python · simulator-only", copy: "Copy", copied: "Example copied. Paste it into the program editor when you are ready.",
   copyFallback: "Clipboard access is unavailable. Select the code below and copy it manually.", useExample: "Load and start practising",
   startPractice: "Start practice", launchHint: "Loading returns you to the practice guide. Choose Prepare this practice, then follow the steps to run it.",
+  loadRelMovLDemo: "Load the two-move demo", relmovlLaunchHint: "Separate from the math activity: this fixed demo moves to sample P₀, then +Z 20 mm and +X 15 mm. For your selected count and pattern, use the math activity's Copy buttons.",
   firstProgramHint: "Loading returns you to the practice guide. This text example is ready to run straight away.",
   previewExample: "Preview code", previewNote: "Read-only course preview. Load it to follow the practice guide; open Program when you want to edit it.",
   referenceDetails: "Concepts and further practice", lessonComplete: "Completed", questionCount: "questions",
@@ -263,6 +276,7 @@ const chineseUi = {
   pythonApi: "Python · 僅供模擬器", copy: "複製", copied: "範例已複製。準備好後可貼到程式編輯器。",
   copyFallback: "無法使用剪貼簿，請選取下方程式碼再手動複製。", useExample: "載入並開始練習",
   startPractice: "開始練習", launchHint: "載入後會返回練習指引。先按「準備這個練習」，再跟著步驟執行。",
+  loadRelMovLDemo: "載入兩步移動示範", relmovlLaunchHint: "這是獨立的固定示範：先移至示範首點 P₀，再 +Z 20 mm、+X 15 mm。如要載入上方數學練習所選的排列及件數，請使用該練習的「複製程式碼」按鈕。",
   firstProgramHint: "載入後會返回練習指引。這個文字範例已準備好，可直接執行。",
   previewExample: "查看程式範例", previewNote: "這裡是唯讀課程預覽。載入後跟著練習指引執行；想修改時再開啟「程式」。",
   referenceDetails: "概念解說與延伸練習", lessonComplete: "已完成", questionCount: "題",

@@ -2,6 +2,7 @@ import { TEACHING_PLATFORM, body1SupportHeight } from "../domain";
 import {
   AmbientLight,
   AxesHelper,
+  Box3,
   BoxGeometry,
   BufferGeometry,
   Color,
@@ -416,12 +417,42 @@ export class SimulatorScene {
   }
 
   focusPlacedWorkpieces() {
-    const placed = this.state?.project.scene.blocks.filter(block => block.source === "output") ?? [];
+    const state = this.state;
+    if (!state) return;
+    const placed = state.project.scene.blocks.filter(block => block.source === "output");
     if (!placed.length) return;
-    const x = placed.reduce((sum, block) => sum + block.position.x, 0) / placed.length;
-    const y = placed.reduce((sum, block) => sum + block.position.y, 0) / placed.length;
-    this.camera.position.set(x + 420, y + 570, 370);
-    this.controls.target.set(x, y, 160);
+    const baseBlock = state.project.scene.blocks.find(block => !block.kind || block.kind === "block");
+
+    this.scene.updateMatrixWorld(true);
+    const bounds = new Box3();
+    for (const block of placed) {
+      const mesh = baseBlock?.id === block.id
+        ? this.block
+        : this.additionalBlocks.get(block.id);
+      if (!mesh?.visible) continue;
+      bounds.expandByObject(mesh);
+    }
+    if (bounds.isEmpty()) return;
+
+    const center = bounds.getCenter(new Vector3());
+    const size = bounds.getSize(new Vector3());
+    // Keep a clear top-side view so both the orientation marker and each
+    // stack level remain visible while framing the full output arrangement.
+    const direction = new Vector3(0.56, 0.65, 0.51).normalize();
+    const forward = direction.clone().negate();
+    const right = forward.clone().cross(new Vector3(0, 0, 1)).normalize();
+    const cameraUp = right.clone().cross(forward).normalize();
+    const halfWidth = (Math.abs(right.x) * size.x + Math.abs(right.y) * size.y + Math.abs(right.z) * size.z) / 2;
+    const halfHeight = (Math.abs(cameraUp.x) * size.x + Math.abs(cameraUp.y) * size.y + Math.abs(cameraUp.z) * size.z) / 2;
+    const halfDepth = (Math.abs(direction.x) * size.x + Math.abs(direction.y) * size.y + Math.abs(direction.z) * size.z) / 2;
+    const verticalFov = this.camera.fov * Math.PI / 180;
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * this.camera.aspect);
+    const fitDistance = Math.max(halfHeight / Math.tan(verticalFov / 2), halfWidth / Math.tan(horizontalFov / 2));
+    const distance = Math.max(this.controls.minDistance, halfDepth + fitDistance * 1.18);
+
+    this.controls.target.copy(center);
+    this.camera.position.copy(center).addScaledVector(direction, distance);
+    this.camera.lookAt(center);
     this.controls.update();
   }
 

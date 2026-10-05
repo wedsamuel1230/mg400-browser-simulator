@@ -11,7 +11,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --pool=threads --maxWorkers=1 --testTimeout=15000",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@monaco-editor/react": "4.7.0",
@@ -25,6 +26,7 @@
     "wasmoon": "1.16.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",

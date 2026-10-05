@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TrainingCenter } from "./TrainingCenter";
 
@@ -14,13 +15,21 @@ describe("TrainingCenter example replacement", () => {
       value(this: HTMLDialogElement) { this.open = false; this.removeAttribute("open"); },
     });
     localStorage.clear();
-  localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.6", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
+  localStorage.setItem("mg400-course-progress-v1", JSON.stringify({ schemaVersion: 1, curriculumVersion: "1.3.7", language: "en", completedLessonIds: [], attemptsByLesson: {}, lastLessonId: "foundation-first-program" }));
   });
 
   afterEach(() => {
     cleanup();
     localStorage.clear();
   });
+
+  function OpenableTrainingCenter() {
+    const [open, setOpen] = useState(false);
+    return <>
+      <button type="button" onClick={() => setOpen(true)}>Open training center</button>
+      <TrainingCenter open={open} programLanguage="lua" onClose={() => setOpen(false)} onUseExample={vi.fn()} />
+    </>;
+  }
 
   it("keeps the editor untouched until the learner confirms, and allows cancellation", async () => {
     const user = userEvent.setup();
@@ -113,6 +122,29 @@ describe("TrainingCenter example replacement", () => {
     expect(document.querySelector(".lesson-code")?.textContent).toContain("while count < 3 do");
   });
 
+  it("shows the Intermediate fork-first order and prerequisites in Traditional Chinese", async () => {
+    const user = userEvent.setup();
+    render(<TrainingCenter open programLanguage="lua" onClose={vi.fn()} onUseExample={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "繁中" }));
+    const intermediateTrack = [...document.querySelectorAll<HTMLDetailsElement>(".training-track")]
+      .find((item) => item.querySelector("summary")?.textContent?.startsWith("中階"));
+    expect(intermediateTrack).toBeDefined();
+    await user.click(intermediateTrack!.querySelector("summary")!);
+    expect([...intermediateTrack!.querySelectorAll(".training-lesson-link")].map((button) => button.textContent?.trim())).toEqual([
+      "Body1 被動叉臂取放",
+      "Body1 取件後旋轉 90°",
+      "Body1 三層塔 0°／90°／0°",
+      "RelMovL 相對直線移動",
+      "磁吸片取放",
+      "黑白磁吸片獨立堆疊",
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Body1 被動叉臂取放" }));
+    await user.click(screen.getByText("概念解說與延伸練習"));
+    expect(screen.getByText(/只提供一件 40 × 40 × 40 Body1 及無動力叉臂/)).toBeInTheDocument();
+  });
+
   it("wraps Tab and Shift+Tab at the ends of the training dialog", async () => {
     const user = userEvent.setup();
     const { container } = render(<TrainingCenter open programLanguage="lua" onClose={vi.fn()} onUseExample={vi.fn()} />);
@@ -135,6 +167,34 @@ describe("TrainingCenter example replacement", () => {
     expect(container.querySelector("dialog")?.open).toBe(true);
   });
 
+  it("returns focus to the launcher when Escape closes the dialog", async () => {
+    const user = userEvent.setup();
+    render(<OpenableTrainingCenter />);
+    const launcher = screen.getByRole("button", { name: "Open training center" });
+
+    await user.click(launcher);
+    const dialog = screen.getByRole("dialog", { name: "Training center" });
+    screen.getByRole("button", { name: "Close training center" }).focus();
+    const cancel = new Event("cancel", { bubbles: true, cancelable: true });
+    fireEvent(dialog, cancel);
+
+    await waitFor(() => expect(dialog).not.toHaveAttribute("open"));
+    expect(cancel.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(launcher);
+  });
+
+  it("returns focus to the launcher when the close button is used", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<OpenableTrainingCenter />);
+    const launcher = screen.getByRole("button", { name: "Open training center" });
+
+    await user.click(launcher);
+    await user.click(screen.getByRole("button", { name: "Close training center" }));
+
+    await waitFor(() => expect(container.querySelector("dialog")?.open).toBe(false));
+    expect(document.activeElement).toBe(launcher);
+  });
+
 
 it("shows and loads the calibrated Body1 no-output withdrawal example", async () => {
   const onUseExample=vi.fn();
@@ -155,6 +215,25 @@ it("uses measured Body1 quiz contact heights instead of generic Z20",async()=>{
  await user.click(screen.getByRole("radio",{name:"Lower to Z = 135 mm, then Z = 132.5 mm, and withdraw 60 mm horizontally"}));
  expect(screen.getAllByText(/One supplied 40 × 40 × 40 Body1 rests directly/).length).toBeGreaterThan(0);
  expect(screen.queryByText(/Z ?= ?20 mm/)).not.toBeInTheDocument();
+});
+
+it("distinguishes the generated math exercise from the fixed two-move RelMovL demo", async () => {
+  const user = userEvent.setup();
+  const onUseExample = vi.fn();
+  render(<TrainingCenter open programLanguage="lua" initialLessonId="intermediate-relative-linear-motion" onClose={vi.fn()} onUseExample={onUseExample} />);
+
+  await user.click(screen.getByRole("button", { name: "繁中" }));
+  expect(screen.getByText(/在互動數學練習選擇物件、堆疊或排列方式及件數/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "載入兩步移動示範" })).toBeInTheDocument();
+  expect(document.querySelector(".lesson-launch-hint")).toHaveTextContent("這是獨立的固定示範");
+  expect(screen.getByRole("button", { name: "複製程式碼 · Lua" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "載入兩步移動示範" }));
+  await user.click(screen.getByRole("button", { name: "確認替換程式" }));
+  const loadedProgram = onUseExample.mock.calls[0][0] as string;
+  expect(loadedProgram).toContain("MovJ(P0");
+  expect(loadedProgram).toContain("RelMovL({0, 0, 20, 0}");
+  expect(loadedProgram.indexOf("MovJ(P0")).toBeLessThan(loadedProgram.indexOf("RelMovL("));
 });
 
 it("keeps completion progress and next-lesson navigation available after the folded quiz", async () => {

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+test-results/
+playwright-report/
 .vite/
 .vercel/
 *.tsbuildinfo
@@ -9,5 +11,6 @@ dist/
 !.env.example
 .scratch/issue23-local-tools/
 .scratch/
+.archify/
 .vercel
 .env*

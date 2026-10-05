@@ -140,6 +140,72 @@ describe("relative Cartesian motion", () => {
   });
 });
 
+describe("linear motion preflight", () => {
+  it("samples MovL along the requested Cartesian line", async () => {
+    animationFrameMocks();
+    const workerInstances: Array<{ onmessage: ((event: MessageEvent) => void) | null; postMessage: (message: unknown) => void; terminate: () => void; emit: (message: unknown) => void }> = [];
+    class MockLuaWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      constructor() { workerInstances.push(this); }
+      postMessage(_message: unknown) {}
+      terminate() {}
+      emit(message: unknown) { this.onmessage?.({ data: message } as MessageEvent); }
+    }
+    vi.stubGlobal("Worker", MockLuaWorker);
+    const harness = makeHarness({
+      initialJoints: [0, 0, 0, 0],
+      forward: (joints) => ({ x: joints[0], y: joints[1], z: joints[2], r: joints[3] }),
+      solve: (pose) => ({ ok: true, joints: [pose.x, pose.y, pose.z, pose.r], positionErrorMm: 0, angleErrorDeg: 0 }),
+    });
+
+    harness.controller.run("linear path", []);
+    workerInstances[0].emit({
+      type: "motion",
+      motion: { commandId: 1, command: "MovL", targetPose: { x: 100, y: 50, z: 100, r: 30 }, speed: 100, acceleration: 100, sync: false },
+    });
+    workerInstances[0].emit({ type: "script-complete" });
+    await vi.waitFor(() => expect(harness.status()).toBe("complete"), { timeout: 1_000 });
+
+    expect(harness.positions.length).toBeGreaterThan(1);
+    harness.positions.forEach((joint) => {
+      expect(joint[1]).toBeCloseTo(joint[0] / 2, 5);
+      expect(joint[2]).toBeCloseTo(joint[0], 5);
+      expect(joint[3]).toBeCloseTo(joint[0] * 0.3, 5);
+    });
+    expect(harness.positions.at(-1)).toEqual([100, 50, 100, 30]);
+  });
+
+  it("rejects an unreachable sampled path before changing the joint pose", async () => {
+    animationFrameMocks();
+    const workerInstances: Array<{ onmessage: ((event: MessageEvent) => void) | null; postMessage: (message: unknown) => void; terminate: () => void; emit: (message: unknown) => void }> = [];
+    class MockLuaWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      constructor() { workerInstances.push(this); }
+      postMessage(_message: unknown) {}
+      terminate() {}
+      emit(message: unknown) { this.onmessage?.({ data: message } as MessageEvent); }
+    }
+    vi.stubGlobal("Worker", MockLuaWorker);
+    const harness = makeHarness({
+      initialJoints: [0, 0, 0, 0],
+      forward: (joints) => ({ x: joints[0], y: 0, z: 100, r: 0 }),
+      solve: (pose, current) => pose.x >= 49 && pose.x <= 51
+        ? { ok: false, joints: current, positionErrorMm: 12, angleErrorDeg: 0 }
+        : { ok: true, joints: [pose.x, 0, 0, 0], positionErrorMm: 0, angleErrorDeg: 0 },
+    });
+
+    harness.controller.run("linear path", []);
+    workerInstances[0].emit({
+      type: "motion",
+      motion: { commandId: 1, command: "MovL", targetPose: { x: 100, y: 0, z: 100, r: 0 }, speed: 100, acceleration: 100, sync: false },
+    });
+    workerInstances[0].emit({ type: "script-complete" });
+
+    await vi.waitFor(() => expect(harness.status()).toBe("error"), { timeout: 1_000 });
+    expect(harness.positions).toHaveLength(0);
+  });
+});
+
 describe("Go To point transitions", () => {
   it("animates through intermediate joint poses and reaches the saved target", async () => {
     animationFrameMocks();
@@ -291,6 +357,51 @@ it("uses actual magnetic plate top height and rejects contact with empty space a
   harness.setJoints([300,-80,MAGNET_SUPPORT_HEIGHT_MM + 14,0]);
   expect(pick).not.toThrow();
   expect(harness.attachedId()).toBe("magnet-1");
+});
+
+it("does not invent a legacy pickup target when an explicit workcell is empty", () => {
+  const project = structuredClone(DEFAULT_PROJECT);
+  project.scene.blocks = [];
+  const harness = makeHarness({
+    project,
+    initialJoints: [300, -80, MAGNET_SUPPORT_HEIGHT_MM + 4, 0],
+    forward: (joints) => ({ x: joints[0], y: joints[1], z: joints[2], r: joints[3] }),
+  });
+  const pick = () => (harness.controller as unknown as { performToolAction: (action: "pick") => void }).performToolAction("pick");
+
+  expect(pick).toThrow(/no eligible source block is within the configured pickup tolerance/);
+  expect(harness.attached()).toBe(false);
+  expect(harness.attachedId()).toBeNull();
+});
+
+it("explains when the TCP is outside the magnetic pickup zone", () => {
+  const project = structuredClone(DEFAULT_PROJECT);
+  project.scene.blocks = [{ id: "plate", kind: "magnet", color: "neutral", source: "pickup", position: { x: 300, y: -80 }, r: 0 }];
+  project.tool.pickupTolerance = { xy: 1, z: 0.5 };
+  const harness = makeHarness({ project, initialJoints: [320, -80, MAGNET_SUPPORT_HEIGHT_MM + 4, 0], forward: joints => ({ x: joints[0], y: joints[1], z: joints[2], r: joints[3] }) });
+  const pick = () => (harness.controller as unknown as { performToolAction: (action: "pick") => void }).performToolAction("pick");
+
+  expect(pick).toThrow(/no eligible source block is within the configured pickup tolerance/);
+  expect(harness.attached()).toBe(false);
+});
+
+it("explains a repeated pick and preserves the first attached workpiece", () => {
+  const project = structuredClone(DEFAULT_PROJECT);
+  project.scene.blocks = [{ id: "plate", kind: "magnet", color: "neutral", source: "pickup", position: { x: 300, y: -80 }, r: 0 }];
+  const harness = makeHarness({ project, initialJoints: [300, -80, MAGNET_SUPPORT_HEIGHT_MM + 4, 0], forward: joints => ({ x: joints[0], y: joints[1], z: joints[2], r: joints[3] }) });
+  const action = (name: "pick" | "place") => (harness.controller as unknown as { performToolAction: (action: "pick" | "place") => void }).performToolAction(name);
+
+  action("pick");
+  expect(() => action("pick")).toThrow(/already attached to the tool/);
+  expect(harness.attachedId()).toBe("plate");
+});
+
+it("explains a release command when no workpiece is attached", () => {
+  const harness = makeHarness();
+  const place = () => (harness.controller as unknown as { performToolAction: (action: "place") => void }).performToolAction("place");
+
+  expect(place).toThrow(/there is no block attached to the tool/);
+  expect(harness.attached()).toBe(false);
 });
 
 it("uses the raised platform for an explicitly rectangular block in magnet mode", () => {

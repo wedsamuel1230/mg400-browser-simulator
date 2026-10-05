@@ -131,7 +131,7 @@ export default defineConfig(({ mode }) => {
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],
       clearMocks: true,
-      exclude: [...configDefaults.exclude, "**/.scratch/**"],
+      exclude: [...configDefaults.exclude, "**/.scratch/**", "**/e2e/**"],
     },
   };
 });

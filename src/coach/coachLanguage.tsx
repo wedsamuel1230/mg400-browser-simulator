@@ -12,6 +12,8 @@ const ZH: Record<string, string> = {
   "Default: stealth/space-bunny-alpha. Availability and pricing depend on your provider.": "預設：stealth/space-bunny-alpha。可用性及收費由供應商決定。",
   "This model's third-party provider may retain prompts and replies. Avoid student names or personal details.": "此模型的第三方供應商可能保留問題及回覆。請勿提供學生姓名或個人資料。",
   "Read the model data terms": "閱讀模型資料條款", "Suggested questions": "建議問題", "Review my code": "檢視我的程式", "Explain code": "解釋程式",
+  "Check this program locally": "在本機檢查程式", "Checking locally…": "本機檢查中…", "Local program": "本機程式", "Local program check results": "本機程式檢查結果",
+  "This check runs only on this device. It checks syntax, known API names, direct saved points, and selected tool rules; it does not send your program, execute it, or prove reachability or motion behavior.": "此檢查只在本機執行，檢查語法、已知 API 名稱、直接使用的已儲存點位及所選工具規則；不會傳送或執行程式，也不會證明可達性或動作行為。",
   "What would you like help with?": "你想了解甚麼？", "Describe what you expect, what happened, or a concept you want to learn…": "描述預期結果、實際情況，或想學習的概念…",
   "Share current": "分享目前的", "program, saved point names, setup checks, and recent run log": "程式、已儲存點位名稱、設定檢查及最近執行紀錄", "(off by default)": "（預設關閉）",
   "Your program, saved point names, setup checks, and run log stay on this device unless you turn sharing on. Enable it to use “Review my code” or “Explain code”.": "除非開啟分享，程式、點位名稱、設定檢查及執行紀錄只會留在此裝置。開啟分享後可使用「檢視我的程式」或「解釋程式」。",
@@ -24,10 +26,10 @@ const ZH: Record<string, string> = {
   "Suggested code": "建議範例", "Your shared program": "你分享的程式", "local static checks": "本機靜態檢查", "code not run": "未執行程式",
   "Shared program check results": "分享程式檢查結果", "Code example check results": "範例檢查結果", "Program static findings": "程式靜態檢查發現", "Line": "行",
   "Syntax": "語法", "Saved point names": "已儲存點位名稱", "Robot API names": "機械臂 API 名稱", "Reachability": "可達性", "Simulator run": "模擬器執行", "Passive fork": "被動叉工具", "Fork motion order": "叉工具動作次序",
-  "not checked": "未檢查", "not run": "未執行", "no named motion targets": "沒有具名動作點位", "names and point types checked": "已檢查名稱及點位類型", "names and direct point types checked": "已檢查名稱及直接點位類型",
+  "not checked": "未檢查", "not checked because syntax failed": "未檢查：語法檢查未通過", "not run": "未執行", "no named motion targets": "沒有具名動作點位", "names and point types checked": "已檢查名稱及點位類型", "names and direct point types checked": "已檢查名稱及直接點位類型",
   "not checked because project context sharing is off": "未檢查：專案分享已關閉", "not checked · project points were not shared": "未檢查：未分享專案點位", "local target variables are not type-checked": "未檢查區域點位變數類型",
   "checked against the supported subset": "已按支援的指令子集檢查", "known names checked against this subset": "已按此子集檢查已知名稱", "no robot commands to check": "沒有機械臂指令可檢查", "unsupported command found": "發現不支援指令",
-  "no DO/Pick/Place calls detected": "未發現 DO/Pick/Place 呼叫", "no DO/Pick/Place call detected": "未發現 DO/Pick/Place 呼叫", "powered pickup/release command found": "發現帶動力的拾取或釋放指令", "approach/slide/lift/lower sequence not checked": "未檢查接近、插入、抬升及放下次序", "one or more target names/types need attention": "一個或以上點位名稱或類型需要處理",
+  "no powered pickup/release command found": "未發現帶動力的拾取或釋放指令", "powered pickup/release command found": "發現帶動力的拾取或釋放指令", "approach/slide/lift/lower sequence not checked": "未檢查接近、插入、抬升及放下次序", "one or more target names/types need attention": "一個或以上點位名稱或類型需要處理",
   "No code example to check · the coach did not run your program": "沒有範例可檢查；教練沒有執行你的程式", "Next step": "下一步",
   "Try one small idea from the explanation in your editor → review setup warnings → run it yourself → compare the Run output and any simulator changes with the explanation.": "在編輯器嘗試一個小改動 → 檢視設定提示 → 自行執行 → 比較輸出及模擬器變化。",
   "Enter a valid model ID from the selected provider (up to 120 characters).": "請輸入供應商的有效模型 ID（最多 120 字元）。",
@@ -53,6 +55,7 @@ const ZH: Record<string, string> = {
   "I could not check this large set of examples locally. Ask for one short Lua/Python example at a time.": "範例太多，未能完成本機檢查。請每次要求一個短 Lua/Python 範例。",
   "I held back this reply because it included code outside a checked code block. Ask the coach to put the complete Lua/Python example in a fenced code block so the browser can check it first.": "回覆包含未放進程式碼區塊的可執行內容，已暫停顯示。請要求教練把完整 Lua/Python 範例放進程式碼區塊，以便瀏覽器先檢查。",
   "The shared editor is empty; no source program was checked or run.": "分享的編輯器沒有內容；未檢查或執行任何程式。",
+  "The editor is empty; no source was checked or run.": "編輯器沒有內容；未檢查或執行任何程式。",
   "The program is longer than the local checker's 8,000-character limit; shorten it for a local static review.": "程式超出本機檢查的 8,000 字元上限，請縮短後再進行靜態檢查。",
   "This parser found a syntax problem. The program was not run.": "解析器發現語法問題。程式未有執行。",
 
@@ -74,6 +77,7 @@ export function coachText(text: string, language: CoachLanguage): string {
   if (text.startsWith("I held back this example because")) return "本機檢查發現 API、點位或工具模式問題，範例已暫停顯示。請要求修正。";
   if (text.startsWith("Local code checking failed")) return "本機程式檢查失敗；程式未有執行。";
   if (text.includes("The program was not run; the AI review is still static.")) return "本機檢查未完成；程式未有執行，AI 回覆只屬靜態建議。";
+  if (text.includes("The program was not run; this is still a static review.")) return "本機檢查未完成；程式未有執行，結果只屬靜態檢查。";
   if (text.includes("Motion target “")) return text.replace("Motion target “", "動作點位「").replace(/” was not found.*$/, "」不在分享的已儲存點位內；請分享點位或在範例定義。");
   if (text.includes("” is unsupported.")) return text.replace(/” is unsupported\..*$/, "」不受此模擬器支援。請使用已記錄的指令子集。").replace("“", "「");
   if (text.includes("The unpowered fork cannot use")) return text.replace("The unpowered fork cannot use “", "被動叉工具不可使用「").replace(/”\..*$/, "」。請用插入、抬升、放下及退出路徑。");

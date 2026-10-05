@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { CURRICULUM_VERSION, LESSONS, TRACKS } from "./curriculum";
+import { prepareLessonProject } from "./practiceSetup";
 
 describe("beginner curriculum entry", () => {
   it("starts with a bilingual text-only program instead of a robot command", () => {
     const first = LESSONS[0];
-    expect(CURRICULUM_VERSION).toBe("1.3.6");
+    expect(CURRICULUM_VERSION).toBe("1.3.7");
     expect(first.id).toBe("foundation-first-program");
     expect(first.track).toBe("foundation");
     expect(first.title.en).toBeTruthy();
@@ -89,13 +90,63 @@ describe("beginner curriculum entry", () => {
 
   it("keeps the six Intermediate lessons in the authored teaching order", () => {
     expect(LESSONS.filter(({ track }) => track === "intermediate").map(({ id }) => id)).toEqual([
-      "intermediate-relative-linear-motion",
-      "intermediate-pick-and-place",
       "intermediate-passive-fork",
       "intermediate-rotate-carried-block",
       "intermediate-three-layer-tower",
+      "intermediate-relative-linear-motion",
+      "intermediate-pick-and-place",
       "intermediate-black-white-sort",
     ]);
+  });
+
+  it("keeps the Body1 fork progression and later magnetic tasks on their intended props", () => {
+    const fork = prepareLessonProject("intermediate-passive-fork");
+    const rotate = prepareLessonProject("intermediate-rotate-carried-block");
+    const tower = prepareLessonProject("intermediate-three-layer-tower");
+    const magnet = prepareLessonProject("intermediate-pick-and-place");
+    const sort = prepareLessonProject("intermediate-black-white-sort");
+
+    expect(fork.scene.blocks).toHaveLength(1);
+    expect(fork.scene.blocks[0]).toMatchObject({ kind: "block", geometry: "body1", color: "neutral" });
+    expect(fork.tool.mode).toBe("fork");
+    expect(fork.script).not.toMatch(/\bDO\s*\(/);
+    expect(rotate.scene.blocks).toHaveLength(1);
+    expect(rotate.scene.blocks[0].geometry).toBe("body1");
+    expect(tower.scene.blocks).toHaveLength(3);
+    expect(tower.scene.blocks.every(({ geometry, color }) => geometry === "body1" && color === "neutral")).toBe(true);
+    expect(magnet.scene.blocks).toHaveLength(1);
+    expect(magnet.scene.blocks[0].kind).toBe("magnet");
+    expect(sort.scene.blocks).toHaveLength(4);
+    expect(sort.scene.blocks.map(({ color }) => color)).toEqual(["black", "white", "black", "white"]);
+    expect(sort.scene.blocks.every(({ kind }) => kind === "magnet")).toBe(true);
+
+    const forkLesson = LESSONS.find(({ id }) => id === "intermediate-passive-fork")!;
+    const rotateLesson = LESSONS.find(({ id }) => id === "intermediate-rotate-carried-block")!;
+    const towerLesson = LESSONS.find(({ id }) => id === "intermediate-three-layer-tower")!;
+    for (const language of ["en", "zh-Hant"] as const) {
+      expect(forkLesson.prerequisite[language]).toMatch(/one|一件/);
+      expect(rotateLesson.prerequisite[language]).toMatch(/passive-fork|被動叉臂/);
+      expect(rotateLesson.prerequisite[language]).toMatch(/middle layer|中層/);
+      expect(towerLesson.prerequisite[language]).toMatch(/same XY|相同 XY/);
+    }
+  });
+
+  it("distinguishes the magnetic plate from the fork's Body1 block", () => {
+    const magnet = LESSONS.find(({ id }) => id === "intermediate-pick-and-place")!;
+    const fork = LESSONS.find(({ id }) => id === "intermediate-passive-fork")!;
+    const magnetCopy = [
+      magnet.title.en, magnet.title["zh-Hant"], magnet.outcome.en, magnet.outcome["zh-Hant"],
+      ...magnet.explanation.flatMap(copy => [copy.en, copy["zh-Hant"]]),
+      ...magnet.guidedSteps.flatMap(copy => [copy.en, copy["zh-Hant"]]),
+      magnet.practice.en, magnet.practice["zh-Hant"],
+      ...magnet.questions.flatMap(question => [question.en, question["zh-Hant"], ...question.options.en, ...question.options["zh-Hant"], question.explanation.en, question.explanation["zh-Hant"]]),
+    ].join(" ");
+
+    expect(magnet.title["zh-Hant"]).toBe("磁吸片取放");
+    expect(magnetCopy).toMatch(/35 × 35 × 4 mm (?:magnetic plate|磁吸片)/);
+    expect(magnetCopy).not.toMatch(/35 × 35 × 4 mm (?:block|方塊)/);
+    expect(fork.title["zh-Hant"]).toContain("Body1");
+    expect(fork.outcome["zh-Hant"]).toContain("40 × 40 × 40");
   });
 
   it("keeps every lesson bilingual, assessed, and consistent with the current course release", () => {
@@ -151,7 +202,33 @@ describe("beginner curriculum entry", () => {
     if (!lesson) throw new Error("Missing RelMovL lesson.");
     expect(lesson.explanation.map((copy) => copy.en).join(" ")).toContain("CP is the path-blending option, not a TCP coordinate");
     expect(lesson.explanation.map((copy) => copy["zh-Hant"]).join(" ")).toContain("CP 是路徑混合選項，不是 TCP 座標");
-    expect(lesson.examples.lua).toContain("{CP=0}");
+    expect(lesson.examples.lua).toContain("CP=0");
     expect(lesson.examples.python).toContain("cp=0");
+  });
+
+  it("aligns RelMovL instructions with the example start point and selected motion axis", () => {
+    const lesson = LESSONS.find((entry) => entry.id === "intermediate-relative-linear-motion");
+    expect(lesson).toBeDefined();
+    if (!lesson) throw new Error("Missing RelMovL lesson.");
+    expect(lesson.guidedSteps[1].en).toContain("It moves to sample P₀ first, so no manual pre-position is needed");
+    expect(lesson.guidedSteps[1]["zh-Hant"]).toContain("程式會先移至示範首點 P₀，毋須手動預移");
+    expect(lesson.guidedSteps[1]["zh-Hant"]).not.toContain("安全教點");
+    expect(lesson.guidedSteps[2].en).toContain("Z or Y component of each RelMovL step");
+    expect(lesson.guidedSteps[2].en).toContain("keep the other components at 0");
+    expect(lesson.guidedSteps[2]["zh-Hant"]).toContain("堆疊改 Z；排成一列改 Y");
+    expect(lesson.guidedSteps[2]["zh-Hant"]).toContain("其餘分量維持 0");
+  });
+});
+
+describe("RelMovL lesson examples", () => {
+  it("starts both the fixed demo and generated exercises at an explicit P₀", () => {
+    const lesson = LESSONS.find(({ id }) => id === "intermediate-relative-linear-motion")!;
+    expect(lesson.guidedSteps[0]["zh-Hant"]).toContain("互動數學練習");
+    expect(lesson.guidedSteps[0]["zh-Hant"]).toContain("複製程式碼");
+    expect(lesson.guidedSteps[1]["zh-Hant"]).toContain("先移至示範首點 P₀");
+    expect(lesson.examples.lua.indexOf("MovJ(P0")).toBeGreaterThan(lesson.examples.lua.indexOf("local P0 ="));
+    expect(lesson.examples.lua.indexOf("RelMovL(")).toBeGreaterThan(lesson.examples.lua.indexOf("MovJ(P0"));
+    expect(lesson.examples.python.indexOf("mov_j(P0")).toBeGreaterThan(lesson.examples.python.indexOf("P0 ="));
+    expect(lesson.examples.python.indexOf("rel_mov_l(")).toBeGreaterThan(lesson.examples.python.indexOf("mov_j(P0"));
   });
 });

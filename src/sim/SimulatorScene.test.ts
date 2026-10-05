@@ -1,7 +1,7 @@
 import xml from "../../public/models/mg400/mg400_description/urdf/mg400_description.urdf?raw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import URDFLoader from "urdf-loader";
-import { BoxGeometry, Mesh, Quaternion, Vector3, type Group, type Scene, type BufferGeometry, type PerspectiveCamera } from "three";
+import { Box3, BoxGeometry, Mesh, Quaternion, Vector3, type Group, type Scene, type BufferGeometry, type PerspectiveCamera } from "three";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import { MG400Kinematics } from "./mg400Kinematics";
 import type { JointAngles } from "../domain";
@@ -179,5 +179,54 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
  project.scene.blocks[0].position={x:480,y:220};project.scene.platformHeightMm=0;
  view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
  expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ view.dispose();
+});
+
+it("frames the actual output arrangement and its stack height while leaving the teaching platform fixed", async () => {
+ vi.stubGlobal("fetch", async () => new Response(stl));
+ const view = await SimulatorScene.create(document.createElement("canvas"), xml, () => undefined);
+ const project = structuredClone(DEFAULT_PROJECT);
+ project.scene.blocks = [
+  {id:"output-lower",kind:"block",color:"neutral",source:"output",position:{x:230,y:-60},r:0,stackLevel:0},
+  {id:"output-upper",kind:"block",color:"white",source:"output",position:{x:230,y:-60},r:90,stackLevel:1},
+  {id:"output-single",kind:"block",color:"black",source:"output",position:{x:390,y:45},r:0,stackLevel:0},
+ ];
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
+ const internals = view as unknown as {scene:Scene;block:Mesh;additionalBlocks:Map<string,Mesh>;camera:PerspectiveCamera;controls:{target:Vector3;minDistance:number};teachingPlatform:Mesh;robotRoot:Group};
+ internals.scene.updateMatrixWorld(true);
+ const bounds = new Box3().expandByObject(internals.block);
+ for (const mesh of internals.additionalBlocks.values()) bounds.expandByObject(mesh);
+ const center = bounds.getCenter(new Vector3());
+ const platformPosition = internals.teachingPlatform.position.clone();
+ const platformScale = internals.teachingPlatform.scale.clone();
+ const robotPosition = internals.robotRoot.position.clone();
+
+ view.focusPlacedWorkpieces();
+
+ expect(internals.controls.target.distanceTo(center)).toBeLessThan(0.001);
+ expect(internals.camera.position.distanceTo(center)).toBeGreaterThan(internals.controls.minDistance);
+ internals.camera.updateMatrixWorld(true);
+ const verticalFov = internals.camera.fov * Math.PI / 180;
+ const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * internals.camera.aspect);
+ for (const x of [bounds.min.x,bounds.max.x]) for (const y of [bounds.min.y,bounds.max.y]) for (const z of [bounds.min.z,bounds.max.z]) {
+  const point = new Vector3(x,y,z).applyMatrix4(internals.camera.matrixWorldInverse);
+  const depth = -point.z;
+  expect(Math.abs(point.x / depth)).toBeLessThan(Math.tan(horizontalFov / 2));
+  expect(Math.abs(point.y / depth)).toBeLessThan(Math.tan(verticalFov / 2));
+ }
+ expect(internals.teachingPlatform.position.toArray()).toEqual(platformPosition.toArray());
+ expect(internals.teachingPlatform.scale.toArray()).toEqual(platformScale.toArray());
+ expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);
+ expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ expect(internals.robotRoot.position.toArray()).toEqual(robotPosition.toArray());
+
+ project.scene.blocks = project.scene.blocks.map(block => ({...block,source:"pickup"}));
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
+ view.resetCamera();
+ const overviewPosition = internals.camera.position.clone();
+ const overviewTarget = internals.controls.target.clone();
+ view.focusPlacedWorkpieces();
+ expect(internals.camera.position.toArray()).toEqual(overviewPosition.toArray());
+ expect(internals.controls.target.toArray()).toEqual(overviewTarget.toArray());
  view.dispose();
 });

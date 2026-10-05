@@ -12,6 +12,8 @@ type Action =
   | { type: "io"; index: number; value: boolean }
   | { type: "tool"; action: "pick" | "place" };
 
+const MOVL_PREFLIGHT_SAMPLES = 100;
+
 export type RunStatus = "ready" | "running" | "paused" | "complete" | "stopped" | "error";
 
 export type ControllerEvents = {
@@ -288,6 +290,10 @@ export class SimulationController {
       destination = solved.joints;
     }
 
+    if (request.command === "MovL") {
+      this.preflightLinearPath(currentPose, targetPose, current, project, toleranceMm);
+    }
+
     const distance = request.command === "MovL"
       ? Math.hypot(targetPose.x - currentPose.x, targetPose.y - currentPose.y, targetPose.z - currentPose.z)
       : Math.max(...destination.map((angle, index) => Math.abs(deg(angle - current[index]))));
@@ -334,6 +340,19 @@ export class SimulationController {
       this.events.setJoints(destination);
       const destinationPose = this.kinematics.forward(destination, project.tool.flangeOffset, activeTcpOffset(project.tool));
       this.updatePassiveFork(lastTcpPose, destinationPose);
+    }
+  }
+
+  private preflightLinearPath(from: Pose, to: Pose, seed: JointAngles, project: ProjectDocument, toleranceMm: number) {
+    let lastJoints = seed;
+    for (let index = 1; index <= MOVL_PREFLIGHT_SAMPLES; index += 1) {
+      const progress = index / MOVL_PREFLIGHT_SAMPLES;
+      const pose = interpolatePose(from, to, progress);
+      const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
+      if (!result.ok) {
+        throw new Error(`Straight-line motion failed preflight at ${(progress * 100).toFixed(0)}% (${result.positionErrorMm.toFixed(1)} mm position error).`);
+      }
+      lastJoints = result.joints;
     }
   }
 
@@ -404,12 +423,15 @@ export class SimulationController {
     if (action === "pick") {
       if (attached) throw new Error("The block is already attached to the tool.");
       const tcp = this.kinematics.forward(this.events.getJoints(), project.tool.flangeOffset, activeTcpOffset(project.tool));
-      const candidates = this.events.getCellBlocks?.() ?? [];
+      const explicitCellBlocks = this.events.getCellBlocks?.();
+      const candidates = explicitCellBlocks ?? [];
       const withinContact = (candidate: CellBlock) => Math.hypot(tcp.x - candidate.position.x, tcp.y - candidate.position.y) <= project.tool.pickupTolerance.xy
         && Math.abs(tcp.z - cellBlockTopZ(candidate, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene))) <= project.tool.pickupTolerance.z;
       const target = candidates.filter((candidate) => candidate.source !== "unloaded" && !cellBlockIsOccluded(candidate, candidates, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) && withinContact(candidate))
         .sort((a, b) => (a.source === "output" ? 1 : 0) - (b.source === "output" ? 1 : 0) || cellBlockTopZ(b, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)) - cellBlockTopZ(a, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene)))[0];
-      const block = candidates.length > 0 ? target?.position : this.events.getBlock();
+      // An explicit empty workcell is genuinely empty. Fall back to the
+      // legacy single-block coordinate only for integrations without a cell API.
+      const block = explicitCellBlocks === undefined ? this.events.getBlock() : target?.position;
       if (!block) throw new Error("Pick failed: no eligible source block is within the configured pickup tolerance.");
       const xyError = Math.hypot(tcp.x - block.x, tcp.y - block.y);
       const pickupZ = cellBlockTopZ(target, "magnet", magneticSurfaceHeight(project.scene), platformHeight(project.scene));

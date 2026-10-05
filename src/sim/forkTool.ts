@@ -23,9 +23,11 @@ export type PassiveForkTransition = {
 };
 
 /**
- * Model only the contact sequence needed for the training cell: enter beneath
- * the 40 x 40 x 15 mm block at the 20 mm support plane, then lift; lower to
- * the matching support pads to release. This is not rigid-body physics.
+ * Model only the contact sequence needed for the training cell. The generic
+ * profile enters beneath a 40 x 40 x 15 mm reference block at the 20 mm support
+ * plane; the Body1 profile uses its measured 40 x 40 x 40 mm grooves. Both
+ * attach on lift and release at their support surface. This is not rigid-body
+ * physics.
  */
 export function advancePassiveFork(
   state: PassiveForkState,

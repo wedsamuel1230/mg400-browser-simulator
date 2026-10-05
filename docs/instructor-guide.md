@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Instructor Guide
 
-**Course release:** 1.3.6
+**Course release:** 1.3.7
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 4 October 2026
+**Last checked against the app:** 5 October 2026
 
 ## Purpose and boundary
 
@@ -34,11 +34,11 @@ The 14 current lessons total about 211 minutes of stated lesson time. Actual cla
 | Foundation | Loops: repeat a small task | 8 min | Finite `for` and counter-controlled `while` loops |
 | Foundation | The cell and its coordinates | 12 min | X/Y/Z/R, J1–J4, TCP, block centre, and contact height |
 | Foundation | Taught points and two kinds of move | 15 min | Named points, `MovJ`, and `MovL` |
-| Intermediate | Relative linear motion with RelMovL | 18 min | Bounded base-frame relative motion |
-| Intermediate | Pick and place with the magnet | 18 min | Simulated `DO` attach/release sequence |
 | Intermediate | Pick and place the grooved Body1 with the passive fork | 20 min | Slide into the supplied block, lift, lower to support, and withdraw; no `DO` |
 | Intermediate | Pick up Body1, then rotate it +90° while carrying | 20 min | Lift the picked block +80 mm before turning; keep the fork unpowered |
 | Intermediate | Stack three Body1 blocks (0° / 90° / 0°) | 20 min | Build vertically at one XY; rotate only the middle layer after pickup and lift |
+| Intermediate | Relative linear motion with RelMovL | 18 min | Bounded base-frame relative motion |
+| Intermediate | Pick and place one magnetic plate | 18 min | Simulated `DO` attach/release sequence |
 | Intermediate | Sort and stack black/white magnetic plates | 20 min | Keep two separate stacks and per-colour counts; turn white plates +45° after lift |
 | Advanced | Queued motion, SYNC, and timing | 18 min | Queue completion and simulated timing |
 | Advanced | Debugging and knowing the boundary | 20 min | Diagnostics, unsupported behavior, and simulation limits |
@@ -57,14 +57,14 @@ Introduce the flange as the robot's tool-mounting face and the TCP as the config
 
 Have learners select a tool, teach or refresh the pick pair, then run the single `PickApproach` move. It should stop short of contact and must not pick up the block. Compare the TCP position and saved approach pose after switching tools.
 
-### Magnet and passive fork comparison
+### Body1 passive-fork progression
 
 Fresh exercises use the front 110 mm teaching platform:
 
-- **Magnet:** the 35 × 35 × 4 mm plate rests on the platform. The magnetic tool targets its top face at Z114. `DO(1, ON/OFF)` is only a simulator attach/release action; it does not represent connected hardware I/O.
-- **Fork:** the supplied Body1 rests directly on the shared platform at Z = 110 mm. Fork insertion is TCP Z = 132.5 mm and support/release is Z = 135 mm. The unpowered tool must approach, slide into the groove, lift, travel, lower to release, then clear and withdraw. No `DO`, `Pick()`, or `Place()` call is required.
+- **First fork task:** exactly one supplied 40 × 40 × 40 mm Body1 rests directly on the shared platform at Z = 110 mm. Fork insertion is TCP Z = 132.5 mm and support/release is Z = 135 mm. Slide the passive fork under the block, lift it, lower it to release, clear, and withdraw. No `DO`, `Pick()`, or `Place()` call is required; there are no magnet plates in this task.
+- **Next:** practise carrying that single block through a +90° turn after an 80 mm lift. This isolates the movement used by the tower's middle layer without adding props to the beginner fork task. Then stack three supplied Body1 blocks vertically at the same XY: bottom 0°, middle +90° after pickup and lift, top 0°.
 
-Ask learners to explain why the two modes use different contact geometry and why an approach point is useful. The fork support and release rules are deterministic simulation logic, not a physics or force model.
+The fork support and release rules are deterministic simulation logic, not a physics or force model. Teach magnetic-plate pickup later, after RelMovL; keep its 35 × 35 × 4 mm plate and simulator-only `DO` behavior distinct from the fork task.
 
 ### Make the carried wrist rotation visible
 
@@ -73,6 +73,24 @@ Point out the asymmetric dark arrow on the block; it marks the block's local +X 
 ### Control flow and relative motion
 
 Keep the early `if/else` and loop examples print-only. Require a clear stopping condition for every `while` loop. For `RelMovL`, distinguish its Cartesian offset from TCP and from the `CP=0` path-blending option. The simulator resolves relative offsets in its base frame; user and tool frames are outside the supported subset.
+
+In the interactive math activity, ask learners to choose Body1 or a magnetic plate and then select a stack or row. Have them read the part dimension, step vector, and first target P₀ before interpreting the graph. Define `N` as the number of pieces and `i` as the zero-based target index; explain that the initial `MovJ(P₀)` reaches target zero, so the loop needs only `N−1` relative moves. For stacking, `h` is the piece height or plate thickness. For a row, `w + gap` is the repeated pitch. The activity demonstrates motion arithmetic only; it does not pick or release pieces.
+
+## External controller reference: teach the call pattern
+
+Use the user-supplied `roboarm-master.zip` as a separate source example. `roboarm-master/dobot_controller.py`, lines 309–319, registers function objects and calls the chosen entry (abridged):
+
+```python
+functions = [AI_TickTacToe, TickTacToe, student_id, exit]
+menu_items = dict(enumerate(functions, start=1))
+selection = int(input("input: "))
+selected_value = menu_items[selection]
+selected_value()
+```
+
+Ask learners to distinguish storing a function from calling it. `student_id` is the source function's name; no student identifier value is needed for this explanation. The functions belong to the external program and must already be defined there.
+
+Explain the execution boundary before showing the excerpt: that controller imports the archive member `roboarm-master/dobot_api.py` and connects to real controller dashboard, motion, and feedback services. This excerpt is not runnable browser simulator code, and its menu input and hardware SDK are outside the browser API. For simulator exercises, retain ordinary `def task(): ...` followed by `task()`, with no `await`; use the print-only example in [the student guide](student-guide.md#external-controller-reference-function-registry). Teach the function-call concept separately from controller connectivity.
 
 ## Assessment and feedback
 
@@ -96,7 +114,7 @@ For OpenRouter Space Bunny Alpha, the model listing says its third-party provide
 
 Keep these identities separate when presenting the product:
 
-- **Course release:** 1.3.6, the version of the bilingual lesson content.
+- **Course release:** 1.3.7, the version of the bilingual lesson content.
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
@@ -142,11 +160,11 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 | 初階 | 迴圈：重複小任務 | 8 分鐘 | 有限 for 和計數器控制的 while 迴圈 |
 | 初階 | 工作站與座標 | 12 分鐘 | X/Y/Z/R、J1–J4、TCP、方塊中心和接觸高度 |
 | 初階 | 教點與兩種移動 | 15 分鐘 | 具名教點、MovJ 和 MovL |
-| 中階 | RelMovL 相對直線移動 | 18 分鐘 | 有界限的基座座標系相對移動 |
-| 中階 | 使用磁吸工具取放方塊 | 18 分鐘 | 模擬 DO 吸附及釋放流程 |
 | 中階 | 使用無動力叉臂取放 Body1 槽積木 | 20 分鐘 | 沿槽滑入、抬起、放至承托面及退出；不需 DO |
 | 中階 | 先叉起 Body1，再攜件旋轉 +90° | 20 分鐘 | 取件後先抬高 80 mm，再轉動仍由叉臂承托的方塊 |
 | 中階 | 建立三層 Body1 方塊塔（0°／90°／0°） | 20 分鐘 | 同一 XY 垂直堆疊；只有中層在取件及抬高後旋轉 |
+| 中階 | RelMovL 相對直線移動 | 18 分鐘 | 有界限的基座座標系相對移動 |
+| 中階 | 使用磁吸工具取放一塊磁吸片 | 18 分鐘 | 模擬 DO 吸附及釋放流程 |
 | 中階 | 黑白磁吸片分類並分開堆疊 | 20 分鐘 | 兩個不同位置，各自計層；白片抬高後轉 +45° |
 | 進階 | 移動佇列、SYNC 與時間 | 18 分鐘 | 指令佇列完成和模擬時間 |
 | 進階 | 診斷錯誤與理解模擬界線 | 20 分鐘 | 錯誤訊息、不支援行為及模擬限制 |
@@ -165,14 +183,14 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 
 請學生選擇工具、建立或更新取件教點組合，然後執行單一 **PickApproach** 移動。該移動只到接近位置，不應接觸或拾起方塊。切換工具後比較 TCP 位置及接近教點。
 
-#### 比較磁吸與無動力叉臂
+#### Body1 無動力叉臂學習次序
 
 新練習使用前方 110 mm 教學平台：
 
-- **Magnet：**35 × 35 × 4 mm 磁吸片放在平台上，磁吸工具對準 Z114 頂面。**DO(1, ON/OFF)** 只在模擬器內代表吸附／釋放，沒有連接實體 I/O。
-- **Fork：**隨附 Body1 直接放在頂面 Z = 110 mm 的共用平台上。叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。無動力工具需接近、沿槽滑入、抬起及移動，再降下釋放、恢復間隙並退出。毋須 **DO**、**Pick()** 或 **Place()**。
+- **第一個叉臂任務：**只用一件原裝 40 × 40 × 40 mm Body1，直接放在頂面 Z = 110 mm 的共用平台上。叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。先把無動力叉臂沿槽滑到方塊下方，再抬起、降下釋放、恢復間隙並退出。此任務沒有磁吸片，毋須 **DO**、**Pick()** 或 **Place()**。
+- **之後：**先用同一件方塊練習抬高 80 mm 後攜件轉 +90°，為三層塔中層使用的動作作準備，但不在初學叉臂任務加入其他物件。再把三件 Body1 放在相同 XY 垂直堆疊：底層 0°、中層取件抬高後 +90°、頂層 0°。
 
-請學生解釋兩種模式為何有不同接觸幾何，以及接近點有甚麼作用。叉臂承托和釋放屬確定性模擬規則，不是物理或受力模型。
+叉臂承托和釋放屬確定性模擬規則，不是物理或受力模型。完成 RelMovL 後才教授磁吸片取放；該課使用 35 × 35 × 4 mm 磁吸片及模擬器專用 DO，並與叉臂任務分開說明。
 
 #### 讓學生看見攜件手腕旋轉
 
@@ -181,6 +199,22 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 #### 控制流程及相對移動
 
 初階 If/else 和迴圈範例先保持只輸出文字。每個 while 迴圈都應有明確停止條件。教授 **RelMovL** 時，分清笛卡兒座標偏移、TCP 和 **CP=0** 路徑平滑選項。模擬器以基座座標系解析相對偏移；不支援使用者座標系或工具座標系。
+
+### 外部控制器參考：教授函式呼叫模式
+
+把使用者提供的 `roboarm-master.zip` 作為獨立來源範例。`roboarm-master/dobot_controller.py` 第 309–319 行建立函式物件表，再呼叫所選項目（節錄）：
+
+```python
+functions = [AI_TickTacToe, TickTacToe, student_id, exit]
+menu_items = dict(enumerate(functions, start=1))
+selection = int(input("input: "))
+selected_value = menu_items[selection]
+selected_value()
+```
+
+請學生分辨「儲存函式」與「呼叫函式」。`student_id` 是來源函式的名稱；講解不需任何學生編號數值。這些函式屬於外部程式，須已在該程式中定義。
+
+展示節錄前先說明執行界線：該控制程式匯入壓縮檔內的 `roboarm-master/dobot_api.py`，並連接實體控制器的 dashboard、移動及回饋服務。此節錄不能在瀏覽器模擬器執行，其選單輸入與硬件 SDK 不屬於瀏覽器 API。模擬器練習維持普通 `def task(): ...` 再呼叫 `task()`，毋須 `await`；可使用[學生指南](student-guide.md#外部控制器參考函式表)中的文字輸出範例。教授函式呼叫概念時，請另外說明控制器連線。
 
 ### 評估與回饋
 
@@ -204,7 +238,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 向學生介紹產品時，請分清以下身分：
 
-- **課程版本：**1.3.6，代表雙語教材版本。
+- **課程版本：**1.3.7，代表雙語教材版本。
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。

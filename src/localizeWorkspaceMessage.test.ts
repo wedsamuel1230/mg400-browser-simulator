@@ -40,4 +40,41 @@ describe("workspace message localization", () => {
     expect(localizeWorkspaceMessage("Reached PickApproach.", "zh-Hant"))
       .toBe("已到達 PickApproach。");
   });
+
+  it("translates teach, program-loading, and recovery logs for Traditional Chinese", () => {
+    expect(localizeWorkspaceMessage(
+      "Taught pick and approach points above the reference cell block.",
+      "zh-Hant",
+    )).toBe("已在參考工作格的方塊上方示教拾取點及接近點。");
+    expect(localizeWorkspaceMessage(
+      "Taught the fork entry point 60 mm before the block and the insertion point at its 35 mm contact plane.",
+      "zh-Hant",
+    )).toBe("已在方塊前方 60 mm 示教叉臂入口點，並在 Z 35 mm 接觸平面示教插入點。");
+    expect(localizeWorkspaceMessage("Loaded the recommended Python pick-and-place template.", "zh-Hant"))
+      .toBe("已載入 Python 取放程式範例。");
+    expect(localizeWorkspaceMessage("Lua lesson example loaded into the program editor.", "zh-Hant"))
+      .toBe("已將 Lua 課程範例載入程式編輯器。");
+    expect(localizeWorkspaceMessage("Simulation stopped. The robot holds its current pose.", "zh-Hant"))
+      .toBe("模擬已停止；機械臂保持目前姿勢。");
+    expect(localizeWorkspaceMessage(
+      "DO1 is only a virtual output in Fork mode. Slide beneath the block and lift to pick it up; lower it onto the table to release it.",
+      "zh-Hant",
+    )).toContain("叉臂模式中的 DO1");
+    expect(localizeWorkspaceMessage(
+      "Fork lowered the block onto the support pads at X 250.0 mm, Y 90.0 mm.",
+      "zh-Hant",
+    )).toBe("叉臂已將方塊降至支撐墊（X 250.0 mm，Y 90.0 mm）。");
+    expect(localizeWorkspaceMessage(
+      "Magnet attached puck-1 at X 250.0 mm, Y 90.0 mm.",
+      "zh-Hant",
+    )).toBe("磁吸工具已吸附「puck-1」（X 250.0 mm，Y 90.0 mm）。");
+    expect(localizeWorkspaceMessage(
+      "Block puck-1 placed at X 250.0 mm, Y 90.0 mm, Z 48.0 mm, R 90.0°.",
+      "zh-Hant",
+    )).toBe("方塊「puck-1」已放置於 X 250.0 mm、Y 90.0 mm，Z 48.0 mm，R 90.0°。");
+    expect(localizeWorkspaceMessage(
+      "Straight-line motion failed preflight at 45% (2.1 mm position error).",
+      "zh-Hant",
+    )).toBe("直線移動預檢在 45% 失敗（位置誤差 2.1 mm）。");
+  });
 });

@@ -11,11 +11,22 @@ import {newTaskEvidence,observeTaskFrame,assessRobotTask} from "../sim/taskAsses
 import {activeTcpOffset,type JointAngles,type Pose} from "../domain";
 import type {MotionRequest} from "../sim/luaTypes";
 import {prepareLessonProject,BODY1_LESSONS} from "./practiceSetup";
+import {recommendPickAndPlace} from "../sim/codeRecommendation";
 
 type Command={type:"motion";motion:MotionRequest}|{type:"io";value:boolean};
 let lua:LuaEngine,python:PyodideInterface;
 beforeAll(async()=>{[lua,python]=await Promise.all([new LuaFactory().createEngine(),loadPyodide()]);},60000);
 afterAll(()=>{lua?.global.close();python?.globals.destroy();vi.unstubAllGlobals();});
+
+it("keeps a valid prepared tower recommendation ready after a released block moves",()=>{
+ const project=prepareLessonProject("intermediate-three-layer-tower");
+ const reachable={solve:()=>({ok:true,joints:[0,0,0,0],positionErrorMm:0,angleErrorDeg:0})} as unknown as Pick<MG400Kinematics,"solve">;
+ expect(recommendPickAndPlace(project,"lua",reachable,"","body1").ready).toBe(true);
+ project.scene.block={...project.scene.drop};
+ project.scene.blocks[0]={...project.scene.blocks[0],source:"output",position:{...project.scene.drop},stackLevel:0};
+ expect(recommendPickAndPlace(project,"lua",reachable,"","body1").ready).toBe(false);
+ expect(recommendPickAndPlace({...project,scene:{...project.scene,blocks:structuredClone(project.scene.initialBlocks),block:{...project.scene.initialBlocks[0].position}}},"lua",reachable,"","body1").ready).toBe(true);
+});
 
 describe("actual controller executions of prepared Lua/Python examples",()=>{
  for(const language of ["lua","python"] as const) for(const id of [...BODY1_LESSONS,"intermediate-black-white-sort"]){
