@@ -33,6 +33,8 @@ export function localizeWorkspaceMessage(message: string, language: WorkspaceLan
   const translated = translations[message];
   if (translated) return translated;
 
+  const unsupportedMotionOption = message.match(/UNSUPPORTED_OPTION:\s*(MovJ|MovL|JointMovJ|RelMovL) does not support option ([A-Za-z_][A-Za-z0-9_]*)/);
+  if (unsupportedMotionOption) return `${unsupportedMotionOption[1]} 不支援「${unsupportedMotionOption[2]}」選項。`;
   const jog = message.match(/^Jog stopped: ([XYZR]) target is outside the modeled workspace\.$/);
   if (jog) return `點動已停止：${jog[1]} 軸目標超出模擬工作範圍。`;
   const jointLimit = message.match(/^Jog stopped at J([1-4]) limit \((.+)° to (.+)°\)\.$/);

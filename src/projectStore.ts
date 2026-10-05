@@ -82,12 +82,28 @@ const isPose = (value: unknown): value is Pose =>
   isRecord(value) &&
   ["x", "y", "z", "r"].every((key) => isFiniteNumber(value[key]));
 
+export function validatePointName(name: unknown): name is string {
+  return typeof name === "string" && name.length <= 40 && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !LUA_RESERVED.has(name);
+}
+
+function normalizePointName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+export function hasDuplicatePointName(
+  name: string,
+  points: readonly Pick<TeachPoint, "id" | "name">[],
+  excludingPointId?: string,
+): boolean {
+  const normalizedName = normalizePointName(name);
+  return points.some((point) => point.id !== excludingPointId && normalizePointName(point.name) === normalizedName);
+}
+
 function validatePoint(value: unknown): value is TeachPoint {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.name !== "string") {
+  if (!isRecord(value) || typeof value.id !== "string" || !validatePointName(value.name)) {
     return false;
   }
-  if (value.id.length < 1 || value.id.length > 80 || value.name.length > 40) return false;
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(value.name) || LUA_RESERVED.has(value.name)) return false;
+  if (value.id.length < 1 || value.id.length > 80) return false;
   if (value.kind === "cartesian") return isPose(value.pose) && Object.values(value.pose).every((n) => Math.abs(n as number) <= 1000);
   if (value.kind === "joint") {
     return (
@@ -151,7 +167,7 @@ export function validateProject(input: unknown): ProjectDocument {
     const pointKind = isRecord(point) && point.kind === "joint" ? " joint" : " Cartesian";
     throw new Error(`Project${pointKind} point${pointName} at index ${invalidPoint} is malformed or outside the allowed ranges.`);
   }
-  const names = value.points.map((point) => point.name.trim().toLowerCase());
+  const names = value.points.map((point) => normalizePointName(point.name));
   const ids = value.points.map((point) => point.id);
   if (names.some((name) => !name) || new Set(names).size !== names.length || new Set(ids).size !== ids.length) {
     throw new Error("Point names must be non-empty and unique.");

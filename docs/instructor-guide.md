@@ -118,7 +118,7 @@ Keep these identities separate when presenting the product:
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
-- **Hardware and firmware:** no physical calibration, controller execution, firmware verification, safety validation, or deployment has been performed.
+- **Hardware and firmware:** the browser simulator is deployed; no physical calibration, controller execution, firmware verification, or safety validation has been performed.
 
 Do not present the user-specified +60 mm TCP offset, simulated joint limits, pickup tolerance, or simulated timing as physical calibration or safety limits. A green simulator run is not permission to run the same program on equipment.
 
@@ -126,7 +126,6 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 
 - [Student guide](student-guide.md)
 - [Project setup and product overview](../README.md)
-- [Wayfinder task map](../.scratch/mg400-virtual-training-simulator/map.md)
 
 ## 繁體中文
 
@@ -242,7 +241,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。
-- **實體設備及韌體：**未進行實體校準、控制器執行、韌體驗證、安全驗證或部署。
+- **實體設備及韌體：**瀏覽器模擬器已部署；未進行實體校準、控制器執行、韌體驗證或安全驗證。
 
 不可把指定 +60 mm TCP 偏移、模擬關節限制、取件容差或模擬時間說成實體校準或安全限制。模擬器顯示成功不代表可以把同一程式用於實體設備。
 
@@ -250,4 +249,3 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 - [學生指南](student-guide.md)
 - [專案設定及產品概覽](../README.md)
-- [Wayfinder 任務地圖](../.scratch/mg400-virtual-training-simulator/map.md)

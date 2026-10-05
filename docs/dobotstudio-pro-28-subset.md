@@ -24,7 +24,7 @@ The labels below describe the product promise. `Verified` means the named behavi
 | --- | --- | --- |
 | `MovJ(P, options)` | Verified + simulator-only timing | Cartesian target with joint point-to-point motion; `SpeedJ`/`AccJ` are 1–100, `SYNC` is 0/1, and omitted `SYNC` is asynchronous. V1 accepts only `CP=0`. |
 | `MovL(P, options)` | Verified + simulator-only timing | Cartesian linear motion; `SpeedL`/`AccL` are 1–100, `SYNC` is 0/1, and omitted `SYNC` is asynchronous. V1 accepts only `CP=0`. |
-| `JointMovJ(J, options)` | Verified + simulator-only timing | Four joint-angle target values; `SpeedJ`/`AccJ` are 1–100, `SYNC` is 0/1. |
+| `JointMovJ(J, options)` | Verified + simulator-only timing | Four joint-angle target values; V1 accepts only `CP=0`, `SpeedJ`/`AccJ` are 1–100, and `SYNC` is 0/1. |
 | `RelMovL({OffsetX,OffsetY,OffsetZ,OffsetR}, options)` | Verified + simulator-only frame/timing | Four positional values are the native documented form; X/Y/Z are millimetres and R is degrees. `SpeedL`/`AccL` are 1–100 and `SYNC` is 0/1. V1 resolves the target in its modeled base frame. |
 | `Sync()` | Verified + simulator-only scheduler | Queue barrier; waits until queued simulator actions are idle. |
 | `Wait(milliseconds)` | Verified + simulator-only scheduler | Non-negative finite milliseconds; waits for queued motion, then delays the next statement. |
@@ -39,6 +39,8 @@ The labels below describe the product promise. `Verified` means the named behavi
 | Exact embedded Dobot Lua VM build and full controller compatibility | Unknown | No checked official source identifies the embedded VM build. V1 makes no VM identity or physical-controller equivalence claim. |
 
 Unknown Lua syntax is therefore outside the product promise: syntax/runtime errors are surfaced by the isolated worker, while only the table above is the supported educational subset.
+
+Motion option tables accept only the fields listed for that command; misspelled or command-mismatched fields produce a visible `UNSUPPORTED_OPTION` diagnostic before the motion is queued.
 
 ## `RelMovL` verified in DobotStudio Pro V2.8.0
 

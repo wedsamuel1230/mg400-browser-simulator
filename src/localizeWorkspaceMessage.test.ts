@@ -30,6 +30,12 @@ describe("workspace message localization", () => {
     )).toContain("請在指令中明確寫出 {CP=0}");
   });
 
+  it("localizes unknown and command-mismatched Lua motion options", () => {
+    const message = '[string "program"]:1: UNSUPPORTED_OPTION: MovL does not support option SpeedJ';
+    expect(localizeWorkspaceMessage(message, "en")).toBe(message);
+    expect(localizeWorkspaceMessage(message, "zh-Hant")).toBe("MovL 不支援「SpeedJ」選項。");
+  });
+
   it("translates simulation start, completion, and go-to logs for Traditional Chinese", () => {
     expect(localizeWorkspaceMessage("Python program started in the isolated browser worker.", "zh-Hant"))
       .toBe("Python 程式已在本機隔離工作執行器中開始執行。");

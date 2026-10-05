@@ -4,17 +4,17 @@ import { DEFAULT_PROJECT } from "../src/data/defaultProject";
 const projectStorageKey = "mg400-training-project-v1";
 const baseUrl = "http://127.0.0.1:4179";
 
-async function runLuaSource(browser: Browser, source: string, marker: string) {
+async function runLuaSource(browser: Browser, source: string, marker: string, language: "en" | "zh-Hant" = "en") {
   const context = await browser.newContext();
   const page = await context.newPage();
   const project = { ...DEFAULT_PROJECT, script: source, programmingLanguage: "lua" as const };
-  await context.addInitScript(({ key, seededProject }) => {
-    localStorage.setItem("mg400-ui-language-v1", "en");
+  await context.addInitScript(({ key, seededProject, language }) => {
+    localStorage.setItem("mg400-ui-language-v1", language);
     localStorage.setItem(key, JSON.stringify(seededProject));
-  }, { key: projectStorageKey, seededProject: project });
+  }, { key: projectStorageKey, seededProject: project, language });
 
   await page.goto(baseUrl);
-  await page.getByRole("button", { name: "Code", exact: true }).click();
+  await page.getByRole("button", { name: language === "zh-Hant" ? "程式" : "Code", exact: true }).click();
   await expect(page.locator(".monaco-editor .view-lines")).toContainText(marker);
   await expect.poll(() => page.evaluate((key) => {
     const stored = JSON.parse(localStorage.getItem(key) ?? "null");
@@ -24,11 +24,56 @@ async function runLuaSource(browser: Browser, source: string, marker: string) {
   const workerStarted = page.waitForEvent("worker", {
     predicate: (worker) => /lua\.worker/i.test(worker.url()),
   });
-  await page.getByRole("button", { name: "Run code" }).click();
+  await page.getByRole("button", { name: language === "zh-Hant" ? "執行程式" : "Run code" }).click();
   await workerStarted;
 
-  return { context, result: page.getByRole("region", { name: "Run result" }) };
+  return { context, result: page.getByRole("region", { name: language === "zh-Hant" ? "執行結果" : "Run result" }) };
 }
+
+const invalidMotionOptions = [
+  { command: "MovJ", option: "SpeeedJ", source: "MovJ(PickApproach, {CP=0, SpeeedJ=50})" },
+  { command: "MovL", option: "SpeedJ", source: "MovL(PickPoint, {CP=0, SpeedJ=50})" },
+  { command: "JointMovJ", option: "SpeedL", source: "JointMovJ(Home, {CP=0, SpeedL=50})" },
+  { command: "RelMovL", option: "SpeeedL", source: "RelMovL({0, 0, 0, 0}, {CP=0, SpeeedL=50})" },
+];
+
+for (const candidate of invalidMotionOptions) {
+  test(`Lua worker rejects unsupported ${candidate.command} options`, async ({ browser }) => {
+    const marker = `should-not-run-${candidate.command}`;
+    const invalid = await runLuaSource(browser, `${candidate.source}\nprint('${marker}')`, candidate.command);
+    try {
+      await expect(invalid.result.locator(".result-error"))
+        .toContainText(`${candidate.command} does not support option ${candidate.option}`);
+      await expect(invalid.result).not.toContainText(marker);
+    } finally {
+      await invalid.context.close();
+    }
+  });
+}
+
+test("Lua worker retains the documented options on every motion command", async ({ browser }) => {
+  const valid = await runLuaSource(browser, [
+    "MovJ(PickApproach, {CP=0, SpeedJ=50, AccJ=20, SYNC=1})",
+    "MovL(PickPoint, {CP=0, SpeedL=50, AccL=20, SYNC=1})",
+    "JointMovJ(Home, {CP=0, SpeedJ=50, AccJ=20, SYNC=1})",
+    "RelMovL({0, 0, 0, 0}, {CP=0, SpeedL=50, AccL=20, SYNC=1})",
+    "print('documented-options-ok')",
+  ].join("\n"), "documented-options-ok");
+  await expect(valid.result.locator(".result-error")).toHaveCount(0);
+  await expect(valid.result).toContainText("documented-options-ok");
+  await valid.context.close();
+});
+
+test("Lua worker localizes an unsupported motion-option error in Traditional Chinese", async ({ browser }) => {
+  const result = await runLuaSource(
+    browser,
+    "MovL(PickPoint, {CP=0, SpeedJ=50})",
+    "MovL(PickPoint",
+    "zh-Hant",
+  );
+  await expect(result.result.locator(".result-error")).toContainText("MovL 不支援「SpeedJ」選項。");
+  await result.context.close();
+});
 
 test("Lua worker enforces RelMovL's four-offset form and known motion options", async ({ browser }) => {
   const valid = await runLuaSource(browser, [

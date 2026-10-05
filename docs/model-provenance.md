@@ -26,16 +26,16 @@ The simulator enforces the product ranges in `src/domain.ts` for teach controls 
 
 ## Owner-local official CAD files
 
-These are retained in `/Users/wed/Downloads` and are not copied into this app because they use Creo proprietary formats and their redistribution terms are not established:
+The maintainer retains these official CAD files locally. They are not copied into this app because they use Creo proprietary formats and their redistribution terms are not established:
 
 - `MG400 Model (Creo4.0)-20210406.zip`
 - `MG400_End_Flange_3D.stp`
 
-macOS download metadata for both records the official Dobot domain `https://www.dobot-robots.com/`. Their SHA256 checksums are recorded in the run baseline at `/Users/wed/.codex/workflows/01a0de91-015a-76e3-8be3-cc6c203d515b/baseline.md`.
+macOS download metadata for both records the official Dobot domain `https://www.dobot-robots.com/`. Their SHA256 checksums were recorded in a local release baseline.
 
 ## Tool model and TCP
 
-The project maintainer supplied these meshes from `/Users/wed/Downloads` and explicitly requested their default inclusion in the public project on 2026-10-02 and 2026-10-03. The bundled copies are byte-identical to the recorded sources:
+The project maintainer supplied these meshes and explicitly requested their default inclusion in the public project on 2026-10-02 and 2026-10-03. The bundled copies are byte-identical to the recorded sources:
 
 | Role | Owner source | App copy | SHA256 | Measured source bounds (mm) |
 |---|---|---|---|---|

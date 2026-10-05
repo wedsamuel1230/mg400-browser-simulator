@@ -66,8 +66,10 @@ import {
   STORAGE_KEY,
   makeCartesianPoint,
   makeJointPoint,
+  hasDuplicatePointName,
   parseProjectFile,
   saveProject,
+  validatePointName,
 } from "./projectStore";
 import { assessRobotTask, newTaskEvidence, observeTaskFrame } from "./sim/taskAssessment";
 import { SimulationController, type RunStatus } from "./sim/SimulationController";
@@ -328,6 +330,8 @@ export default function App() {
   const [jogStep, setJogStep] = useState(10);
   const [jointStep, setJointStep] = useState(5);
   const [selectedTab, setSelectedTab] = useState<"points" | "jog">("points");
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [cameraResetToken, setCameraResetToken] = useState(0);
   const controllerRef = useRef<SimulationController | undefined>(undefined);
   const projectRef = useRef(project);
@@ -420,6 +424,10 @@ export default function App() {
   }, []);
 
   const selectedPoint = project.points.find((point) => point.id === selectedId);
+  useEffect(() => {
+    setRenameDraft(selectedPoint?.name ?? "");
+    setRenameError(null);
+  }, [selectedPoint?.id, selectedPoint?.name]);
   const missingToolModels = failedToolModels.filter((name) => !localToolMeshes[({ "magnet.stl": "magnet", "Block.stl": "fork", "Body1.stl": "block" } as const)[name as "magnet.stl" | "Block.stl" | "Body1.stl"]]);
   const pose = useMemo(
     () => kinematics?.forward(joints, project.tool.flangeOffset, activeTcpOffset(project.tool)) ?? { x: 0, y: 0, z: 0, r: 0 },
@@ -949,6 +957,30 @@ export default function App() {
     replaceProject((current) => ({ ...current, points: current.points.filter((point) => point.id !== id) }));
     setSelectedId(project.points.find((point) => point.id !== id)?.id ?? null);
     addLog(`Removed point ${selectedPoint.name}.`, "warning");
+  }
+
+  function renameSelectedPoint() {
+    if (!selectedPoint) return;
+    const name = renameDraft.trim();
+    if (!validatePointName(name)) {
+      setRenameError(uiLanguage === "zh-Hant"
+        ? "請使用長度不超過 40 個字元的 Lua 識別符號：只能包含英文字母、數字及底線，不能以數字開頭，也不能使用 Lua 保留字、模擬器指令或全域名稱。"
+        : "Use a non-empty Lua identifier of up to 40 characters: letters, numbers, and underscores; it cannot start with a number or use a reserved Lua, simulator, or global name.");
+      return;
+    }
+    const duplicate = hasDuplicatePointName(name, projectRef.current.points, selectedPoint.id);
+    if (duplicate) {
+      setRenameError(uiLanguage === "zh-Hant" ? "已有相同名稱的示教點。" : "A teach point with this name already exists.");
+      return;
+    }
+    const previousName = selectedPoint.name;
+    replaceProject((current) => ({
+      ...current,
+      points: current.points.map((point) => point.id === selectedPoint.id ? { ...point, name } : point),
+    }));
+    setRenameDraft(name);
+    setRenameError(null);
+    addLog(`Renamed teach point ${previousName} to ${name}. Existing Lua references were not rewritten.`, "info");
   }
 
   function updateTool(path: "flangeOffset" | "tcpOffsets", axis: keyof Pose, value: number) {
@@ -1633,6 +1665,15 @@ export default function App() {
               {project.points.length === 0 && <div className="empty-state">{uiLanguage === "zh-Hant" ? "尚未儲存示教點。移動機械臂，再示教目前位置。" : "No saved points yet. Jog the robot, then teach its current position."}</div>}
             </div>
             {selectedPoint && <div className="point-editor">
+              <form className="point-name-editor" onSubmit={(event) => { event.preventDefault(); renameSelectedPoint(); }}>
+                <label htmlFor="teach-point-name">{uiLanguage === "zh-Hant" ? "示教點名稱" : "Teach point name"}</label>
+                <div className="point-name-editor-row">
+                  <input id="teach-point-name" aria-describedby="teach-point-name-help teach-point-name-error" value={renameDraft} disabled={busy} onChange={(event) => { setRenameDraft(event.currentTarget.value); setRenameError(null); }} />
+                  <button type="submit" className="text-button" disabled={busy || renameDraft.trim() === selectedPoint.name}>{uiLanguage === "zh-Hant" ? "重新命名" : "Rename"}</button>
+                </div>
+                <small id="teach-point-name-help">{uiLanguage === "zh-Hant" ? "只接受可供 Lua 使用的名稱；重新命名不會改寫現有 Lua 程式引用。" : "Use a Lua identifier; renaming does not rewrite existing Lua references."}</small>
+                {renameError && <p id="teach-point-name-error" className="field-error" role="alert">{renameError}</p>}
+              </form>
               <div className="point-editor-title"><div><strong>{selectedPoint.name}</strong><span>{selectedPoint.kind === "joint" ? (uiLanguage === "zh-Hant" ? "關節目標" : "Joint target") : (uiLanguage === "zh-Hant" ? "笛卡兒目標" : "Cartesian target")}</span></div><div className="point-editor-actions"><button className="text-button subtle-button" onClick={moveToSelected} disabled={busy}><Crosshair size={14} /> {uiLanguage === "zh-Hant" ? "前往" : "Go to"}</button><button className="small-icon-button danger-icon" onClick={removeSelectedPoint} disabled={busy} aria-label={`${ui.deletePoint} ${selectedPoint.name}`} title={ui.deletePoint}><Trash2 size={14} /></button></div></div>
               {selectedPoint.kind === "cartesian" ? <div className="point-fields four-fields">
                 <NumericField label="X" value={selectedPoint.pose.x} suffix="mm" step={1} disabled={busy} onChange={(value) => updateSelectedPose("x", value)} />
