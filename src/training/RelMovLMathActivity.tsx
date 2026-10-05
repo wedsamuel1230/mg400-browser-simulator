@@ -1,9 +1,20 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { activeTcpOffset, type JointAngles, type Pose, type ProjectDocument } from "../domain";
+import type { MG400Kinematics } from "../sim/mg400Kinematics";
+import { preflightLinearPath } from "../sim/motionPreflight";
 import type { CourseLanguage } from "./curriculum";
 
-type Props = { language: CourseLanguage };
+type Props = {
+  language: CourseLanguage;
+  project?: ProjectDocument;
+  joints?: JointAngles;
+  kinematics?: Pick<MG400Kinematics, "solve">;
+  modelError?: string;
+};
 type ObjectKind = "block" | "magnet";
 type Pattern = "stack" | "row";
+type TargetStatus = "pass" | "fail" | "unchecked";
+type TargetCheck = { name: string; status: TargetStatus; detail: string };
 
 const copy = {
   en: {
@@ -44,12 +55,25 @@ const copy = {
     copyFailed: "Clipboard unavailable. Select and copy the code manually.",
     pythonTitle: "Python · simulator-only",
     python: "Use a normal function call; do not write await.",
-    motionOnly: "Motion-only example: N pieces mean N targets. The program first uses MovJ to reach P₀, then repeats the selected RelMovL step N−1 times. Check that P₀ is reachable in this simulator before running. It does not pick up or release objects. Copy the matching Lua or Python example below; pasting edits the program but does not run it.",
+    motionOnly: "Motion-only example: N pieces mean N targets. The program first uses MovJ to reach P₀, then repeats the selected RelMovL step N−1 times. The loaded MG400 model checks P₀ and every later straight segment before you run; the simulator checks each segment again before moving. It does not pick up or release objects. Copy the matching Lua or Python example below; pasting edits the program but does not run it.",
     frame: "The simulator resolves offsets at action start in its base frame. Official docs describe the offset values, but do not establish the real controller frame behavior.",
     graph: "Target offset from the first point by piece index",
     axisX: "Piece index i",
     axisY: "Offset from P₀ (mm)",
     target: "Target P",
+    preflightTitle: "Check the generated targets",
+    activeMagnet: "active magnet TCP",
+    activeFork: "active passive-fork TCP",
+    preflightWaiting: "Waiting for the MG400 motion model to load before checking the path.",
+    preflightUnavailable: "The MG400 motion model could not load, so these targets cannot be checked.",
+    preflightP0Pass: "P₀ endpoint is reachable.",
+    preflightPathPass: "Straight path and endpoint are reachable.",
+    preflightP0Fail: (error: number) => `P₀ is outside this model's workspace (position error ${error.toFixed(1)} mm).`,
+    preflightPathFail: (progress: number, error: number) => `Straight path fails at ${progress.toFixed(0)}% (position error ${error.toFixed(1)} mm).`,
+    preflightUnchecked: "Not checked because the earlier target failed.",
+    preflightAllPass: "Every generated target and RelMovL straight segment passes the loaded model's reachability check.",
+    preflightFirstFail: "Adjust the first failed target or step in the program before running it.",
+    preflightCaveat: "Uses the active tool's TCP. This model-based check does not check collisions, tool contact, or physical robot safety.",
   },
   "zh-Hant": {
     title: "看懂間距計算",
@@ -89,16 +113,29 @@ const copy = {
     copyFailed: "無法使用剪貼簿，請手動選取並複製程式碼。",
     pythonTitle: "Python · 僅供模擬器使用",
     python: "使用一般函式呼叫；程式不需手寫 await。",
-    motionOnly: "純移動示例：N 件即 N 個目標。程式會先以 MovJ 移至首點 P₀，再把所選 RelMovL 步進重複 N−1 次。執行前請確認 P₀ 在模擬工作範圍內；本例不會取件或釋放。請按下方相應按鈕複製 Lua 或 Python 範例；貼入編輯器只會修改程式，不會自動執行。",
+    motionOnly: "純移動示例：N 件即 N 個目標。程式會先以 MovJ 移至首點 P₀，再把所選 RelMovL 步進重複 N−1 次。已載入的 MG400 模型會在執行前檢查 P₀ 及每段直線路徑；模擬器亦會在每段移動前再次檢查。本例不會取件或釋放。請按下方相應按鈕複製 Lua 或 Python 範例；貼入編輯器只會修改程式，不會自動執行。",
     frame: "模擬器在動作開始時，以基座座標計算偏移。官方文件說明偏移值，但未確立實體控制器使用的座標系。",
     graph: "各件目標相對首點的偏移圖",
     axisX: "件數序號 i",
     axisY: "相對 P₀ 的偏移（mm）",
     target: "目標 P",
+    preflightTitle: "檢查所有生成目標",
+    activeMagnet: "目前磁吸工具 TCP",
+    activeFork: "目前被動叉臂 TCP",
+    preflightWaiting: "正在等待 MG400 運動學模型載入，載入後便會檢查各段路徑。",
+    preflightUnavailable: "MG400 運動學模型未能載入，因此暫時無法檢查這些目標。",
+    preflightP0Pass: "首點 P₀ 的端點可達。",
+    preflightPathPass: "直線路徑及端點均可達。",
+    preflightP0Fail: (error: number) => `P₀ 超出此模型的工作範圍（位置誤差 ${error.toFixed(1)} 毫米）。`,
+    preflightPathFail: (progress: number, error: number) => `直線路徑在 ${progress.toFixed(0)}% 處不可達（位置誤差 ${error.toFixed(1)} 毫米）。`,
+    preflightUnchecked: "因較早的目標未通過，所以未檢查。",
+    preflightAllPass: "所有生成目標及 RelMovL 直線步進均通過已載入模型的可達性檢查。",
+    preflightFirstFail: "執行前，先在程式內調整首個未通過的目標或步進。",
+    preflightCaveat: "此檢查使用目前啟用工具的 TCP，並根據模型判斷可達性；不檢查碰撞、工具接觸或實體機械臂安全。",
   },
 } as const;
 
-export function RelMovLMathActivity({ language }: Props) {
+export function RelMovLMathActivity({ language, project, joints, kinematics, modelError }: Props) {
   const [object, setObject] = useState<ObjectKind>("block");
   const [pattern, setPattern] = useState<Pattern>("stack");
   const [count, setCount] = useState(3);
@@ -117,6 +154,41 @@ export function RelMovLMathActivity({ language }: Props) {
   const startPose = pattern === "stack"
     ? { x: 300, y: 80, z: contactZ, r: contactR }
     : { x: 300, y: -80, z: contactZ, r: contactR };
+  const targetChecks = useMemo(() => {
+    if (!kinematics || !project || !joints) return null;
+    const flangeOffset = project.tool.flangeOffset;
+    const tcpOffset = activeTcpOffset(project.tool);
+    const toleranceMm = project.tool.mode === "fork" && project.scene.blocks.some((block) => block.geometry === "body1") ? 0.01 : 0.5;
+    const first = kinematics.solve(startPose, joints, flangeOffset, tcpOffset, toleranceMm);
+    const checks: TargetCheck[] = [];
+    if (!first.ok) {
+      checks.push({ name: "P₀", status: "fail", detail: t.preflightP0Fail(first.positionErrorMm) });
+      for (let index = 1; index < count; index += 1) checks.push({ name: `P${index}`, status: "unchecked", detail: t.preflightUnchecked });
+      return checks;
+    }
+
+    checks.push({ name: "P₀", status: "pass", detail: t.preflightP0Pass });
+    let previousPose: Pose = startPose;
+    let previousJoints = first.joints;
+    for (let index = 1; index < count; index += 1) {
+      const targetPose: Pose = {
+        x: startPose.x + stepX * index,
+        y: startPose.y + stepY * index,
+        z: startPose.z + stepZ * index,
+        r: startPose.r,
+      };
+      const result = preflightLinearPath(previousPose, targetPose, previousJoints, kinematics, flangeOffset, tcpOffset, toleranceMm);
+      if (!result.ok) {
+        checks.push({ name: `P${index}`, status: "fail", detail: t.preflightPathFail(result.progressPercent, result.positionErrorMm) });
+        for (let later = index + 1; later < count; later += 1) checks.push({ name: `P${later}`, status: "unchecked", detail: t.preflightUnchecked });
+        break;
+      }
+      checks.push({ name: `P${index}`, status: "pass", detail: t.preflightPathPass });
+      previousPose = targetPose;
+      previousJoints = result.finalJoints;
+    }
+    return checks;
+  }, [kinematics, project, joints, count, startPose.x, startPose.y, startPose.z, startPose.r, stepX, stepY, stepZ, t]);
   const offsets = Array.from({ length: count }, (_, index) => index * step);
   const absoluteCoordinates = offsets.map((offset) => baseCoordinate + offset);
   const max = Math.max(step * (count - 1), step);
@@ -191,6 +263,15 @@ export function RelMovLMathActivity({ language }: Props) {
       <text className="relmovl-y-axis-title" x="42" y="17">Δ{axis} {t.axisY}</text><text x="168" y="178">{t.axisX}</text>
     </svg>
     <p><strong>{t.rule}</strong></p>
+    <section className="relmovl-preflight" aria-labelledby="relmovl-preflight-title" aria-live="polite">
+      <h5 id="relmovl-preflight-title">{t.preflightTitle}{project && ` · ${project.tool.mode === "fork" ? t.activeFork : t.activeMagnet}`}</h5>
+      {!targetChecks && <p>{modelError ? t.preflightUnavailable : t.preflightWaiting}</p>}
+      {targetChecks && <>
+        <ol>{targetChecks.map((check) => <li key={check.name} className={`relmovl-check-${check.status}`}><strong>{check.name}</strong><span>{check.detail}</span></li>)}</ol>
+        <p className={`relmovl-preflight-summary ${targetChecks.every((check) => check.status === "pass") ? "is-pass" : "is-fail"}`}>{targetChecks.every((check) => check.status === "pass") ? t.preflightAllPass : t.preflightFirstFail}</p>
+      </>}
+      <p className="relmovl-preflight-caveat">{t.preflightCaveat}</p>
+    </section>
     <p className="relmovl-example-note">{t.motionOnly}</p>
     <div className="relmovl-examples">
       <div><div className="relmovl-example-heading"><strong>{t.lua}</strong><button type="button" className="relmovl-copy-button" onClick={() => void copyCode(lua)}>{t.copyCode} · Lua</button></div><p className="relmovl-scroll-hint">{t.scrollHint}</p><pre role="region" aria-label={t.luaCode} tabIndex={0}><code>{lua}</code></pre></div>

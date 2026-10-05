@@ -1,8 +1,19 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { RelMovLMathActivity } from "./RelMovLMathActivity";
+import { DEFAULT_PROJECT } from "../data/defaultProject";
+import type { JointAngles, Pose } from "../domain";
+import { MG400Kinematics } from "../sim/mg400Kinematics";
+import urdf from "../../public/models/mg400/mg400_description/urdf/mg400_description.urdf?raw";
 
 const exampleCode = () => [...document.querySelectorAll(".relmovl-examples pre")].map((element) => element.textContent ?? "").join("\n");
+const initialJoints = [0, Math.PI / 6, Math.PI / 4, 0] as JointAngles;
+const loadedKinematics = MG400Kinematics.fromUrdf(urdf);
+const kinematicsFor = (isReachable: (pose: Pose) => boolean = () => true) => ({
+  solve: (pose: Pose, seed: JointAngles) => isReachable(pose)
+    ? { ok: true as const, joints: seed, positionErrorMm: 0, angleErrorDeg: 0 }
+    : { ok: false as const, joints: seed, positionErrorMm: 9.2, angleErrorDeg: 0 },
+}) as Pick<MG400Kinematics, "solve">;
 
 describe("RelMovL math activity", () => {
   afterEach(cleanup);
@@ -17,7 +28,7 @@ describe("RelMovL math activity", () => {
     expect(screen.getByText(/ΔZ 0 → 40 → 80 mm/)).toBeInTheDocument();
     expect(screen.getByText(/Total stack height/).parentElement).toHaveTextContent("120 mm");
     expect(screen.getByRole("img", { name: /Target offset from the first point/ }).querySelector("desc")).toHaveTextContent("Target P0: Z target 135 mm; offset from P₀ 0 mm; Target P1: Z target 175 mm; offset from P₀ 40 mm; Target P2: Z target 215 mm; offset from P₀ 80 mm");
-    expect(screen.getByText(/N pieces mean N targets.*MovJ to reach P₀, then repeats the selected RelMovL step N−1 times/)).toBeInTheDocument();
+    expect(screen.getByText(/N pieces mean N targets.*MovJ to reach P₀, then repeats the selected RelMovL step N−1 times.*loaded MG400 model checks P₀ and every later straight segment/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy code · Lua" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy code · Python" })).toBeInTheDocument();
     expect(screen.getAllByText("Swipe left or right to view all code.")).toHaveLength(2);
@@ -56,7 +67,7 @@ describe("RelMovL math activity", () => {
       codeRegion.focus();
       expect(document.activeElement).toBe(codeRegion);
     }
-    expect(screen.getByText(/按下方相應按鈕複製 Lua 或 Python 範例；貼入編輯器只會修改程式，不會自動執行/)).toBeInTheDocument();
+    expect(screen.getByText(/貼入編輯器只會修改程式，不會自動執行/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("物件"), { target: { value: "magnet" } });
     expect(screen.getByText(/絕對目標 Z = 114 → 118 → 122 mm/)).toBeInTheDocument();
     expect(exampleCode()).toContain('P0 = {"coordinate": {"x": 300, "y": 80, "z": 114, "r": 0}}');
@@ -102,6 +113,42 @@ describe("RelMovL math activity", () => {
     expect(yAxisTitle.hasAttribute("transform")).toBe(false);
     expect(graph.querySelector("polyline.relmovl-connector")?.getAttribute("points")).toBe("50,135 110,108.75 170,82.5 230,56.25 290,30");
     expect(graph.querySelector("polyline.relmovl-connector")).toBeInTheDocument();
+  });
+
+  it("preflights P₀ and every generated straight-line segment for the selected tool", () => {
+    render(<RelMovLMathActivity language="zh-Hant" project={DEFAULT_PROJECT} joints={initialJoints} kinematics={kinematicsFor()} />);
+    const checks = [...document.querySelectorAll(".relmovl-preflight li")];
+    expect(checks).toHaveLength(3);
+    expect(checks.map((check) => check.className)).toEqual(["relmovl-check-pass", "relmovl-check-pass", "relmovl-check-pass"]);
+    expect(document.querySelector(".relmovl-preflight-summary")).toHaveTextContent("所有生成目標及 RelMovL 直線步進均通過");
+    expect(document.querySelector(".relmovl-preflight-caveat")).toHaveTextContent("不檢查碰撞、工具接觸或實體機械臂安全");
+  });
+
+  it("confirms the published block and magnet sample paths against the bundled MG400 model", () => {
+    render(<RelMovLMathActivity language="zh-Hant" project={DEFAULT_PROJECT} joints={initialJoints} kinematics={loadedKinematics} />);
+    expect([...document.querySelectorAll(".relmovl-preflight li")].map((check) => check.className)).toEqual([
+      "relmovl-check-pass", "relmovl-check-pass", "relmovl-check-pass",
+    ]);
+    fireEvent.change(screen.getByLabelText("物件"), { target: { value: "magnet" } });
+    fireEvent.change(screen.getByLabelText("排列方式"), { target: { value: "row" } });
+    expect([...document.querySelectorAll(".relmovl-preflight li")].map((check) => check.className)).toEqual([
+      "relmovl-check-pass", "relmovl-check-pass", "relmovl-check-pass",
+    ]);
+    expect(document.querySelector(".relmovl-preflight-summary")).toHaveTextContent("所有生成目標及 RelMovL 直線步進均通過");
+  });
+
+  it("identifies the first unreachable path and leaves later targets unchecked", () => {
+    render(<RelMovLMathActivity language="zh-Hant" project={DEFAULT_PROJECT} joints={initialJoints} kinematics={kinematicsFor((pose) => pose.z < 165)} />);
+    const checks = [...document.querySelectorAll(".relmovl-preflight li")];
+    expect(checks.map((check) => check.className)).toEqual(["relmovl-check-pass", "relmovl-check-fail", "relmovl-check-unchecked"]);
+    expect(checks[1]).toHaveTextContent("直線路徑在 75% 處不可達");
+    expect(checks[2]).toHaveTextContent("未檢查");
+  });
+
+  it("does not claim a reachability result while the model is missing", () => {
+    render(<RelMovLMathActivity language="zh-Hant" modelError="URDF unavailable" />);
+    expect(document.querySelector(".relmovl-preflight")).toHaveTextContent("MG400 運動學模型未能載入");
+    expect(document.querySelector(".relmovl-preflight li")).toBeNull();
   });
 
   it("keeps Body1's fork contact height and alignment in both patterns", () => {

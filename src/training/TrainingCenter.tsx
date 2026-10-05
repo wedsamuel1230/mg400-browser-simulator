@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpenCheck, Check, ChevronLeft, ChevronRight, Clipboard, X } from "lucide-react";
-import { type ForkContactProfile, type ProgramLanguage } from "../domain";
+import { type ForkContactProfile, type JointAngles, type ProgramLanguage, type ProjectDocument } from "../domain";
+import type { MG400Kinematics } from "../sim/mg400Kinematics";
 import { CURRICULUM_VERSION, LESSONS, TRACKS, type CourseLanguage, type Lesson } from "./curriculum";
 import { loadCourseProgress, saveCourseProgress, type CourseProgress } from "./courseProgress";
 import { RelMovLMathActivity } from "./RelMovLMathActivity";
@@ -9,12 +10,16 @@ type Props = {
   open: boolean;
   programLanguage: ProgramLanguage;
   forkContactProfile?: ForkContactProfile;
+  project?: ProjectDocument;
+  joints?: JointAngles;
+  kinematics?: Pick<MG400Kinematics, "solve">;
+  modelError?: string;
   initialLessonId?: string | null;
   onClose: () => void;
   onUseExample: (example: string, language: ProgramLanguage, lessonId?: string) => void;
 };
 
-export function TrainingCenter({ open, programLanguage, initialLessonId, onClose, onUseExample }: Props) {
+export function TrainingCenter({ open, programLanguage, project, joints, kinematics, modelError, initialLessonId, onClose, onUseExample }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const lessonHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -207,7 +212,7 @@ export function TrainingCenter({ open, programLanguage, initialLessonId, onClose
             <h3 ref={lessonHeadingRef} tabIndex={-1}>{displayText(lesson.title)}</h3>
             <div className="lesson-outcome"><strong>{strings.outcome}</strong><span>{displayText(lesson.outcome)}</span></div>
             <section className="lesson-section"><h4>{strings.guidedActivity}</h4><ol>{guidedSteps.map((item, index) => <li key={index}>{item}</li>)}</ol></section>
-            {lesson.id === "intermediate-relative-linear-motion" && <RelMovLMathActivity language={courseLanguage} />}
+            {lesson.id === "intermediate-relative-linear-motion" && <RelMovLMathActivity language={courseLanguage} project={project} joints={joints} kinematics={kinematics} modelError={modelError} />}
             <section className="lesson-launch" aria-label={strings.startPractice}>
               <button className="training-use-button" onClick={useExample} aria-expanded={confirmExampleReplacement}>{lesson.id === "intermediate-relative-linear-motion" ? strings.loadRelMovLDemo : strings.useExample}</button>
               <p className="lesson-launch-hint">{lesson.id === "foundation-first-program" ? strings.firstProgramHint : lesson.id === "intermediate-relative-linear-motion" ? strings.relmovlLaunchHint : strings.launchHint}</p>

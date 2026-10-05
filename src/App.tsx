@@ -1782,6 +1782,10 @@ export default function App() {
         open={showTraining}
         programLanguage={project.programmingLanguage}
         forkContactProfile={project.tool.mode === "fork" ? forkProfile : "reference"}
+        project={project}
+        joints={joints}
+        kinematics={kinematics ?? undefined}
+        modelError={modelError}
         initialLessonId={trainingLessonId}
         onClose={() => { setShowTraining(false); setTrainingLessonId(null); }}
         onUseExample={(example, language, lessonId) => {

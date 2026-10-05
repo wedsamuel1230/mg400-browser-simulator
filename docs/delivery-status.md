@@ -488,3 +488,11 @@ The first robot-move lesson now matches the current practice flow: selecting Mag
 - Verification: Vitest passed 35 files / 322 tests; Playwright E2E passed 12/12; typecheck, production build, `npm run release:check`, and `git diff --check` passed. A fresh production browser loaded all 12 meshes with HTTP 200 and no page or console errors.
 - Cold production load to interactive workcell: desktop 4.878 s, 5.750 s, 4.668 s (median 4.878 s); mobile 8.717 s, 6.388 s, 7.655 s (median 7.655 s). All six samples met the 10-second target.
 - `npm audit --omit=dev` reports two low-severity findings for `dompurify` 3.4.15 through `monaco-editor`; dependency versions did not change in this release. The upstream advisory is specific to `IN_PLACE` sanitization; the shipped Monaco renderer uses fragment/trusted-type output and has no `IN_PLACE` config in its current sanitizer. Track full dependency remediation separately. Build retains the known Pyodide/Wasmoon browser-externalization notices and Monaco large-chunk warning. The task is suitable for a student usability trial; no learner trial or physical MG400 calibration/validation has been performed, and the simulator remains disconnected from hardware.
+
+## 2026-10-05 RelMovL path preview for learner trial
+
+- The RelMovL math activity now checks P₀ and every generated straight-line segment against the loaded MG400 model and active tool TCP. It reports the first unreachable path and leaves later paths unchecked. Model-load failures remain explicit; the panel does not imply that a path has been checked when the model is unavailable.
+- Runtime MovL preflight and the learner preview now share the same 100-sample path interpolation and IK check. The controller still repeats the check before each simulated linear move.
+- The UI and lesson explain that this is model-based reachability only. It does not check collisions, tool contact, hardware safety, or physical calibration.
+- Verification: Vitest passed (36 files / 330 tests); the focused RelMovL Playwright run passed 9/9; typecheck, production build, `npm run release:check`, and `git diff --check` passed. Build retains the existing Pyodide/Wasmoon browser-externalization notices and Monaco large-chunk warning.
+- Production deployment and live Brave verification follow publication of this candidate.

@@ -220,7 +220,9 @@ describe("beginner curriculum entry", () => {
     expect(lesson).toBeDefined();
     if (!lesson) throw new Error("Missing RelMovL lesson.");
     expect(lesson.guidedSteps[1].en).toContain("It moves to sample P₀ first, so no manual pre-position is needed");
+    expect(lesson.guidedSteps[1].en).toContain("every later straight-line segment reachable using the active tool TCP");
     expect(lesson.guidedSteps[1]["zh-Hant"]).toContain("程式會先移至示範首點 P₀，毋須手動預移");
+    expect(lesson.guidedSteps[1]["zh-Hant"]).toContain("使用目前啟用工具 TCP");
     expect(lesson.guidedSteps[1]["zh-Hant"]).not.toContain("安全教點");
     expect(lesson.guidedSteps[2].en).toContain("Z or Y component of each RelMovL step");
     expect(lesson.guidedSteps[2].en).toContain("keep the other components at 0");

@@ -295,7 +295,7 @@ const RAW_LESSONS: Lesson[] = [
     ],
     guidedSteps: [
       { en: "In the math activity, choose the object, stack or row, and piece count. Compare its named targets with the relative offsets, then use the matching Lua or Python Copy button.", "zh-Hant": "在互動數學練習選擇物件、堆疊或排列方式及件數。比較命名目標與相對偏移，再按相應的 Lua 或 Python「複製程式碼」。" },
-      { en: "Paste that generated program into the editor. It moves to sample P₀ first, so no manual pre-position is needed, then repeats the selected offset N−1 times. Confirm P₀ is reachable before running; watch the TCP position and run log.", "zh-Hant": "把產生的程式貼到編輯器。程式會先移至示範首點 P₀，毋須手動預移，再重複所選偏移 N−1 次。執行前確認 P₀ 可達，並觀察 TCP 位置及執行記錄。" },
+      { en: "Paste that generated program into the editor. It moves to sample P₀ first, so no manual pre-position is needed, then repeats the selected offset N−1 times. Before running, confirm the workspace panel marks P₀ and every later straight-line segment reachable using the active tool TCP; the simulator checks each segment again before it moves. Watch the TCP position and run log.", "zh-Hant": "把產生的程式貼到編輯器。程式會先移至示範首點 P₀，毋須手動預移，再重複所選偏移 N−1 次。執行前確認工作範圍檢查使用目前啟用工具 TCP，並標示 P₀ 及每段後續直線路徑均可達；模擬器會在每段移動前再次檢查。觀察 TCP 位置及執行記錄。" },
       { en: "Change the Z or Y component of each RelMovL step (Z for a stack, Y for a row; keep the other components at 0), then predict the final target before running again.", "zh-Hant": "修改每次 RelMovL 相對步進向量的 Z／Y 分量（堆疊改 Z；排成一列改 Y），其餘分量維持 0；先預測末目標座標，再重新執行。" },
     ],
     practice: { en: "Move the TCP upward by 20 mm, then sideways by 15 mm in the base frame. Explain why each offset must be evaluated at execution time in a queued program.", "zh-Hant": "先令 TCP 向上移 20 mm，再沿基座座標側移 15 mm。解釋為何佇列程式應在執行當刻計算偏移目標。" },

@@ -1,4 +1,4 @@
-import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, rad, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
@@ -6,13 +6,12 @@ import type { MG400Kinematics } from "./mg400Kinematics";
 import type { LuaWorkerMessage, MotionRequest } from "./luaTypes";
 import { advancePassiveFork, EMPTY_PASSIVE_FORK_STATE, type PassiveForkState } from "./forkTool";
 import { cellBlockIsOccluded } from "./multiBlockCell";
+import { interpolateCartesianPose, preflightLinearPath } from "./motionPreflight";
 
 type Action =
   | { type: "motion"; motion: MotionRequest }
   | { type: "io"; index: number; value: boolean }
   | { type: "tool"; action: "pick" | "place" };
-
-const MOVL_PREFLIGHT_SAMPLES = 100;
 
 export type RunStatus = "ready" | "running" | "paused" | "complete" | "stopped" | "error";
 
@@ -291,7 +290,8 @@ export class SimulationController {
     }
 
     if (request.command === "MovL") {
-      this.preflightLinearPath(currentPose, targetPose, current, project, toleranceMm);
+      const path = preflightLinearPath(currentPose, targetPose, current, this.kinematics, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
+      if (!path.ok) throw new Error(`Straight-line motion failed preflight at ${path.progressPercent.toFixed(0)}% (${path.positionErrorMm.toFixed(1)} mm position error).`);
     }
 
     const distance = request.command === "MovL"
@@ -322,7 +322,7 @@ export class SimulationController {
       const eased = t * t * (3 - 2 * t);
 
       if (request.command === "MovL") {
-        const pose = interpolatePose(currentPose, targetPose, eased);
+        const pose = interpolateCartesianPose(currentPose, targetPose, eased);
         const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
         if (!result.ok) {
           throw new Error(`Straight-line motion left the modeled workspace (${result.positionErrorMm.toFixed(1)} mm position error).`);
@@ -340,19 +340,6 @@ export class SimulationController {
       this.events.setJoints(destination);
       const destinationPose = this.kinematics.forward(destination, project.tool.flangeOffset, activeTcpOffset(project.tool));
       this.updatePassiveFork(lastTcpPose, destinationPose);
-    }
-  }
-
-  private preflightLinearPath(from: Pose, to: Pose, seed: JointAngles, project: ProjectDocument, toleranceMm: number) {
-    let lastJoints = seed;
-    for (let index = 1; index <= MOVL_PREFLIGHT_SAMPLES; index += 1) {
-      const progress = index / MOVL_PREFLIGHT_SAMPLES;
-      const pose = interpolatePose(from, to, progress);
-      const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
-      if (!result.ok) {
-        throw new Error(`Straight-line motion failed preflight at ${(progress * 100).toFixed(0)}% (${result.positionErrorMm.toFixed(1)} mm position error).`);
-      }
-      lastJoints = result.joints;
     }
   }
 
@@ -534,14 +521,4 @@ export class SimulationController {
     this.stop(false);
     this.events.setStatus("error");
   }
-}
-
-function interpolatePose(from: Pose, to: Pose, progress: number): Pose {
-  const angleDelta = Math.atan2(Math.sin(rad(to.r - from.r)), Math.cos(rad(to.r - from.r)));
-  return {
-    x: from.x + (to.x - from.x) * progress,
-    y: from.y + (to.y - from.y) * progress,
-    z: from.z + (to.z - from.z) * progress,
-    r: from.r + deg(angleDelta) * progress,
-  };
 }

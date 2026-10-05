@@ -299,6 +299,17 @@ svg { flex-shrink: 0; }
 .relmovl-symbols { padding-left: 14px; border-left: 3px solid var(--accent-line); color: var(--muted); }
 .relmovl-target-example { border-left: 4px solid var(--accent-line); padding: 8px 14px; background: var(--panel-raised); }
 .relmovl-example-note { color: var(--text); font-weight: 700; }
+.relmovl-preflight { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-raised); }
+.relmovl-preflight h5 { margin: 0 0 10px; font-size: 18px; }
+.relmovl-preflight ol { margin: 0; padding-left: 26px; }
+.relmovl-preflight li { display: flex; gap: 12px; align-items: baseline; margin: 6px 0; font-size: 16px; line-height: 1.5; }
+.relmovl-check-pass::marker { color: var(--success, #60c9ac); }
+.relmovl-check-fail::marker { color: var(--danger, #ff8585); }
+.relmovl-check-unchecked { color: var(--muted); }
+.relmovl-preflight-summary { margin: 10px 0 0; font-weight: 700; }
+.relmovl-preflight-summary.is-pass { color: var(--success, #60c9ac); }
+.relmovl-preflight-summary.is-fail { color: var(--warning, #ffbf66); }
+.relmovl-preflight-caveat { margin: 8px 0 0; color: var(--muted); font-size: 16px !important; }
 .relmovl-graph { display: block; width: min(100%, 560px); height: auto; overflow: visible; margin: 10px auto; font: 14px var(--sans); fill: var(--text); }
 .relmovl-axis { stroke: var(--muted); stroke-width: 1.5; }
 .relmovl-grid { stroke: var(--line); stroke-dasharray: 3 3; }
