@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inspectLuaCalls, reviewLuaSnippet, reviewRobotCalls } from "./codeReview";
+import { coachText } from "./coachLanguage";
 
 const points = [
   { name: "PickPoint", kind: "cartesian" as const },
@@ -60,15 +61,39 @@ describe("AI example static review", () => {
     expect(report.findings[1].message).toContain("CP");
     expect(report.findings[2].message).toContain("raw numeric coordinate list");
     expect(report.findings[3].message).toContain("CP");
-    expect(report.findings[4].message).toContain("X, Y, and Z");
+    expect(report.findings[4].message).toContain("X, Y, Z, and R");
   });
 
   it("accepts the supported motion point, option, and relative-offset forms", () => {
     const report = reviewLuaSnippet(
-      "MovJ(PickPoint, {CP=0})\nRelMovL({0, 0, 20, 0}, {CP=0})\nRelMovL({OffsetX=0, OffsetY=0, OffsetZ=20}, {CP=0, SpeedL=50, AccL=20})",
+      "MovJ(PickPoint, {CP=0})\nRelMovL({0, 0, 20, 0}, {CP=0})\nRelMovL({OffsetX=0, OffsetY=0, OffsetZ=20, OffsetR=0}, {CP=0, SpeedL=50, AccL=20})\nRelMovL({x=0,y=0,z=20,r=0}, {CP=0})",
       points,
       true,
       "magnet",
+    );
+
+    expect(report.findings).toEqual([]);
+  });
+
+  it("requires R in literal positional and named Lua offsets, including the translated guidance", () => {
+    const report = reviewLuaSnippet(
+      "RelMovL({0, 0, -20}, {CP=0})\nRelMovL({OffsetX=0, OffsetY=0, OffsetZ=20}, {CP=0})\nRelMovL({x=0,y=0,z=20}, {CP=0})",
+      [], false, "magnet",
+    );
+
+    expect(report.findings.map(({ kind, line }) => ({ kind, line }))).toEqual([
+      { kind: "invalid-relative-offset", line: 1 },
+      { kind: "invalid-relative-offset", line: 2 },
+      { kind: "invalid-relative-offset", line: 3 },
+    ]);
+    expect(report.findings[0].message).toContain("use R=0");
+    expect(coachText(report.findings[0].message, "zh-Hant")).toBe("RelMovL 偏移資料需要 X、Y、Z、R，可依序排列或使用命名欄位；毋須旋轉時請填 R=0。");
+  });
+
+  it("leaves dynamic Lua offsets to runtime validation", () => {
+    const report = reviewLuaSnippet(
+      "RelMovL(offset, {CP=0})\nRelMovL({dx, 0, height*2, rotation}, {CP=0})\nRelMovL({0, 0, table.unpack(tail)}, {CP=0})",
+      [], false, "magnet",
     );
 
     expect(report.findings).toEqual([]);

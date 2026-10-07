@@ -84,7 +84,7 @@ export function coachText(text: string, language: CoachLanguage): string {
   if (text.includes("shadows the simulator command")) return "範例重新定義了模擬器指令名稱，請更改函式或變數名稱。";
   if (text.startsWith("Motion commands need")) return "動作指令須使用已儲存點位變數或點位資料，不能使用加引號的名稱或原始座標串列。";
   if (text.startsWith("Use the exact case-sensitive")) return "請使用大小寫完全相符的指令選項名稱。";
-  if (text.startsWith("RelMovL needs")) return "RelMovL 偏移資料需要 X、Y、Z；R 可選。";
+  if (text.startsWith("RelMovL needs")) return "RelMovL 偏移資料需要 X、Y、Z、R，可依序排列或使用命名欄位；毋須旋轉時請填 R=0。";
   if (text.includes("” needs a ")) return "指令與已儲存點位的 Cartesian/joint 類型不符，請選用相應類型。";
   if (text.includes("must be called as a documented global")) return "請使用模擬器全域指令；不支援此物件方法形式。";
   return text;

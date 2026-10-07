@@ -61,6 +61,8 @@ describe("OpenAI-compatible coach protocol", () => {
     expect(request.messages[0].content).toContain("never call DO(...), Pick(), or Place()");
     expect(request.messages[0].content).toContain("never quoted point-name strings");
     expect(request.messages[0].content).toContain("Motion option keys are case-sensitive");
+    expect(request.messages[0].content).toContain("all four X, Y, Z, and R values are required in both forms; use R=0");
+    expect(request.messages[0].content).not.toContain("R is optional");
     expect(request.messages[0].content).toContain("The path-blending option is separate (Lua: CP=0; this simulator's Python: cp=0) and is not the TCP location");
     expect(request.messages[0].content).toContain("do not invent a runnable robot-motion script");
     expect(request.messages[0].content).toContain("checks common inline Lua motion point/option/RelMovL offset shapes");
@@ -86,6 +88,10 @@ describe("OpenAI-compatible coach protocol", () => {
     expect(buildChatCompletionRequest({ ...baseInput, endpoint: "https://api.openai.com/v1/chat/completions" })).not.toHaveProperty("reasoning_effort");
     expect(buildChatCompletionRequest({ ...baseInput, endpoint: "https://openrouter.ai.evil.example/v1/chat/completions" })).not.toHaveProperty("reasoning_effort");
     expect(buildChatCompletionRequest({ ...baseInput, endpoint: "https://relay.openrouter.ai/v1/chat/completions" })).toHaveProperty("reasoning_effort", "low");
+    const pythonInstructions = buildChatCompletionRequest({ ...baseInput, language: "python", endpoint: DEFAULT_CHAT_COMPLETIONS_ENDPOINT }).messages[0].content;
+    expect(pythonInstructions).toContain("exactly four X/Y/Z/R values in a list or tuple");
+    expect(pythonInstructions).toContain("named dictionary convenience");
+    expect(pythonInstructions).toContain("defaults omitted R to 0");
   });
 
   it("passes opt-in deterministic source findings as static evidence, never as execution", () => {

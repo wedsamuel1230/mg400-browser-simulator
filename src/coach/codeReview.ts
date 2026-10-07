@@ -251,11 +251,15 @@ function hasInvalidRelMovLOffset(offsetTokens: Token[] | undefined): boolean {
   const items = splitLuaList(offsetTokens.slice(1, -1));
   if (items.length === 0) return true;
   const fields = items.map(namedLuaField);
-  if (!fields.some(Boolean)) return items.length < 3;
+  if (!fields.some(Boolean)) {
+    return items.length < 4 && items.every((item) =>
+      (item.length === 1 && item[0].kind === "number") ||
+      (item.length === 2 && ["-", "+"].includes(item[0].value) && item[1].kind === "number"));
+  }
   if (fields.some((field) => !field)) return true;
   const names = new Set(fields as string[]);
   const hasAxis = (long: string, short: string) => names.has(long) || names.has(short);
-  return !hasAxis("OffsetX", "x") || !hasAxis("OffsetY", "y") || !hasAxis("OffsetZ", "z");
+  return !hasAxis("OffsetX", "x") || !hasAxis("OffsetY", "y") || !hasAxis("OffsetZ", "z") || !hasAxis("OffsetR", "r");
 }
 
 export function inspectLuaCalls(source: string): { calls: RobotCall[]; definitions: Set<string> } {
@@ -348,7 +352,7 @@ export function reviewRobotCalls(
       findings.push({
         kind: "invalid-relative-offset",
         line: call.line,
-        message: "RelMovL needs X, Y, and Z values in its offset table (or a positional X/Y/Z list); R is optional.",
+        message: "RelMovL needs X, Y, Z, and R offset values, either positional or named; use R=0 when no rotation is needed.",
       });
     }
     if (toolMode === "fork" && passiveAction) {
