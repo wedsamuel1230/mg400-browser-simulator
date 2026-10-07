@@ -134,7 +134,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       </details>
       <div className="viewport-hud viewport-hud-bottom">
         <div className="scene-caption"><Crosshair size={15} /><span>{project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "空工作台 · 可自由加入工件" : "Empty table · add a workpiece") : workpieceName}</span></div>
-        <span className="scene-controls">{uiLanguage === "zh-Hant" ? "拖曳旋轉 · 滾動縮放" : "Drag to orbit · scroll to zoom"}</span>
+        <span className="scene-controls">{uiLanguage === "zh-Hant" ? "拖曳旋轉 · 滾動縮放視角" : "Drag to orbit · scroll to zoom the view"}</span>
       </div>
       {status.kind !== "ready" && (
         <div className={`viewport-overlay ${status.kind === "error" ? "error-overlay" : ""}`} role="status">

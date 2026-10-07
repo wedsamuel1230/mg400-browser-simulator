@@ -119,8 +119,11 @@ it("uses one shared front platform and keeps explicit magnetic objects above it 
  expect(internals.teachingPlatform.scale.z).toBe(110);
  expect(internals.teachingPlatform.position.z).toBe(55);
  const geometry=internals.teachingPlatform.geometry as BoxGeometry;
- expect(geometry.parameters.width).toBe(340);expect(geometry.parameters.height).toBe(320);
- expect(internals.teachingPlatform.position.x+geometry.parameters.width*internals.teachingPlatform.scale.x/2).toBe(440);
+ expect(geometry.parameters.width).toBe(500);expect(geometry.parameters.height).toBe(1200);
+ expect(internals.teachingPlatform.position.x-geometry.parameters.width/2).toBe(100);
+ expect(internals.teachingPlatform.position.x+geometry.parameters.width/2).toBe(600);
+ expect(internals.teachingPlatform.position.y-geometry.parameters.height/2).toBe(-600);
+ expect(internals.teachingPlatform.position.y+geometry.parameters.height/2).toBe(600);
  expect(internals.magnetStands.size).toBe(0);
  expect(internals.additionalBlocks.get("magnet")?.position.z).toBe(137);
  view.dispose();
@@ -143,7 +146,9 @@ it("keeps the platform fixed while supply pieces move and projects placement ont
  expect(internals.teachingPlatform.scale.toArray()).toEqual(scale.toArray());
  internals.camera.lookAt(new Vector3(300,0,110));
  internals.camera.updateMatrixWorld(true);
- expect(view.tablePositionFromPointer(400,300)).toEqual({x:300,y:0});
+ const placement=view.tablePositionFromPointer(400,300);
+ expect(placement?.x).toBeCloseTo(300,1);
+ expect(placement?.y).toBeCloseTo(0,1);
  view.dispose();
 });
 
@@ -153,6 +158,7 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
  const {prepareLessonProject}=await import("../training/practiceSetup");
  const project=prepareLessonProject("intermediate-three-layer-tower");
  const internals=view as unknown as {block:Mesh;additionalBlocks:Map<string,Mesh>;localForkBlockGeometry:BufferGeometry;teachingPlatform:Mesh;forkFixtures:Group;target:Group};
+ const platformGeometry=internals.teachingPlatform.geometry as BoxGeometry;
  // Exact asset geometry, unlike the scene's generic procedural cube.
  // @ts-expect-error Asset evidence uses the Node-only test runtime.
  const {readFileSync}=await import("node:fs");
@@ -166,7 +172,7 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
  expect([...internals.additionalBlocks.values()].every(mesh=>mesh.geometry.getAttribute("position").count===internals.localForkBlockGeometry.getAttribute("position").count)).toBe(true);
  expect(internals.forkFixtures.visible).toBe(false);
  expect(internals.target.position.z).toBeGreaterThan(150);
- expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ expect(internals.teachingPlatform.position.toArray()).toEqual([350,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
  project.tool.mode="magnet";
  view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
  expect(internals.block.geometry).toBe(internals.localForkBlockGeometry);
@@ -175,7 +181,8 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
  expect([...internals.additionalBlocks.values()].map(mesh=>mesh.position.z)).toEqual([150,190]);
  project.scene.blocks[0].position={x:480,y:220};project.scene.platformHeightMm=0;
  view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
- expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ expect(internals.teachingPlatform.position.toArray()).toEqual([350,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
+ expect(platformGeometry.parameters.width).toBe(500);expect(platformGeometry.parameters.height).toBe(1200);
  view.dispose();
 });
 
@@ -213,7 +220,7 @@ it("frames the actual output arrangement and its stack height while leaving the 
  }
  expect(internals.teachingPlatform.position.toArray()).toEqual(platformPosition.toArray());
  expect(internals.teachingPlatform.scale.toArray()).toEqual(platformScale.toArray());
- expect(internals.teachingPlatform.position.toArray()).toEqual([270,0,55]);
+ expect(internals.teachingPlatform.position.toArray()).toEqual([350,0,55]);
  expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
  expect(internals.robotRoot.position.toArray()).toEqual(robotPosition.toArray());
 

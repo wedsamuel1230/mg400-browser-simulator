@@ -4,7 +4,9 @@ export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
 export const MAGNET_SIZE_MM = { x: 35, y: 35, z: 4 } as const;
 export const MAGNET_SUPPORT_HEIGHT_MM = 110;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
-export const TEACHING_PLATFORM = { width:340, depth:320, x:270, y:0, top:110 } as const;
+// Fixed front workspace: X100–600, Y±600, with its rear edge 5 mm clear
+// of the pedestal. Covers the default tool/workpiece XY envelope (<553 mm).
+export const TEACHING_PLATFORM = { width:500, depth:1200, x:350, y:0, top:110 } as const;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
 export const BODY1_FORK_CONTACT = { insertionZ: 22.5, loadZ: 25, bottomOffset: 25 } as const;

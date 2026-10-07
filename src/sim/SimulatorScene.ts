@@ -98,8 +98,8 @@ export class SimulatorScene {
     this.scene.background = new Color(MODEL_VIEWPORT_BACKGROUND);
     this.camera = new PerspectiveCamera(VIEWPORT_FOV, 1, 1, 6000);
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(560, -720, 520);
-    this.camera.lookAt(150, 0, 115);
+    this.camera.position.set(800, -1100, 760);
+    this.camera.lookAt(220, 0, 130);
     // Keep the last frame available to embedded-browser screenshot/readback paths.
     // Some WebKit/Electron and browser automation compositors otherwise capture
     // only the cleared WebGL back buffer even while the scene itself is rendered.
@@ -122,7 +122,7 @@ export class SimulatorScene {
     this.scene.add(ambient, key);
 
     const table = this.table = new Mesh(
-      new BoxGeometry(1050, 820, 40),
+      new BoxGeometry(1050, 1400, 40),
       new MeshStandardMaterial({ color: "#252f32", roughness: 0.82, metalness: 0.08 }),
     );
     table.position.set(145, 0, -20);
@@ -178,7 +178,7 @@ export class SimulatorScene {
     this.scene.add(axes);
 
     this.controls = new OrbitControls(this.camera, canvas);
-    this.controls.target.set(150, 0, 115);
+    this.controls.target.set(220, 0, 130);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.075;
     this.controls.minDistance = 180;
@@ -411,9 +411,9 @@ export class SimulatorScene {
   }
 
   resetCamera() {
-    this.camera.position.set(560, -720, 520);
+    this.camera.position.set(800, -1100, 760);
     this.camera.up.set(0, 0, 1);
-    this.controls.target.set(150, 0, 115);
+    this.controls.target.set(220, 0, 130);
     this.controls.update();
   }
 
@@ -478,7 +478,7 @@ export class SimulatorScene {
     const magneticStandHeight = magneticSurfaceHeight(state.project.scene);
     const platformZ = platformHeight(state.project.scene);
     if (!this.teachingPlatform.parent) this.blockGroup.add(this.teachingPlatform);
-    this.teachingPlatform.name = "Fixed 340×320×110 teaching platform / 固定教學平台";
+    this.teachingPlatform.name = "Fixed 500×1200 mm teaching platform; top Z110 mm / 固定教學平台";
     this.teachingPlatform.scale.set(1, 1, 110);
     this.teachingPlatform.position.set(TEACHING_PLATFORM.x, TEACHING_PLATFORM.y, TEACHING_PLATFORM.top/2);
     this.teachingPlatform.visible = true;

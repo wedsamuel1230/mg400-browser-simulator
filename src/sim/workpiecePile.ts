@@ -5,7 +5,12 @@ import type { MG400Kinematics } from "./mg400Kinematics";
 export function createWorkpiecePile(kind: "body1" | "magnet", count: number, x: number, y: number, pileId: string): CellBlock[] {
   const limit = kind === "body1" ? 3 : 10, half = kind === "body1" ? 20 : 17.5;
   if (!Number.isInteger(count) || count < 1 || count > limit) throw new Error(`件數必須為1–${limit} / Count must be1–${limit}.`);
-  if (![x,y].every(Number.isFinite) || x-half < TEACHING_PLATFORM.x-TEACHING_PLATFORM.width/2 || x+half > TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2 || y-half < -160 || y+half > 160) throw new Error("工件必須完全位於固定340×320 mm平台內 / Keep the complete footprint inside the fixed platform.");
+  const insidePlatform = Number.isFinite(x) && Number.isFinite(y)
+    && x - half >= TEACHING_PLATFORM.x - TEACHING_PLATFORM.width / 2
+    && x + half <= TEACHING_PLATFORM.x + TEACHING_PLATFORM.width / 2
+    && y - half >= TEACHING_PLATFORM.y - TEACHING_PLATFORM.depth / 2
+    && y + half <= TEACHING_PLATFORM.y + TEACHING_PLATFORM.depth / 2;
+  if (!insidePlatform) throw new Error("工件必須完全位於固定500×1200 mm平台內 / Keep the complete footprint inside the fixed 500×1200 mm platform.");
   return Array.from({length:count},(_,stackLevel)=>({id:`${pileId}-${stackLevel+1}`,pileId,kind:kind === "body1" ? "block" : "magnet",...(kind === "body1" ? {geometry:"body1" as const}:{}),color:"neutral",source:"pickup",position:{x,y},r:0,z:0,stackLevel}));
 }
 

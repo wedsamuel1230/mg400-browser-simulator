@@ -14,7 +14,8 @@ it.each(["body1","magnet"] as const)("generates true vertical %s piles and teach
 it("rejects counts and platform positions without clamping",()=>{
  expect(()=>createWorkpiecePile("body1",4,300,0,"pile")).toThrow();
  expect(()=>createWorkpiecePile("magnet",11,300,0,"pile")).toThrow();
- expect(()=>createWorkpiecePile("body1",1,430,0,"pile")).toThrow();
+ expect(()=>createWorkpiecePile("body1",1,590,0,"pile")).toThrow();
+ expect(()=>createWorkpiecePile("body1",1,300,590,"pile")).toThrow();
 });
 it("rejects unreachable pile contacts rather than preparing guessed poses",()=>expect(()=>teachPile(prepareLessonProject("intermediate-passive-fork"),createWorkpiecePile("body1",3,300,-80,"pile"),{solve:()=>({ok:false,joints:[0,0,0,0],positionErrorMm:1,angleErrorDeg:1})})).toThrow(/reach/));
 it("normalizes old platform height and preserves custom code and points with a re-teach datum",()=>{

@@ -74,9 +74,7 @@ svg { flex-shrink: 0; }
 .workspace-menu > summary::-webkit-details-marker { display: none; }
 .workspace-menu > div { position: absolute; z-index: 25; right: 0; top: calc(100% + 10px); width: min(320px, 85vw); padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 8px 30px var(--shadow-menu); }
 .workspace-menu button { border: 0; width: 100%; text-align: left; }
-.workspace-grid { display: grid; grid-template-columns: minmax(320px, 370px) minmax(0, 1fr); gap: 32px; max-width: 1720px; margin: auto; padding: 32px; align-items: start; }
-.workspace-grid.view-program { grid-template-columns: minmax(420px, .9fr) minmax(0, 1.2fr); }
-.workspace-grid.view-settings { grid-template-columns: minmax(360px, 480px) minmax(0, 1fr); }
+.workspace-grid { display: grid; grid-template-columns: minmax(360px, 480px) minmax(0, 1fr); gap: 32px; max-width: 1720px; margin: auto; padding: 32px; align-items: start; }
 .left-workspace, .right-workspace { min-width: 0; }
 .left-workspace { display: flex; flex-direction: column; gap: 20px; }
 .practice-panel { padding: 10px 0; }
@@ -340,8 +338,7 @@ svg { flex-shrink: 0; }
   .topbar { flex-wrap: wrap; gap: 14px; padding: 16px 24px; }
   .workbench-nav { order: 3; width: 100%; justify-content: center; }
   .topbar-actions { margin-left: auto; }
-  .workspace-grid { padding: 24px; gap: 24px; grid-template-columns: minmax(300px, 350px) minmax(0, 1fr); }
-  .workspace-grid.view-program { grid-template-columns: minmax(350px, 1fr) minmax(0, 1fr); }
+  .workspace-grid { padding: 24px; gap: 24px; grid-template-columns: minmax(320px, 400px) minmax(0, 1fr); }
   .camera-reset { margin-left: 0; } .scene-controls { display: none; }
 }
 @media (max-width: 900px) {

@@ -1,6 +1,8 @@
 # Teaching contact and workpiece contract
 
-The fixed teaching platform is 340 × 320 mm, centred at (270, 0), top Z110. Its footprint is X100–440, Y−160–160. Counts, imported positions and Free Play do not resize or reposition the platform or robot.
+The fixed front teaching platform is 500 × 1200 mm, centred at (350, 0), with its top at Z110. Its footprint is X100–600, Y−600–600. The rear edge stays 5 mm ahead of the robot pedestal. The pinned URDF gives a conservative default-tool TCP XY radius of 524.507 mm; a rotating 40 mm square adds 28.284 mm, giving a 552.791 mm envelope and 47.209 mm outer margin. This covers the front teaching area, excluding the pedestal and the robot's rear. Custom extended TCPs require a new coverage assessment. Platform coverage does not establish IK reachability or collision clearance.
+
+The platform geometry and robot position remain fixed; counts, imported positions and Free Play do not resize or reposition them. Camera zoom and framing can change how large the platform looks on screen without changing its dimensions.
 
 The supplied `base_link.STL` has local metre bounds X/Y ±0.0949999988, Z0–0.1129999980. With the URDF's unchanged 1000 scale, its front edge is X95 mm and platform near edge is X100: a 5 mm gap. Evidence command: load the STL with `three/examples/jsm/loaders/STLLoader.js`, call `computeBoundingBox()`, and inspect min/max. The robot pedestal is unchanged.
 
