@@ -6,7 +6,7 @@ export const MAGNET_SUPPORT_HEIGHT_MM = 110;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
 // Fixed front workspace: X100–600, Y±600, with its rear edge 5 mm clear
 // of the pedestal. Covers the default tool/workpiece XY envelope (<553 mm).
-export const TEACHING_PLATFORM = { width:500, depth:1200, x:350, y:0, top:110 } as const;
+export const TEACHING_PLATFORM = { width:500, depth:600, x:350, y:0, top:110 } as const;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
 export const BODY1_FORK_CONTACT = { insertionZ: 22.5, loadZ: 25, bottomOffset: 25 } as const;
@@ -37,8 +37,12 @@ export function cellBlockSize(block: CellBlock | undefined, mode: ToolMode) {
   return kind === "magnet" ? MAGNET_SIZE_MM : BLOCK_SIZE_MM;
 }
 
-export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode, standHeightMm = MAGNET_SUPPORT_HEIGHT_MM, platformHeightMm = 0) {
-  return (block?.z ?? 0) + (cellBlockSize(block, mode).z === 4 ? standHeightMm : platformHeightMm) + cellBlockSize(block, mode).z * ((block?.stackLevel ?? 0) + 1);
+export function cellBlockBottomZ(block: CellBlock | undefined, mode: ToolMode, standHeightMm = MAGNET_SUPPORT_HEIGHT_MM, platformHeightMm = 0, body1SupportHeightMm = 20) {
+  const size = cellBlockSize(block, mode);
+  return (block?.z ?? 0) + (size.z === 4 ? standHeightMm : platformHeightMm + (mode === "fork" ? (block?.geometry === "body1" ? body1SupportHeightMm : FORK_SUPPORT_HEIGHT_MM) : 0)) + size.z * (block?.stackLevel ?? 0);
+}
+export function cellBlockTopZ(block: CellBlock | undefined, mode: ToolMode, standHeightMm = MAGNET_SUPPORT_HEIGHT_MM, platformHeightMm = 0, body1SupportHeightMm = 20) {
+  return cellBlockBottomZ(block,mode,standHeightMm,platformHeightMm,body1SupportHeightMm) + cellBlockSize(block,mode).z;
 }
 
 // Calibration is local to the imported first block workpiece.
@@ -170,13 +174,15 @@ export const DEFAULT_FORK_SCRIPT = [
   "-- The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
   "-- PickApproach is 60 mm before PickPoint along tool -X at the support height.",
   "",
+  "local PlaceExit = {coordinate={x=PlacePoint.coordinate.x-60*math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y-60*math.sin(math.rad(PlacePoint.coordinate.r)), z=PlacePoint.coordinate.z, r=PlacePoint.coordinate.r}}",
   "JointMovJ(Home, {CP=0})",
   "MovJ(PickApproach, {CP=0})",
   "MovL(PickPoint, {CP=0})",
   "RelMovL({0, 0, 80, 0}, {CP=0, SpeedL=50, AccL=20})",
   "MovJ(PlaceApproach, {CP=0})",
   "MovL(PlacePoint, {CP=0})",
-  "MovL(PlaceApproach, {CP=0})",
+  "MovL(PlaceExit, {CP=0})",
+  "RelMovL({0, 0, 125, 0})",
   "JointMovJ(Home, {CP=0})",
   "Sync()",
   'print("Fork pick and place complete")',
@@ -212,13 +218,16 @@ export const DEFAULT_FORK_PYTHON_SCRIPT = authoredPythonProgram([
   "# The 40 x 40 x 15 mm block is supported 20 mm above the teaching platform, leaving room for the fork.",
   "# PickApproach is 60 mm before PickPoint along tool -X at the support height.",
   "",
+  "import math",
+  'PlaceExit = {"coordinate": {**PlacePoint["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60*math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60*math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}',
   "joint_mov_j(Home, cp=0)",
   "mov_j(PickApproach, cp=0)",
   "mov_l(PickPoint, cp=0)",
   "rel_mov_l({\"x\": 0, \"y\": 0, \"z\": 80, \"r\": 0}, cp=0, speed_l=50, acc_l=20)",
   "mov_j(PlaceApproach, cp=0)",
   "mov_l(PlacePoint, cp=0)",
-  "mov_l(PlaceApproach, cp=0)",
+  "mov_l(PlaceExit, cp=0)",
+  "rel_mov_l([0, 0, 125, 0])",
   "joint_mov_j(Home, cp=0)",
   "sync()",
   "print('Fork pick and place complete')",
@@ -232,7 +241,7 @@ export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 1
     `PlaceExit = {"coordinate": {**PlaceClear["coordinate"], "x": PlacePoint["coordinate"]["x"] - 60 * math.cos(math.radians(PlacePoint["coordinate"]["r"])), "y": PlacePoint["coordinate"]["y"] - 60 * math.sin(math.radians(PlacePoint["coordinate"]["r"]))}}`,
     "joint_mov_j(Home, cp=0)", "mov_j(PickApproach, cp=0)", "mov_l(PickPoint, cp=0)",
     "rel_mov_l([0, 0, 80, 0], cp=0)", "mov_j(PlaceApproach, cp=0)", "mov_l(PlacePoint, cp=0)",
-    "mov_l(PlaceClear, cp=0)", "mov_l(PlaceExit, cp=0)", "rel_mov_l([0, 0, 80, 0], cp=0)",
+    "mov_l(PlaceClear, cp=0)", "mov_l(PlaceExit, cp=0)", `rel_mov_l([0, 0, ${255-platformHeightMm-supportHeightMm-BODY1_FORK_CONTACT.insertionZ}, 0])`,
     "joint_mov_j(Home, cp=0)", "sync()", "print('Body1 fork pick and place complete')", "",
   ].join("\n"));
   return [
@@ -241,7 +250,7 @@ export function body1ForkProgram(language: ProgramLanguage, platformHeightMm = 1
     `local PlaceExit = { coordinate = { x=PlacePoint.coordinate.x - 60 * math.cos(math.rad(PlacePoint.coordinate.r)), y=PlacePoint.coordinate.y - 60 * math.sin(math.rad(PlacePoint.coordinate.r)), z=${platformHeightMm + supportHeightMm + BODY1_FORK_CONTACT.insertionZ}, r=PlacePoint.coordinate.r } }`,
     "JointMovJ(Home, {CP=0})", "MovJ(PickApproach, {CP=0})", "MovL(PickPoint, {CP=0})",
     "RelMovL({0, 0, 80, 0}, {CP=0})", "MovJ(PlaceApproach, {CP=0})", "MovL(PlacePoint, {CP=0})",
-    "MovL(PlaceClear, {CP=0})", "MovL(PlaceExit, {CP=0})", "RelMovL({0, 0, 80, 0}, {CP=0})",
+    "MovL(PlaceClear, {CP=0})", "MovL(PlaceExit, {CP=0})", `RelMovL({0, 0, ${255-platformHeightMm-supportHeightMm-BODY1_FORK_CONTACT.insertionZ}, 0})`,
     "JointMovJ(Home, {CP=0})", "Sync()", 'print("Body1 fork pick and place complete")', "",
   ].join("\n");
 }

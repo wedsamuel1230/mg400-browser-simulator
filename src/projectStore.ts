@@ -1,5 +1,6 @@
 import {
   FORK_SUPPORT_HEIGHT_MM,
+  TEACHING_PLATFORM,
   DEFAULT_TCP_OFFSETS,
   DEFAULT_SCRIPT,
   DEFAULT_FORK_SCRIPT,
@@ -180,7 +181,8 @@ export function validateProject(input: unknown): ProjectDocument {
     !isFiniteNumber(value.scene.block.y) ||
     !isFiniteNumber(value.scene.drop.x) ||
     !isFiniteNumber(value.scene.drop.y) ||
-    [value.scene.block.x, value.scene.block.y, value.scene.drop.x, value.scene.drop.y].some((n) => Math.abs(n as number) > 500)
+    [value.scene.block.x, value.scene.drop.x].some(n => n < -500 || n > Math.max(500,TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2)) ||
+    [value.scene.block.y, value.scene.drop.y].some(n => Math.abs(n) > 500)
   ) {
     throw new Error("Scene block or drop-zone coordinates are malformed.");
   }

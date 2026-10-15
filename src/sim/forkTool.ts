@@ -119,8 +119,9 @@ function advanceBody1Fork(state: PassiveForkState, previous: Pose, current: Pose
   if (state.releasePose) {
     const exit = local(current, state.releasePose);
     const beforeExit = local(previous, state.releasePose);
-    const alignedExit = Math.abs(current.r - state.releasePose.r) <= 1 && Math.abs(exit.across) <= 1;
-    const atClearance = Math.abs(current.z - BODY1_FORK_CONTACT.insertionZ) <= 0.5;
+    const alignedExit = Math.abs(((current.r-state.releasePose.r+180)%360+360)%360-180) <= 1 && Math.abs(exit.across) <= 1;
+    const exitZ=state.releasePose.z-(BODY1_FORK_CONTACT.loadZ-BODY1_FORK_CONTACT.insertionZ);
+    const atClearance = Math.abs(current.z - exitZ) <= 0.5;
     const releaseCleared = alignedExit && atClearance && (state.releaseCleared || Math.abs(exit.along) <= 1);
     if (!releaseCleared || exit.along > 1 || (state.releaseCleared && exit.along > beforeExit.along + 0.0001)) {
       return { state: { ...state, releaseCleared: false }, action: null };

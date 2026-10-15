@@ -119,11 +119,11 @@ it("uses one shared front platform and keeps explicit magnetic objects above it 
  expect(internals.teachingPlatform.scale.z).toBe(110);
  expect(internals.teachingPlatform.position.z).toBe(55);
  const geometry=internals.teachingPlatform.geometry as BoxGeometry;
- expect(geometry.parameters.width).toBe(500);expect(geometry.parameters.height).toBe(1200);
+ expect(geometry.parameters.width).toBe(500);expect(geometry.parameters.height).toBe(600);
  expect(internals.teachingPlatform.position.x-geometry.parameters.width/2).toBe(100);
  expect(internals.teachingPlatform.position.x+geometry.parameters.width/2).toBe(600);
- expect(internals.teachingPlatform.position.y-geometry.parameters.height/2).toBe(-600);
- expect(internals.teachingPlatform.position.y+geometry.parameters.height/2).toBe(600);
+ expect(internals.teachingPlatform.position.y-geometry.parameters.height/2).toBe(-300);
+ expect(internals.teachingPlatform.position.y+geometry.parameters.height/2).toBe(300);
  expect(internals.magnetStands.size).toBe(0);
  expect(internals.additionalBlocks.get("magnet")?.position.z).toBe(137);
  view.dispose();
@@ -149,6 +149,8 @@ it("keeps the platform fixed while supply pieces move and projects placement ont
  const placement=view.tablePositionFromPointer(400,300);
  expect(placement?.x).toBeCloseTo(300,1);
  expect(placement?.y).toBeCloseTo(0,1);
+ internals.camera.lookAt(new Vector3(350,400,110));internals.camera.updateMatrixWorld(true);
+ expect(view.tablePositionFromPointer(400,300)).toBeNull();
  view.dispose();
 });
 
@@ -182,7 +184,7 @@ it("keeps the platform fixed and renders every Body1 layer from the supplied STL
  project.scene.blocks[0].position={x:480,y:220};project.scene.platformHeightMm=0;
  view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:false,target:null});
  expect(internals.teachingPlatform.position.toArray()).toEqual([350,0,55]);expect(internals.teachingPlatform.scale.toArray()).toEqual([1,1,110]);
- expect(platformGeometry.parameters.width).toBe(500);expect(platformGeometry.parameters.height).toBe(1200);
+ expect(platformGeometry.parameters.width).toBe(500);expect(platformGeometry.parameters.height).toBe(600);
  view.dispose();
 });
 
@@ -232,5 +234,20 @@ it("frames the actual output arrangement and its stack height while leaving the 
  view.focusPlacedWorkpieces();
  expect(internals.camera.position.toArray()).toEqual(overviewPosition.toArray());
  expect(internals.controls.target.toArray()).toEqual(overviewTarget.toArray());
+ view.dispose();
+});
+
+it("captures every visual in millimetre link coordinates including mesh scale and origin",async()=>{
+ vi.stubGlobal("fetch",async()=>new Response(gzipSync(stl)));
+ const document=new DOMParser().parseFromString(xml,"text/xml");
+ const link=document.querySelector('link[name="link1"]')!;
+ const visual=link.querySelector("visual")!.cloneNode(true) as Element;
+ visual.querySelector("origin")!.setAttribute("xyz","0.01 0.02 0.03");
+ visual.querySelector("mesh")!.setAttribute("scale","2 3 4");link.appendChild(visual);
+ const view=await SimulatorScene.create(window.document.createElement("canvas"),new XMLSerializer().serializeToString(document),()=>undefined);
+ const geometries=view.collisionGeometry().links.get("link1")!;
+ expect(geometries).toHaveLength(2);
+ expect(geometries[1].boundingBox!.min.toArray()).toEqual([10,20,30]);
+ expect(geometries[1].boundingBox!.max.toArray()).toEqual([2010,3020,30]);
  view.dispose();
 });

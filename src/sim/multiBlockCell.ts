@@ -1,4 +1,4 @@
-import { BLOCK_SIZE_MM, cellBlockSize, cellBlockTopZ, type BlockColor, type CellBlock, type ProjectDocument, type ToolMode } from "../domain";
+import { BLOCK_SIZE_MM, TEACHING_PLATFORM, cellBlockSize, cellBlockTopZ, type BlockColor, type CellBlock, type ProjectDocument, type ToolMode } from "../domain";
 
 export const DEFAULT_CELL_BLOCKS: CellBlock[] = [
   { id: "tower-1", color: "neutral", source: "pickup", position: { x: 300, y: -80 }, r: 0 },
@@ -71,8 +71,8 @@ export function validateCellBlocks(blocks: CellBlock[], feederOrder: string[]): 
     if (!["block", "magnet", undefined].includes(block.kind) || !["neutral", "black", "white"].includes(block.color) || !["pickup", "feeder", "output", "unloaded"].includes(block.source)) throw new Error("Cell object kind, color or source is invalid.");
     if (block.geometry !== undefined && block.geometry !== "body1") throw new Error("Unknown workpiece geometry.");
     if (block.stackLevel !== undefined && (!Number.isInteger(block.stackLevel) || block.stackLevel < 0 || block.stackLevel > (block.geometry === "body1" ? 2 : block.kind === "magnet" ? 9 : 2))) throw new Error("Cell block stack levels must be valid integer layers for the selected workpiece.");
-    if (![block.position.x, block.position.y, block.r, block.z ?? 0].every(Number.isFinite) || Math.abs(block.position.x) > 500 || Math.abs(block.position.y) > 500 || (block.z ?? 0) < 0 || (block.z ?? 0) > 300 || Math.abs(block.r) > 360) throw new Error("Cell object position is outside the supported reachable range.");
+    if (![block.position.x, block.position.y, block.r, block.z ?? 0].every(Number.isFinite) || (block.position.x < -500 || block.position.x > Math.max(500,TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2)) || Math.abs(block.position.y) > 500 || (block.z ?? 0) < 0 || (block.z ?? 0) > 300 || Math.abs(block.r) > 360) throw new Error("Cell object position is outside the supported reachable range.");
   }
   if (new Set(feederOrder).size !== feederOrder.length || feederOrder.some((id) => !ids.has(id) || blocks.find((block) => block.id === id)?.source !== "feeder")) throw new Error("Feeder order must reference feeder blocks exactly once.");
-  if (blocks.some((block) => block.position.x < -500 || block.position.x > 550 || block.position.y < -500 || block.position.y > 500)) throw new Error(`Cell block dimensions ${BLOCK_SIZE_MM.x} × ${BLOCK_SIZE_MM.y} exceed the supported cell bounds.`);
+  if (blocks.some((block) => block.position.x < -500 || block.position.x > Math.max(500,TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2) || block.position.y < -500 || block.position.y > 500)) throw new Error(`Cell block dimensions ${BLOCK_SIZE_MM.x} × ${BLOCK_SIZE_MM.y} exceed the supported cell bounds.`);
 }

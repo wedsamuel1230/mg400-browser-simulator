@@ -2,6 +2,12 @@
 import {afterAll,beforeAll,describe,expect,it,vi} from "vitest";
 // @ts-expect-error jsdom runtime is provided by the test environment package.
 import {JSDOM} from "jsdom";
+// @ts-expect-error Node file access belongs to the test environment.
+import {readFileSync} from "node:fs";
+import {STLLoader} from "three/examples/jsm/loaders/STLLoader.js";
+import {Matrix4} from "three";
+import {prepareFlangeMountedToolGeometry} from "../sim/toolMount";
+import type {CollisionGeometry} from "../sim/collisionInterlock";
 import {LuaFactory,type LuaEngine} from "wasmoon";
 import {loadPyodide,type PyodideInterface} from "pyodide";
 import xml from "../../public/models/mg400/mg400_description/urdf/mg400_description.urdf?raw";
@@ -14,6 +20,14 @@ import {prepareLessonProject,BODY1_LESSONS} from "./practiceSetup";
 import {recommendPickAndPlace} from "../sim/codeRecommendation";
 
 type Command={type:"motion";motion:MotionRequest}|{type:"io";value:boolean};
+const loader=new STLLoader();
+const parse=(path:string)=>{const b=readFileSync(path);return loader.parse(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
+const collisionGeometry:CollisionGeometry={links:new Map(),tools:{fork:prepareFlangeMountedToolGeometry(parse("public/models/tools/Block.stl")),magnet:prepareFlangeMountedToolGeometry(parse("public/models/tools/magnet.stl"))},supported:true};
+for(const link of new JSDOM(xml,{contentType:"text/xml"}).window.document.querySelectorAll("robot > link")){
+ const filename=link.querySelector("visual mesh")?.getAttribute("filename");if(!filename)continue;
+ const geometry=parse("public/models/mg400/"+filename.replace("package://",""));geometry.applyMatrix4(new Matrix4().makeScale(1000,1000,1000));geometry.computeBoundingBox();
+ collisionGeometry.links.set(link.getAttribute("name")!,[geometry]);
+}
 let lua:LuaEngine,python:PyodideInterface;
 beforeAll(async()=>{[lua,python]=await Promise.all([new LuaFactory().createEngine(),loadPyodide()]);},60000);
 afterAll(()=>{lua?.global.close();python?.globals.destroy();vi.unstubAllGlobals();});
@@ -37,13 +51,13 @@ describe("actual controller executions of prepared Lua/Python examples",()=>{
    let joints=home.kind==="joint"?home.joints:[0,0,0,0] as JointAngles,attached=false,attachedId:string|null=null,location={...project.scene.block};
    const evidence=newTaskEvidence(),transitions:boolean[]=[],commands:Command[]=[];
    const observe=()=>observeTaskFrame(evidence,model.forward(joints,project.tool.flangeOffset,activeTcpOffset(project.tool)),attached?attachedId:null);
-   const events:ControllerEvents={getProject:()=>project,getJoints:()=>joints,isAttached:()=>attached,getBlock:()=>location,getForkContactProfile:()=>"body1",getCellBlocks:()=>project.scene.blocks,
+   const events:ControllerEvents={getCollisionGeometry:()=>collisionGeometry,getProject:()=>project,getJoints:()=>joints,isAttached:()=>attached,getBlock:()=>location,getForkContactProfile:()=>"body1",getCellBlocks:()=>project.scene.blocks,
     setCellBlocks:blocks=>{project.scene.blocks=blocks;},setJoints:value=>{joints=value;observe();},setAttached:value=>{attached=value;transitions.push(value);observe();},setAttachedCellBlockId:value=>{attachedId=value;observe();},setBlock:value=>{location=value;},setDigitalOutput:()=>{},setStatus:()=>{},addLog:()=>{}};
    const controller=new SimulationController(model,events);
-   const internal=controller as unknown as {stopped:boolean;generation:number;animateMotion:(motion:MotionRequest,generation:number)=>Promise<void>;resolveRelativeMotion:(motion:MotionRequest)=>MotionRequest;performToolAction:(action:"pick"|"place")=>void; updatePassiveFork:(previous:Pose,current:Pose)=>void; passiveForkState:unknown; attachedCellBlockId:string|null};
+   const internal=controller as unknown as {stopped:boolean;generation:number;animateMotion:(motion:MotionRequest,generation:number)=>Promise<void>;resolveRelativeMotion:(motion:MotionRequest)=>MotionRequest;performToolAction:(action:"pick"|"place")=>void; updatePassiveFork:(previous:Pose,current:Pose,joints?:JointAngles)=>void; passiveForkState:unknown; attachedCellBlockId:string|null};
    internal.stopped=false;
    const trace:unknown[]=[], update=internal.updatePassiveFork.bind(internal);
-   internal.updatePassiveFork=(previous,current)=>{update(previous,current);trace.push({world:current,attachedId:internal.attachedCellBlockId,phase:structuredClone(internal.passiveForkState),blocks:project.scene.blocks.map(block=>({id:block.id,source:block.source,level:block.stackLevel}))});};
+   internal.updatePassiveFork=(previous,current,joints)=>{update(previous,current,joints);if(trace.length>30)trace.shift();trace.push({world:current,attachedId:internal.attachedCellBlockId,phase:structuredClone(internal.passiveForkState),blocks:project.scene.blocks.map(block=>({id:block.id,source:block.source,level:block.stackLevel}))});};
    let clock=performance.now();
    vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>setTimeout(()=>callback(clock+=16),0));
    vi.stubGlobal("cancelAnimationFrame",(handle:number)=>clearTimeout(handle));

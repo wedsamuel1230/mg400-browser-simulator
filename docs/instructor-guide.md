@@ -1,6 +1,6 @@
 # MG400 Virtual Training Simulator — Instructor Guide
 
-**Course release:** 1.3.8
+**Course release:** 1.3.9
 **Languages:** English and Traditional Chinese  
 **Last checked against the app:** 5 October 2026
 
@@ -114,7 +114,7 @@ For OpenRouter Space Bunny Alpha, the model listing says its third-party provide
 
 Keep these identities separate when presenting the product:
 
-- **Course release:** 1.3.8, the version of the bilingual lesson content.
+- **Course release:** 1.3.9, the version of the bilingual lesson content.
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
@@ -237,7 +237,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 向學生介紹產品時，請分清以下身分：
 
-- **課程版本：**1.3.8，代表雙語教材版本。
+- **課程版本：**1.3.9，代表雙語教材版本。
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。

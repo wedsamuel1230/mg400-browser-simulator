@@ -1,16 +1,20 @@
-import { type CellBlock, type ProjectDocument, type Pose, TEACHING_PLATFORM, activeTcpOffset } from "../domain";
+import { type CellBlock, type ProjectDocument, type Pose, TEACHING_PLATFORM, activeTcpOffset, rad } from "../domain";
 import { forkContactPose, forkEntryPose } from "./forkTool";
 import type { MG400Kinematics } from "./mg400Kinematics";
 
+export function assertPlatformFootprint(x: number, y: number, width: number, depth: number, rotation = 0) {
+  const c=Math.abs(Math.cos(rad(rotation))), s=Math.abs(Math.sin(rad(rotation)));
+  const halfX=(width*c+depth*s)/2, halfY=(width*s+depth*c)/2;
+  const p=TEACHING_PLATFORM;
+  if (![x,y,width,depth,rotation].every(Number.isFinite) || x-halfX<p.x-p.width/2 || x+halfX>p.x+p.width/2 || y-halfY<p.y-p.depth/2 || y+halfY>p.y+p.depth/2) {
+    throw new Error(`工件必須完全位於固定${p.width}×${p.depth} mm平台內 / Keep the complete footprint inside the fixed ${p.width}×${p.depth} mm platform.`);
+  }
+}
+
 export function createWorkpiecePile(kind: "body1" | "magnet", count: number, x: number, y: number, pileId: string): CellBlock[] {
-  const limit = kind === "body1" ? 3 : 10, half = kind === "body1" ? 20 : 17.5;
+  const limit = kind === "body1" ? 3 : 10, width = kind === "body1" ? 40 : 35;
   if (!Number.isInteger(count) || count < 1 || count > limit) throw new Error(`件數必須為1–${limit} / Count must be1–${limit}.`);
-  const insidePlatform = Number.isFinite(x) && Number.isFinite(y)
-    && x - half >= TEACHING_PLATFORM.x - TEACHING_PLATFORM.width / 2
-    && x + half <= TEACHING_PLATFORM.x + TEACHING_PLATFORM.width / 2
-    && y - half >= TEACHING_PLATFORM.y - TEACHING_PLATFORM.depth / 2
-    && y + half <= TEACHING_PLATFORM.y + TEACHING_PLATFORM.depth / 2;
-  if (!insidePlatform) throw new Error("工件必須完全位於固定500×1200 mm平台內 / Keep the complete footprint inside the fixed 500×1200 mm platform.");
+  assertPlatformFootprint(x,y,width,width);
   return Array.from({length:count},(_,stackLevel)=>({id:`${pileId}-${stackLevel+1}`,pileId,kind:kind === "body1" ? "block" : "magnet",...(kind === "body1" ? {geometry:"body1" as const}:{}),color:"neutral",source:"pickup",position:{x,y},r:0,z:0,stackLevel}));
 }
 

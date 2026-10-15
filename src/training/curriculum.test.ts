@@ -5,7 +5,7 @@ import { prepareLessonProject } from "./practiceSetup";
 describe("beginner curriculum entry", () => {
   it("starts with a bilingual text-only program instead of a robot command", () => {
     const first = LESSONS[0];
-    expect(CURRICULUM_VERSION).toBe("1.3.8");
+    expect(CURRICULUM_VERSION).toBe("1.3.9");
     expect(first.id).toBe("foundation-first-program");
     expect(first.track).toBe("foundation");
     expect(first.title.en).toBeTruthy();

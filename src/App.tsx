@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import {
   cellBlockSize,
+  TEACHING_PLATFORM,
   cellBlockTopZ,
   body1SupportHeight,
   platformHeight,
@@ -73,11 +74,11 @@ import {
 } from "./projectStore";
 import { assessRobotTask, newTaskEvidence, observeTaskFrame } from "./sim/taskAssessment";
 import { SimulationController, type RunStatus } from "./sim/SimulationController";
-import type { LocalToolMeshes } from "./sim/SimulatorScene";
+import type { SimulatorScene, LocalToolMeshes } from "./sim/SimulatorScene";
 import type { MG400Kinematics } from "./sim/mg400Kinematics";
 import { TrainingCenter } from "./training/TrainingCenter";
 import { LESSONS } from "./training/curriculum";
-import { createWorkpiecePile, teachPile } from "./sim/workpiecePile";
+import { assertPlatformFootprint, createWorkpiecePile, teachPile } from "./sim/workpiecePile";
 import { prepareLessonProject, BODY1_LESSONS } from "./training/practiceSetup";
 import { DEFAULT_PROJECT } from "./data/defaultProject";
 import type { ProgramLanguage } from "./domain";
@@ -321,6 +322,7 @@ export default function App() {
     modelLoadDetail: "Could not load the bundled MG400 kinematic model.",
   };
   const [trainingLessonId, setTrainingLessonId] = useState<string | null>(null);
+  const collisionSceneRef = useRef<SimulatorScene | undefined>(undefined);
   const [localToolMeshes, setLocalToolMeshes] = useState<LocalToolMeshes>({});
   const selectedForkProfile = localToolMeshes.blockProfile ?? "reference";
   const forkProfile = effectiveForkContactProfile(selectedForkProfile, project.scene.blocks, project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.id);
@@ -501,7 +503,7 @@ export default function App() {
         setSaved(false);
         const message = error instanceof Error ? error.message : "Could not save the local project.";
         const localized = uiLanguage === "zh-Hant" && message.includes("Cell object position is outside")
-          ? "工作格物件位置超出支援範圍（X/Y ±500 mm、Z 0–300 mm）。請調整座標。"
+          ? `工作格物件位置超出儲存範圍（X −500–${Math.max(500,TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2)} mm、Y ±500 mm、Z 0–300 mm）。請調整座標。`
           : message;
         addLog(localized, "error");
       }
@@ -578,6 +580,7 @@ export default function App() {
     if (!kinematics) return null;
     if (!controllerRef.current) {
       controllerRef.current = new SimulationController(kinematics, {
+        getCollisionGeometry: () => collisionSceneRef.current?.collisionGeometry(),
         getProject: () => projectRef.current,
         getJoints: () => jointsRef.current,
         isAttached: () => attachedRef.current,
@@ -880,12 +883,7 @@ export default function App() {
   function jogCartesian(axis: keyof Pose, amount: number) {
     if (!kinematics) return;
     const target = { ...pose, [axis]: pose[axis] + amount };
-    const result = kinematics.solve(target, jointsRef.current, projectRef.current.tool.flangeOffset, activeTcpOffset(projectRef.current.tool));
-    if (!result.ok) {
-      addLog(`Jog stopped: ${axis.toUpperCase()} target is outside the modeled workspace.`, "warning");
-      return;
-    }
-    setRobotJoints(result.joints);
+    void getController()?.jog(makeCartesianPoint("Jog", target), true);
   }
 
   function jogJoint(index: number, direction: number) {
@@ -897,7 +895,7 @@ export default function App() {
       return;
     }
     next[index] = rad(degrees);
-    setRobotJoints(next);
+    void getController()?.jog(makeJointPoint("Jog", next));
   }
 
   function downloadProject() {
@@ -1018,13 +1016,18 @@ export default function App() {
 
   function updateCellBlock(id: string, update: Partial<{ color: BlockColor; source: BlockSource; kind: CellObjectKind; x: number; y: number; z: number; r: number }>) {
     const selected=projectRef.current.scene.blocks.find(block=>block.id===id);
+    if (selected && (update.x!==undefined || update.y!==undefined || update.r!==undefined || update.kind!==undefined)) {
+      const size=cellBlockSize({...selected,...(update.kind ? {kind:update.kind}: {})},projectRef.current.tool.mode);
+      try { assertPlatformFootprint(update.x??selected.position.x,update.y??selected.position.y,size.x,size.y,update.r??selected.r); }
+      catch(error) { setPlacementMessage(localizedPlacementError(error));return false; }
+    }
     let taughtProject: ProjectDocument | undefined;
     if(freeMode && selected && (update.x!==undefined || update.y!==undefined)) {
       try {
         const group=selected.pileId?projectRef.current.scene.blocks.filter(block=>block.pileId===selected.pileId):[selected];
         const proposed=createWorkpiecePile(selected.geometry==="body1"?"body1":"magnet",group.length,update.x??selected.position.x,update.y??selected.position.y,selected.pileId??"preview");
         taughtProject=teachPile(projectRef.current,proposed,kinematics??undefined);
-      } catch(error){setPlacementMessage(localizedPlacementError(error));return;}
+      } catch(error){setPlacementMessage(localizedPlacementError(error));return false;}
     }
     if(taughtProject) setCurrentBlock(taughtProject.scene.block);
     replaceProject((current) => {
@@ -1043,11 +1046,12 @@ export default function App() {
       if (update.source === "feeder" && !feederOrder.includes(id)) feederOrder.push(id);
       return { ...base, scene: { ...base.scene, blocks, initialBlocks, feederOrder } };
     });
+    return true;
   }
 
   function placeSelectedOnTable(position: { x: number; y: number }) {
     if (!freeMode || !freeSelectedId) return;
-    updateCellBlock(freeSelectedId, { x: position.x, y: position.y, z: 0 });
+    if (!updateCellBlock(freeSelectedId, { x: position.x, y: position.y, z: 0 })) return;
     setPlacementArmed(false);
     setPlacementMessage(uiLanguage === "zh-Hant" ? `已將 ${freeSelectedId} 放到 X ${position.x}、Y ${position.y} mm。` : `Placed ${freeSelectedId} at X ${position.x}, Y ${position.y} mm.`);
   }
@@ -1057,7 +1061,7 @@ export default function App() {
     if (!selected) return;
     const x = Number((selected.position.x + dx).toFixed(1));
     const y = Number((selected.position.y + dy).toFixed(1));
-    updateCellBlock(selected.id, { x, y, z: 0 });
+    if (!updateCellBlock(selected.id, { x, y, z: 0 })) return;
     setPlacementMessage(uiLanguage === "zh-Hant" ? `鍵盤位置：X ${x}、Y ${y} mm。按 Enter 確認，Escape 取消。` : `Keyboard position: X ${x}, Y ${y} mm. Press Enter to place or Escape to cancel.`);
   }
 
@@ -1312,8 +1316,8 @@ export default function App() {
         <div className="free-quick-fields">
           <select aria-label={uiLanguage === "zh-Hant" ? "工件類型" : "Workpiece type"} value={pileKind} onChange={event=>setPileKind(event.currentTarget.value as "body1"|"magnet")} disabled={busy}><option value="body1">{uiLanguage === "zh-Hant" ? "Body1 槽積木 40×40×40 mm" : "Body1 slotted block · 40×40×40 mm"}</option><option value="magnet">{uiLanguage === "zh-Hant" ? "磁吸片 35×35×4 mm" : "Magnetic plate · 35×35×4 mm"}</option></select>
           <NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={pileCount} min={1} max={pileKind==="body1"?3:10} step={1} disabled={busy} onChange={setPileCount}/>
-          <NumericField label="X" value={pileX} suffix="mm" disabled={busy} onChange={setPileX}/>
-          <NumericField label="Y" value={pileY} suffix="mm" disabled={busy} onChange={setPileY}/>
+          <NumericField label="X" value={pileX} min={TEACHING_PLATFORM.x-TEACHING_PLATFORM.width/2} max={TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2} suffix="mm" disabled={busy} onChange={setPileX}/>
+          <NumericField label="Y" value={pileY} min={TEACHING_PLATFORM.y-TEACHING_PLATFORM.depth/2} max={TEACHING_PLATFORM.y+TEACHING_PLATFORM.depth/2} suffix="mm" disabled={busy} onChange={setPileY}/>
         </div>
         <div className="free-quick-actions">
           <button className="secondary-button outlined-button free-create-pile" onClick={()=>addCellObject(pileKind==="body1"?"block":"magnet")} disabled={busy}>{uiLanguage === "zh-Hant" ? `建立 ${pileCount} 件` : `Create ${pileCount} items`}</button>
@@ -1322,7 +1326,7 @@ export default function App() {
       </div>
     </div>
     <p className="free-pile-summary">{uiLanguage === "zh-Hant" ? `會建立 ${pileCount} 件${pileKind === "body1" ? "槽積木" : "磁吸片"}；預計堆高 ${(pileKind === "body1" ? 40 : 4) * pileCount} mm。工作台頂面固定在 Z${platformHeight(project.scene)} mm。開始執行後會顯示程式完成所需時間。` : `Creates ${pileCount} ${pileKind === "body1" ? "slotted blocks" : "magnetic plates"}; pile height ${(pileKind === "body1" ? 40 : 4) * pileCount} mm. The worktable stays at Z${platformHeight(project.scene)} mm. Run-to-finish time appears after execution.`}</p>
-    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "目前沒有物件；設定數量及 X/Y 後建立堆疊。" : "No objects yet. Set a quantity and X/Y, then create the pile.") : (uiLanguage === "zh-Hant" ? "已建立的物件只按模擬器邏輯接觸；不模擬實體磁力、碰撞或穩定性。" : "Created objects follow simulator contact rules; magnetic force, collision, and physical stability are not modeled."))}</small>
+    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "目前沒有物件；設定數量及 X/Y 後建立堆疊。" : "No objects yet. Set a quantity and X/Y, then create the pile.") : (uiLanguage === "zh-Hant" ? "已建立的物件使用有限步距碰撞停止及接觸規則；不模擬實體磁力或穩定性。" : "Created objects use finite-step collision stopping and contact rules; magnetic force and physical stability are not modeled."))}</small>
     {project.scene.blocks.length > 0 && <details className="free-advanced-settings">
       <summary>{uiLanguage === "zh-Hant" ? "進階工作格設定" : "Advanced workcell settings"}</summary>
       <div className="free-advanced-actions">
@@ -1330,7 +1334,7 @@ export default function App() {
         <button className={`secondary-button outlined-button${placementArmed ? " placement-active" : ""}`} onClick={() => placementArmed ? cancelTablePlacement() : armTablePlacement()} disabled={busy}>{placementArmed ? (uiLanguage === "zh-Hant" ? "取消擺放" : "Cancel placement") : (uiLanguage === "zh-Hant" ? "在工作台擺放" : "Place on table")}</button>
       </div>
       <div className="free-object-list">{project.scene.blocks.map((block) => <button type="button" key={block.id} aria-pressed={freeSelectedId === block.id} className={`free-object-chip ${block.kind === "magnet" ? "magnet-object" : "block-object"} ${freeSelectedId === block.id ? "selected" : ""}`} onClick={() => setFreeSelectedId(block.id)}><span aria-hidden="true">■</span> {cellObjectLabel(block)}</button>)}</div>
-      {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{cellObjectLabel(selected)}</strong><div className="free-selected-fields"><NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={selected.pileId?project.scene.blocks.filter(block=>block.pileId===selected.pileId).length:1} min={1} max={selected.geometry==="body1"?3:10} step={1} disabled={busy} onChange={value=>resizePile(selected.id,value)}/><NumericField label="X" value={selected.position.x} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><details className="advanced-tool-settings"><summary>{uiLanguage === "zh-Hant" ? "高度與方向" : "Height and orientation"}</summary><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /></details><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy}><Trash2 size={15} /></button></div></div>; })()}
+      {(() => { const selected = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0]; if (!selected) return null; return <div className="free-selected-editor"><strong>{uiLanguage === "zh-Hant" ? "已選取" : "Selected"}：{cellObjectLabel(selected)}</strong><div className="free-selected-fields"><NumericField label={uiLanguage === "zh-Hant" ? "件數" : "Count"} value={selected.pileId?project.scene.blocks.filter(block=>block.pileId===selected.pileId).length:1} min={1} max={selected.geometry==="body1"?3:10} step={1} disabled={busy} onChange={value=>resizePile(selected.id,value)}/><NumericField label="X" value={selected.position.x} suffix="mm" min={TEACHING_PLATFORM.x-TEACHING_PLATFORM.width/2} max={TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { x: value })} /><NumericField label="Y" value={selected.position.y} suffix="mm" min={TEACHING_PLATFORM.y-TEACHING_PLATFORM.depth/2} max={TEACHING_PLATFORM.y+TEACHING_PLATFORM.depth/2} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { y: value })} /><details className="advanced-tool-settings"><summary>{uiLanguage === "zh-Hant" ? "高度與方向" : "Height and orientation"}</summary><NumericField label="Z" value={selected.z ?? 0} suffix="mm" min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { z: value })} /><NumericField label="R" value={selected.r} suffix="°" min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(selected.id, { r: value })} /></details><button className="icon-button" aria-label={`${uiLanguage === "zh-Hant" ? "刪除" : "Delete"} ${selected.id}`} onClick={() => removeCellBlock(selected.id)} disabled={busy}><Trash2 size={15} /></button></div></div>; })()}
       <p className="tool-mode-note">{uiLanguage === "zh-Hant" ? `工作台頂面 Z${platformHeight(project.scene)} mm；件數決定垂直堆疊高度，接觸點由系統計算。` : `Worktable top Z${platformHeight(project.scene)} mm; count sets the pile height and contact points are calculated.`}</p>
       <p className="tool-mode-note">{(() => {
         const item = project.scene.blocks.find((block) => block.id === freeSelectedId) ?? project.scene.blocks[0];
@@ -1611,8 +1615,8 @@ export default function App() {
                     {freeMode && <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 工件類型` : `${block.id} object type`} value={block.kind ?? "block"} disabled={busy} onChange={(event) => updateCellBlock(block.id, { kind: event.currentTarget.value as CellObjectKind })}><option value="block">方塊</option><option value="magnet">35×35×4 mm 磁吸片</option></select>}
                     <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 顏色` : `${block.id} color`} value={block.color} disabled={busy} onChange={(event) => updateCellBlock(block.id, { color: event.currentTarget.value as BlockColor })}><option value="neutral">{uiLanguage === "zh-Hant" ? "中性色" : "neutral"}</option><option value="black">{uiLanguage === "zh-Hant" ? "黑色" : "black"}</option><option value="white">{uiLanguage === "zh-Hant" ? "白色" : "white"}</option></select>
                     <select aria-label={uiLanguage === "zh-Hant" ? `${block.id} 物件狀態` : `${block.id} source`} value={block.source} disabled={busy} onChange={(event) => updateCellBlock(block.id, { source: event.currentTarget.value as BlockSource })}><option value="pickup">{uiLanguage === "zh-Hant" ? "拾取區" : "pickup"}</option><option value="feeder">{uiLanguage === "zh-Hant" ? "供料區" : "feeder"}</option><option value="output">{uiLanguage === "zh-Hant" ? "輸出區" : "output"}</option><option value="unloaded">{uiLanguage === "zh-Hant" ? "已卸下" : "unloaded"}</option></select>
-                    <NumericField label="X" value={block.position.x} suffix="mm" step={1} min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(block.id, { x: value })} />
-                    <NumericField label="Y" value={block.position.y} suffix="mm" step={1} min={-500} max={500} disabled={busy} onChange={(value) => updateCellBlock(block.id, { y: value })} />
+                    <NumericField label="X" value={block.position.x} suffix="mm" step={1} min={TEACHING_PLATFORM.x-TEACHING_PLATFORM.width/2} max={TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2} disabled={busy} onChange={(value) => updateCellBlock(block.id, { x: value })} />
+                    <NumericField label="Y" value={block.position.y} suffix="mm" step={1} min={TEACHING_PLATFORM.y-TEACHING_PLATFORM.depth/2} max={TEACHING_PLATFORM.y+TEACHING_PLATFORM.depth/2} disabled={busy} onChange={(value) => updateCellBlock(block.id, { y: value })} />
                     {freeMode && <NumericField label="Z" value={block.z ?? 0} suffix="mm" step={1} min={0} max={300} disabled={busy} onChange={(value) => updateCellBlock(block.id, { z: value })} />}
                     <NumericField label="R" value={block.r} suffix="°" step={1} min={-360} max={360} disabled={busy} onChange={(value) => updateCellBlock(block.id, { r: value })} />
                     <button className="icon-button" aria-label={uiLanguage === "zh-Hant" ? `移除 ${block.id}` : `Remove ${block.id}`} title={uiLanguage === "zh-Hant" ? `移除 ${block.id}` : `Remove ${block.id}`} onClick={() => removeCellBlock(block.id)} disabled={busy || (!freeMode && project.scene.blocks.length <= 1)}><Trash2 size={13} /></button>
@@ -1735,7 +1739,7 @@ export default function App() {
                     <div className="recommendation-lesson"><strong>{uiLanguage === "zh-Hant" ? "為何使用這個次序？" : "Why this sequence?"}</strong><span>{uiLanguage === "zh-Hant" ? (project.tool.mode === "magnet" ? "Home → 上方接近 → 直線下降 → DO1 附上工件 → 抬高 → 移至放置區 → DO1 釋放 → 返回 Home。範例會留在編輯器，供你檢視及自行執行。" : "Home → 在承托高度從外側接近 → 滑入叉臂 → 抬高並承托工件 → 移至放置區上方 → 降至平台或已示教的堆疊層並釋放 → 返回 Home。無動力叉臂不使用 DO。範例會留在編輯器，供你檢視及自行執行。") : (project.tool.mode === "magnet" ? "Home → approach above → descend → DO1 attaches → lift clear → place → DO1 releases → return Home." : "Home → approach from outside at the raised support plane → slide under → lift to auto-pick → move above the drop zone → lower onto the active platform or taught stack layer to release → return Home. The passive fork needs no DO.") + " The example stays in the editor for you to review and run."}</span></div>
                     <details className="recommendation-preview"><summary>{uiLanguage === "zh-Hant" ? "預覽完整範例程式" : "Preview the full example"}</summary><pre>{recommendation.code}</pre></details>
                     <button className="recommendation-load" onClick={loadRecommendedProgram} disabled={!recommendation.ready}>{uiLanguage === "zh-Hant" ? `以此範例取代目前的 ${project.programmingLanguage === "lua" ? "Lua" : "Python"} 程式` : `Replace current ${project.programmingLanguage === "lua" ? "Lua" : "Python"} code with this example`}</button>
-                    <small>{uiLanguage === "zh-Hant" ? "導學範例只會取代目前選取語言的編輯器內容。Python 只供模擬器使用。RelMovL 語法及選項見 DobotStudio Pro 2.8.0 官方手冊第 172 頁；此模擬器使用基座座標偏移。只檢查移動端點，不會模擬路徑碰撞或工具物理。" : "The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Endpoints are checked; path collision and tool physics are not simulated."}</small>
+                    <small>{uiLanguage === "zh-Hant" ? "導學範例只會取代目前選取語言的編輯器內容。Python 只供模擬器使用。RelMovL 語法及選項見 DobotStudio Pro 2.8.0 官方手冊第 172 頁；此模擬器使用基座座標偏移。使用簡化碰撞／接觸規則及有限步距檢查；不代表真實機械安全。" : "The guided example replaces only the selected language's editor buffer. Python is simulator-only. RelMovL syntax and options are documented in DobotStudio Pro 2.8.0 (p. 172); this simulator uses base-frame offsets. Simplified collision/contact rules with finite motion steps; no hardware safety claim."}</small>
                   </div>
             </details>
           </div>
@@ -1756,7 +1760,7 @@ export default function App() {
           {workbenchView === "practice" && !practicePrepared && <p className="run-preflight" id="practice-run-help">{uiLanguage === "zh-Hant" ? (practiceLesson ? "先完成步驟 1：「準備這個練習」，再執行。" : "先按「開始第一個練習」，或選一個機械臂練習，再執行。") : (practiceLesson ? "Complete step 1: Prepare this practice, then run it." : "Start your first practice, or choose a robot practice, before running.")}</p>}
           {preflight.kind === "error" && (workbenchView !== "practice" || practiceLessonId !== null) && <div className="run-preflight run-preflight-error" role="alert">{preflight.text}<button className="text-button" onClick={() => openWorkbench("points")}>{uiLanguage === "zh-Hant" ? "查看教點" : "Review points"}</button></div>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>{uiLanguage === "zh-Hant" ? "正在準備三維工作格" : "Preparing 3D view"}</strong><span>{uiLanguage === "zh-Hant" ? "正在載入互動式 MG400 訓練工作格…" : "Loading the interactive MG400 training cell…"}</span></div></div></div>}>
-            <RobotViewport workspaceTheme={workspaceTheme} joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
+            <RobotViewport onCollisionScene={(scene) => { collisionSceneRef.current = scene; }} workspaceTheme={workspaceTheme} joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
 
           <section hidden={workbenchView !== "points" && workbenchView !== "settings"} className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>

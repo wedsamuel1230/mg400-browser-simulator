@@ -159,3 +159,22 @@ it("requires an uninterrupted aligned clearance withdrawal after release",()=>{
  step(release,clear);step(clear,high);step(high,pose(360,140,80,-90));expect(state.releasePose).toEqual(release);
  step(pose(360,140,80,-90),clear);step(clear,pose(360,140,42.5,-90));expect(state.releasePose).toBeUndefined();
 });
+
+const wrapBlock={x:300,y:-80,r:0},wrapDrop={x:300,y:80};
+it("withdraws across equivalent +180/-180 headings",()=>{
+ const release=pose(300,80,45,180),clear={...release,z:42.5,r:-180};
+ const placed=advancePassiveFork(EMPTY_PASSIVE_FORK_STATE,{...release,z:46},release,true,wrapBlock,wrapDrop,tolerance,"body1");
+ const lowered=advancePassiveFork(placed.state,release,clear,false,wrapBlock,wrapDrop,tolerance,"body1");
+ expect(lowered.state.releaseCleared).toBe(true);
+ const withdrawn=advancePassiveFork(lowered.state,clear,{...clear,x:360},false,wrapBlock,wrapDrop,tolerance,"body1");
+ expect(withdrawn.state.releasePose).toBeUndefined();
+});
+it("keeps stacked release clearance in world coordinates when the support datum changes",()=>{
+ const release=pose(300,80,175,-90),clear={...release,z:172.5};
+ const placed=advancePassiveFork(EMPTY_PASSIVE_FORK_STATE,{...release,z:176},release,true,wrapBlock,wrapDrop,tolerance,"body1",150,0);
+ expect(placed.action).toBe("place");
+ const lowered=advancePassiveFork(placed.state,release,clear,false,wrapBlock,wrapDrop,tolerance,"body1",110,0);
+ expect(lowered.state.releaseCleared).toBe(true);
+ const withdrawn=advancePassiveFork(lowered.state,clear,{...clear,y:140},false,wrapBlock,wrapDrop,tolerance,"body1",110,0);
+ expect(withdrawn.state.releasePose).toBeUndefined();
+});

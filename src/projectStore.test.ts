@@ -298,3 +298,13 @@ it("normalizes a custom historical platform and preserves code and points for re
  expect(migrated.scene.platformHeightMm).toBe(110);expect(migrated.scene.magnetStandHeightMm).toBe(0);expect(migrated.scene.platformMigrationFromMm).toBe(0);
  expect(migrated.points).toEqual(legacy.points);expect(migrated.script).toBe(legacy.script);
 });
+
+it("round-trips the full platform X range while preserving legacy negative coordinates",()=>{
+ for(const x of [580,-450]) {
+  const project=structuredClone(DEFAULT_PROJECT);
+  project.scene.block.x=x;
+  project.scene.blocks=[{id:"edge",kind:"block",geometry:"body1",source:"pickup",color:"neutral",position:{x,y:0},r:0}];
+  project.scene.initialBlocks=structuredClone(project.scene.blocks);project.scene.feederOrder=[];
+  expect(parseProjectFile(exportProject(project)).scene.blocks[0].position.x).toBe(x);
+ }
+});

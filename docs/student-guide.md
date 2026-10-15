@@ -1,6 +1,6 @@
 # MG400 Virtual Training Simulator — Student Guide
 
-**Course release:** 1.3.8
+**Course release:** 1.3.9
 **Languages:** English and Traditional Chinese  
 **Last checked against the app:** 5 October 2026
 

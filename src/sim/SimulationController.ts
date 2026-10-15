@@ -1,3 +1,4 @@
+import { assertCollisionFree, assertPlacementClear, type CollisionGeometry } from "./collisionInterlock";
 import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
@@ -16,6 +17,7 @@ type Action =
 export type RunStatus = "ready" | "running" | "paused" | "complete" | "stopped" | "error";
 
 export type ControllerEvents = {
+  getCollisionGeometry?: () => CollisionGeometry | undefined;
   getProject: () => ProjectDocument;
   getJoints: () => JointAngles;
   isAttached: () => boolean;
@@ -73,7 +75,7 @@ export class SimulationController {
     this.activeRuntime.run(script, points, this.options);
   }
 
-  async goToPoint(point: TeachPoint): Promise<void> {
+  async goToPoint(point: TeachPoint, command: "MovJ" | "MovL" = "MovJ"): Promise<void> {
     this.stop(false);
     const generation = this.generation;
     this.executionProject = structuredClone(this.events.getProject());
@@ -93,7 +95,7 @@ export class SimulationController {
         }
       : {
           commandId: -1,
-          command: "MovJ",
+          command,
           targetPose: { ...point.pose },
           speed: 100,
           acceleration: 100,
@@ -223,13 +225,15 @@ export class SimulationController {
           if (generation !== this.generation || this.stopped) return;
           this.activeRuntime?.motionComplete(action.motion.commandId);
         } else if (action.type === "io") {
-          this.events.setDigitalOutput(action.index, action.value);
+          this.guardCandidate(this.events.getJoints());
           if (action.index === 1 && this.currentProject().tool.mode === "magnet") {
             this.performToolAction(action.value ? "pick" : "place");
           } else if (action.index === 1) {
             this.events.addLog("DO1 is only a virtual output in Fork mode. Slide beneath the block and lift to pick it up; lower it onto the table to release it.", "info");
           }
+          this.events.setDigitalOutput(action.index, action.value);
         } else {
+          this.guardCandidate(this.events.getJoints());
           this.performToolAction(action.action);
         }
       }
@@ -306,6 +310,12 @@ export class SimulationController {
     let lastFrame = start;
     let lastJoints = current;
     let lastTcpPose = currentPose;
+    let progress = 0;
+    const steps = this.events.getCollisionGeometry ? Math.max(1, Math.ceil(Math.max(
+      Math.hypot(targetPose.x-currentPose.x,targetPose.y-currentPose.y,targetPose.z-currentPose.z) + Math.abs(targetPose.r-currentPose.r)*Math.PI/180*150,
+      destination.reduce((sum,angle,i)=>sum+Math.abs(angle-current[i])*1200,0),
+    ) / 0.5)) : 100;
+    if (steps > 100000) throw new Error("碰撞檢查路徑過長；請縮短單次移動。");
 
     while (elapsed < duration && generation === this.generation && !this.stopped) {
       await this.waitUntilResumed(generation);
@@ -321,31 +331,76 @@ export class SimulationController {
       const t = Math.min(1, elapsed / duration);
       const eased = t * t * (3 - 2 * t);
 
+      const endStep = Math.min(steps, Math.ceil(eased * steps));
+      let budgetStart = performance.now();
+      for (let step = Math.round(progress * steps) + 1; step <= endStep; step++) {
+      const candidateProgress = step / steps;
+      let candidate: JointAngles;
       if (request.command === "MovL") {
-        const pose = interpolateCartesianPose(currentPose, targetPose, eased);
+        const pose = step === steps ? targetPose : interpolateCartesianPose(currentPose, targetPose, candidateProgress);
         const result = this.kinematics.solve(pose, lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool), toleranceMm);
         if (!result.ok) {
           throw new Error(`Straight-line motion left the modeled workspace (${result.positionErrorMm.toFixed(1)} mm position error).`);
         }
-        lastJoints = result.joints;
+        candidate = result.joints;
       } else {
-        lastJoints = destination.map((angle, index) => current[index] + (angle - current[index]) * eased) as JointAngles;
+        candidate = step === steps ? destination : destination.map((angle, index) => current[index] + (angle - current[index]) * candidateProgress) as JointAngles;
       }
-      this.events.setJoints(lastJoints);
-      const tcpPose = this.kinematics.forward(lastJoints, project.tool.flangeOffset, activeTcpOffset(project.tool));
-      this.updatePassiveFork(lastTcpPose, tcpPose);
+      // IK can jump branches even when neighbouring Cartesian samples are close.
+      // Bound the actual joint displacement, including the final seeded solve.
+      const subdivisions = this.events.getCollisionGeometry
+        ? Math.max(1, Math.ceil(candidate.reduce((sum,angle,i)=>sum+Math.abs(angle-lastJoints[i])*1200,0)/0.5)) : 1;
+      if (subdivisions > 100000) throw new Error("碰撞檢查關節跳躍過大；請縮短單次移動。");
+      const segmentStart = lastJoints;
+      for (let substep=1; substep<=subdivisions; substep++) {
+      const checked = substep===subdivisions ? candidate : candidate.map((angle,i)=>segmentStart[i]+(angle-segmentStart[i])*substep/subdivisions) as JointAngles;
+      const tcpPose = this.kinematics.forward(checked, project.tool.flangeOffset, activeTcpOffset(project.tool));
+      if (request.command === "MovL" && this.events.getCollisionGeometry) {
+        const fraction = progress+(candidateProgress-progress)*substep/subdivisions;
+        const expected = interpolateCartesianPose(currentPose,targetPose,fraction);
+        const angleError = Math.abs(((tcpPose.r-expected.r+540)%360+360)%360-180);
+        if (Math.hypot(tcpPose.x-expected.x,tcpPose.y-expected.y,tcpPose.z-expected.z)>toleranceMm+1e-6 || angleError>0.1+1e-6) {
+          throw new Error("直線移動停止：IK 關節分支偏離指定直線；保留最後已驗證姿態。");
+        }
+      }
+      try {
+        this.guardCandidate(checked);
+      } catch (error) {
+        const tcp=this.kinematics.forward(checked,project.tool.flangeOffset,activeTcpOffset(project.tool));
+        throw new Error(`${error instanceof Error ? error.message : String(error)} TCP X=${tcp.x.toFixed(1)}, Y=${tcp.y.toFixed(1)}, Z=${tcp.z.toFixed(1)} mm, R=${tcp.r.toFixed(1)}°。`);
+      }
+      this.updatePassiveFork(lastTcpPose, tcpPose, checked);
+      lastJoints = checked;
       lastTcpPose = tcpPose;
-    }
-    if (generation === this.generation && !this.stopped) {
-      this.events.setJoints(destination);
-      const destinationPose = this.kinematics.forward(destination, project.tool.flangeOffset, activeTcpOffset(project.tool));
-      this.updatePassiveFork(lastTcpPose, destinationPose);
+      if (performance.now() - budgetStart >= 8 && (substep < subdivisions || step < endStep)) {
+        await this.nextFrame(generation);
+        await this.waitUntilResumed(generation);
+        if (this.stopped || generation !== this.generation) return;
+        budgetStart = performance.now();
+      }
+      }
+      progress = candidateProgress;
+      }
     }
   }
 
-  private updatePassiveFork(previous: Pose, current: Pose) {
+  private guardCandidate(joints: JointAngles, attachedId = this.events.isAttached() ? this.attachedCellBlockId : null, yaw = this.attachedForkYaw) {
+    if (!this.events.getCollisionGeometry) return; // Legacy headless integrations supply their own guard.
+    this.assertJointLimits(joints);
+    const geometry = this.events.getCollisionGeometry();
+    if (!geometry) throw new Error("碰撞檢查模型尚未載入。");
+    assertCollisionFree(this.kinematics,joints,this.currentProject(),this.events.getCellBlocks?.() ?? [],geometry,attachedId,yaw);
+  }
+
+  jog(point: TeachPoint, linear = false) {
+    if (!linear || point.kind === "joint") return this.goToPoint(point);
+    return this.goToPoint(point, "MovL");
+  }
+
+  private updatePassiveFork(previous: Pose, current: Pose, joints = this.events.getJoints()) {
     const project = this.currentProject();
     if (project.tool.mode !== "fork") {
+      this.events.setJoints(joints);
       this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
       return;
     }
@@ -372,6 +427,13 @@ export class SimulationController {
       { ...(candidate?.position ?? location), r: candidate?.r ?? 0 }, project.scene.drop, project.tool.pickupTolerance,
       profile, supportBase, body1SupportHeight(project.scene),
     );
+    const placedYaw=((current.r+this.attachedForkYaw+180)%360+360)%360-180;
+    if (result.action === "place" && this.events.getCollisionGeometry) {
+      const placed = candidates.find(block=>block.id===this.attachedCellBlockId);
+      if (placed) assertPlacementClear({...placed,position:{x:current.x,y:current.y},r:placedYaw,stackLevel:profile === "body1" ? stackLevel : undefined},candidates,project);
+    }
+    if (result.action === "pick") this.guardCandidate(joints,candidate?.id ?? null,(candidate?.r ?? 0)-current.r);
+    this.events.setJoints(joints);
     this.passiveForkState = result.state;
     if (result.action === "pick") {
       this.attachedCellBlockId = candidate?.id ?? null;
@@ -381,7 +443,7 @@ export class SimulationController {
       this.events.addLog("叉臂已插入並承托工件；抬升後接附。", "info");
     } else if (result.action === "place") {
       this.events.setCellBlocks?.(candidates.map((block) => block.id === this.attachedCellBlockId
-        ? { ...block, position: { x: current.x, y: current.y }, r: current.r + this.attachedForkYaw, source: "output", stackLevel: profile === "body1" ? stackLevel : undefined }
+        ? { ...block, position: { x: current.x, y: current.y }, r: placedYaw, source: "output", stackLevel: profile === "body1" ? stackLevel : undefined }
         : block));
       this.events.setAttached(false);
       this.events.setBlock({ x: current.x, y: current.y });
@@ -402,6 +464,7 @@ export class SimulationController {
   }
 
   private performToolAction(action: "pick" | "place") {
+    this.guardCandidate(this.events.getJoints());
     const project = this.currentProject();
     if (project.tool.mode === "fork") {
       throw new Error(`The fork is passive. Use the saved insertion and support points above platform Z=${platformHeight(project.scene)} mm, slide beneath the block, then lift; lower it onto the support pads to release it. Remove DO1 and Pick()/Place() actions from the fork program.`);
@@ -426,7 +489,9 @@ export class SimulationController {
       if (xyError > project.tool.pickupTolerance.xy || zError > project.tool.pickupTolerance.z) {
         throw new Error(`Pick failed: TCP is ${xyError.toFixed(1)} mm from the block centre and ${zError.toFixed(1)} mm from the magnet target at the top-face centre (Z=${pickupZ} mm).`);
       }
+      this.guardCandidate(this.events.getJoints(),target?.id ?? null,0);
       this.events.setAttached(true);
+      this.attachedForkYaw = 0;
       this.attachedCellBlockId = target?.id ?? null;
       this.events.setAttachedCellBlockId?.(this.attachedCellBlockId);
       this.events.addLog(`Magnet attached ${this.attachedCellBlockId ?? "reference block"} at X ${tcp.x.toFixed(1)} mm, Y ${tcp.y.toFixed(1)} mm.`, "info");
@@ -436,8 +501,6 @@ export class SimulationController {
     const tcp = this.kinematics.forward(this.events.getJoints(), project.tool.flangeOffset, activeTcpOffset(project.tool));
     const placedCellBlockId = this.attachedCellBlockId;
     let placedStackLevel: number | undefined;
-    this.events.setAttached(false);
-    this.events.setBlock({ x: tcp.x, y: tcp.y });
     const candidates = this.events.getCellBlocks?.();
     if (candidates && this.attachedCellBlockId) {
       const towerRadius = Math.max(8, project.tool.pickupTolerance.xy);
@@ -447,10 +510,19 @@ export class SimulationController {
       placedStackLevel = stackLevel;
       const attachedCandidate = candidates.find((candidate) => candidate.id === this.attachedCellBlockId);
       const unloading = attachedCandidate?.source === "output" && Math.hypot(tcp.x - project.scene.drop.x, tcp.y - project.scene.drop.y) > towerRadius;
-      this.events.setCellBlocks?.(candidates.map((candidate) => candidate.id === this.attachedCellBlockId
+      const nextBlocks: CellBlock[] = candidates.map((candidate) => candidate.id === this.attachedCellBlockId
         ? { ...candidate, source: unloading ? "unloaded" : "output", position: { x: tcp.x, y: tcp.y }, r: tcp.r, ...(stackLevel === undefined ? {} : { stackLevel }) }
-        : candidate));
+        : candidate);
+      const placed = nextBlocks.find(block=>block.id===this.attachedCellBlockId);
+      if (placed && this.events.getCollisionGeometry) {
+        const releaseTop = cellBlockTopZ(placed,"magnet",magneticSurfaceHeight(project.scene),platformHeight(project.scene));
+        if (Math.abs(tcp.z-releaseTop)>0.6) throw new Error("放置失敗：請先降低工件至承托面，不能在空中釋放。");
+        assertPlacementClear(placed,nextBlocks,project);
+      }
+      this.events.setCellBlocks?.(nextBlocks);
     }
+    this.events.setAttached(false);
+    this.events.setBlock({x:tcp.x,y:tcp.y});
     this.attachedCellBlockId = null;
     this.events.setAttachedCellBlockId?.(null);
     const releasedBlock = candidates?.find(candidate => candidate.id === placedCellBlockId);

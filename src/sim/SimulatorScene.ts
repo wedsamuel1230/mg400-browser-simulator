@@ -1,3 +1,4 @@
+import type { CollisionGeometry } from "./collisionInterlock";
 import { TEACHING_PLATFORM, body1SupportHeight } from "../domain";
 import {
   AmbientLight,
@@ -11,6 +12,7 @@ import {
   GridHelper,
   Group,
   Mesh,
+  Matrix4,
   MeshStandardMaterial,
   Object3D,
   PCFShadowMap,
@@ -28,7 +30,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import URDFLoader, { type URDFRobot } from "urdf-loader";
-import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockSize, MAGNET_SIZE_MM, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
+import { platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockSize, cellBlockBottomZ, MAGNET_SIZE_MM, effectiveForkContactProfile, BODY1_FORK_CONTACT, DEFAULT_TCP_OFFSETS, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type Pose, type ProjectDocument, type JointAngles } from "../domain";
 import type { WorkspaceTheme } from "../theme";
 import { MG400Kinematics } from "./mg400Kinematics";
 import { MODEL_PALETTE, MODEL_VIEWPORT_BACKGROUND, ROBOT_LINK_PALETTE, WORKSPACE_SCENE_PALETTES } from "./modelPalette";
@@ -83,6 +85,7 @@ export class SimulatorScene {
   private readonly target = new Group();
   private dropPad?: Mesh;
   private dropRing?: Mesh;
+  private readonly collisionLinks = new Map<string, BufferGeometry[]>();
   private robot?: URDFRobot;
   private magnetMesh?: Mesh;
   private forkMesh?: Mesh;
@@ -292,11 +295,22 @@ export class SimulatorScene {
   private prepareRobot(robot: URDFRobot) {
     robot.scale.setScalar(1000);
     for (const joint of Object.values(robot.joints)) joint.ignoreLimits = true;
+    robot.updateMatrixWorld(true);
+    for (const geometries of this.collisionLinks.values()) for (const geometry of geometries) geometry.dispose();
+    this.collisionLinks.clear();
     robot.traverse((object: Object3D) => {
       if (!(object instanceof Mesh)) return;
       let owner: Object3D | null = object;
       while (owner && !(owner as Object3D & { isURDFLink?: boolean }).isURDFLink) owner = owner.parent;
       const linkName = owner?.name ?? object.name;
+      if (owner) {
+        // Bake each visual origin and mesh scale into millimetre link coordinates.
+        const local = new Matrix4().makeScale(1000,1000,1000)
+          .multiply(owner.matrixWorld.clone().invert()).multiply(object.matrixWorld);
+        const geometry = object.geometry.clone().applyMatrix4(local);
+        geometry.computeBoundingBox();
+        this.collisionLinks.set(linkName, [...(this.collisionLinks.get(linkName) ?? []), geometry]);
+      }
       object.material = new MeshStandardMaterial({
         color: ROBOT_LINK_PALETTE[linkName as keyof typeof ROBOT_LINK_PALETTE] ?? MODEL_PALETTE.unmappedLink,
         roughness: 0.39,
@@ -410,6 +424,10 @@ export class SimulatorScene {
     }
   }
 
+  collisionGeometry(): CollisionGeometry {
+    return {links:this.collisionLinks,tools:{fork:this.forkMesh?.geometry,magnet:this.magnetMesh?.geometry},supported:Boolean(this.robot && this.appliedLocalMeshes?.bundledFork && this.appliedLocalMeshes?.bundledMagnet && (!this.appliedLocalMeshes.block || this.appliedLocalMeshes.blockProfile === "body1"))};
+  }
+
   resetCamera() {
     this.camera.position.set(800, -1100, 760);
     this.camera.up.set(0, 0, 1);
@@ -466,7 +484,7 @@ export class SimulatorScene {
     const hit = new Vector3();
     const surfaceZ = this.state ? platformHeight(this.state.project.scene) : 0;
     if (!raycaster.ray.intersectPlane(new Plane(new Vector3(0, 0, 1), -surfaceZ), hit)) return null;
-    if (Math.abs(hit.x) > 500 || Math.abs(hit.y) > 500) return null;
+    if (hit.x<TEACHING_PLATFORM.x-TEACHING_PLATFORM.width/2 || hit.x>TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2 || hit.y<TEACHING_PLATFORM.y-TEACHING_PLATFORM.depth/2 || hit.y>TEACHING_PLATFORM.y+TEACHING_PLATFORM.depth/2) return null;
     return { x: Number(hit.x.toFixed(1)), y: Number(hit.y.toFixed(1)) };
   }
 
@@ -478,7 +496,7 @@ export class SimulatorScene {
     const magneticStandHeight = magneticSurfaceHeight(state.project.scene);
     const platformZ = platformHeight(state.project.scene);
     if (!this.teachingPlatform.parent) this.blockGroup.add(this.teachingPlatform);
-    this.teachingPlatform.name = "Fixed 500×1200 mm teaching platform; top Z110 mm / 固定教學平台";
+    this.teachingPlatform.name = "Fixed 500×600 mm teaching platform; top Z110 mm / 固定教學平台";
     this.teachingPlatform.scale.set(1, 1, 110);
     this.teachingPlatform.position.set(TEACHING_PLATFORM.x, TEACHING_PLATFORM.y, TEACHING_PLATFORM.top/2);
     this.teachingPlatform.visible = true;
@@ -537,7 +555,7 @@ export class SimulatorScene {
         this.additionalBlocks.set(block.id, mesh);
         this.blockGroup.add(mesh);
       }
-      mesh.position.set(block.position.x, block.position.y, (block.z ?? 0) + (size.z === 4 ? magneticStandHeight : platformZ + (isFork ? (block.geometry === "body1" ? body1SupportHeight(state.project.scene) : FORK_SUPPORT_HEIGHT_MM) : 0)) + (block.stackLevel ?? 0) * size.z + (body1 ? 0 : size.z / 2));
+      mesh.position.set(block.position.x, block.position.y, cellBlockBottomZ(block,state.project.tool.mode,magneticStandHeight,platformZ,body1SupportHeight(state.project.scene)) + (body1 ? 0 : size.z / 2));
       if (!(state.attached && state.attachedCellBlockId === block.id)) mesh.rotation.z = rad(block.r);
       if (!(state.attached && state.attachedCellBlockId === block.id) && mesh.parent !== this.blockGroup) this.blockGroup.add(mesh);
       mesh.visible = block.geometry !== "body1" || Boolean(this.localForkBlockGeometry);
@@ -573,8 +591,7 @@ export class SimulatorScene {
     } else if (baseBlock) {
       if (this.block.parent !== this.blockGroup) this.blockGroup.add(this.block);
       const position = baseBlock.position ?? state.blockPosition;
-      const supportHeight = baseSize.z === 4 ? magneticStandHeight : platformZ + (isFork ? (useLocalForkBlock ? body1SupportHeight(state.project.scene) : FORK_SUPPORT_HEIGHT_MM) : 0);
-      this.block.position.set(position.x, position.y, (baseBlock.z ?? 0) + supportHeight + (baseBlock.stackLevel ?? 0) * baseSize.z + (useLocalForkBlock ? 0 : baseSize.z / 2));
+      this.block.position.set(position.x, position.y, cellBlockBottomZ(baseBlock,state.project.tool.mode,magneticStandHeight,platformZ,body1SupportHeight(state.project.scene)) + (useLocalForkBlock ? 0 : baseSize.z / 2));
       this.block.rotation.z = rad(baseBlock.r);
     } else {
       this.block.visible = false;
@@ -623,6 +640,8 @@ export class SimulatorScene {
   }
 
   dispose() {
+    for (const geometries of this.collisionLinks.values()) for (const geometry of geometries) geometry.dispose();
+    this.collisionLinks.clear();
     cancelAnimationFrame(this.raf);
     cancelAnimationFrame(this.resizeRaf);
     this.resizeObserver?.disconnect();

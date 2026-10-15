@@ -12,10 +12,11 @@ export function prepareLessonProject(id: string, activeTool?: ToolMode): Project
   project.tool.mode = fork ? "fork" : "magnet";
   project.scene.body1SupportHeightMm = 0;
   if (fork) {
-    const xs = id === "intermediate-three-layer-tower" ? [250, 300, 350] : [300];
+    const xs = id === "intermediate-three-layer-tower" ? [300, 250, 350] : [300];
     project.scene.blocks = xs.map((x, i) => ({ id: `tower-${i+1}`, kind: "block", geometry: "body1", color: "neutral", source: "pickup", position: { x, y: -80 }, r: 0 }));
     project.scene.block = { ...project.scene.blocks[0].position };
     const pick = forkContactPose(project.scene.block, 0, "body1", false, 110, 0);
+    if (id === "intermediate-three-layer-tower") pick.r = 90;
     const place = forkContactPose(project.scene.drop, 0, "body1", true, 110, 0);
     const poses = { PickPoint: pick, PickApproach: forkEntryPose(pick), PlacePoint: place, PlaceApproach: { ...place, z: place.z+80 } };
     project.points = project.points.map(point => point.kind === "cartesian" && point.name in poses ? { ...point, pose: poses[point.name as keyof typeof poses] } : point);
@@ -34,37 +35,39 @@ export function prepareLessonProject(id: string, activeTool?: ToolMode): Project
 export function body1LessonProgram(language: ProgramLanguage, id: string): string {
   const tower = id === "intermediate-three-layer-tower", rotate = id === "intermediate-rotate-carried-block";
   if (language === "lua") return [
-    "-- Supplied 40×40×40 Body1, directly on Z110; passive fork, no digital output.",
-    `local sourceX = {${tower ? "250,300,350" : "300"}}`,
+    "-- 放下 → 沿工具後退60 mm → 原地抬高 → 返回取件入口。",
+    `local sourceX = {${tower ? "300,250,350" : "300"}}`,
     `for layer = 1, ${tower ? 3 : 1} do`,
     `  local turn = ${tower ? "layer == 2" : rotate ? "true" : "false"}`,
-    "  local r = -90", "  if turn then r = 0 end",
-    "  MovJ({coordinate={x=sourceX[layer],y=-20,z=132.5,r=-90}}, {CP=0,SYNC=1})",
-    "  MovL({coordinate={x=sourceX[layer],y=-80,z=132.5,r=-90}}, {CP=0,SYNC=1})",
-    "  RelMovL({0,0,2.5,0}, {CP=0,SYNC=1}) -- take the load first",
-    "  RelMovL({0,0,80,0}, {CP=0,SYNC=1})",
-    "  if turn then RelMovL({0,0,0,90}, {CP=0,SYNC=1}) end",
+    `  local r = ${tower ? 90 : -90}`, `  if turn then r = ${tower ? 180 : 0} end`,
+    `  MovL({coordinate={x=sourceX[layer],y=${tower ? -140 : -20},z=255,r=${tower ? 90 : -90}}})`,
+    `  MovL({coordinate={x=sourceX[layer],y=${tower ? -140 : -20},z=132.5,r=${tower ? 90 : -90}}})`,
+    `  MovL({coordinate={x=sourceX[layer],y=-80,z=132.5,r=${tower ? 90 : -90}}})`,
+    "  RelMovL({0,0,2.5,0}) -- take the load first",
+    "  RelMovL({0,0,80,0})",
+    "  if turn then RelMovL({0,0,0,90}) end",
     "  local z = 135 + 40*(layer-1)",
-    "  MovJ({coordinate={x=300,y=80,z=z+80,r=r}}, {CP=0,SYNC=1})",
-    "  MovL({coordinate={x=300,y=80,z=z,r=r}}, {CP=0,SYNC=1})",
-    "  MovL({coordinate={x=300,y=80,z=z-2.5,r=r}}, {CP=0,SYNC=1})",
-    "  MovL({coordinate={x=300-60*math.cos(math.rad(r)),y=80-60*math.sin(math.rad(r)),z=z-2.5,r=r}}, {CP=0,SYNC=1})",
-    "  RelMovL({0,0,80,0}, {CP=0,SYNC=1})", "end", "JointMovJ(Home,{CP=0})", "Sync()",
+    "  MovJ({coordinate={x=300,y=80,z=z+80,r=r}})",
+    "  MovL({coordinate={x=300,y=80,z=z,r=r}})",
+    "  MovL({coordinate={x=300,y=80,z=z-2.5,r=r}})",
+    "  MovL({coordinate={x=300-60*math.cos(math.rad(r)),y=80-60*math.sin(math.rad(r)),z=z-2.5,r=r}})",
+    "  RelMovL({0,0,255-(z-2.5),0})", "end", "JointMovJ(Home)", "Sync()",
   ].join("\n");
   return authoredPythonProgram([
-    "import math", "# Supplied 40×40×40 Body1 on Z110; passive fork.",
-    `for layer, x in enumerate([${tower ? "250,300,350" : "300"}]):`,
+    "import math", "# 放下 → 沿工具後退60 mm → 原地抬高 → 返回取件入口。",
+    `for layer, x in enumerate([${tower ? "300,250,350" : "300"}]):`,
     `    turn = ${tower ? "layer == 1" : rotate ? "True" : "False"}`,
-    "    r = 0 if turn else -90",
-    "    mov_j({'coordinate':{'x':x,'y':-20,'z':132.5,'r':-90}},cp=0)",
-    "    mov_l({'coordinate':{'x':x,'y':-80,'z':132.5,'r':-90}},cp=0)",
-    "    rel_mov_l([0,0,2.5,0],cp=0)", "    rel_mov_l([0,0,80,0],cp=0)",
-    "    if turn: rel_mov_l([0,0,0,90],cp=0)", "    z = 135 + 40*layer",
-    "    mov_j({'coordinate':{'x':300,'y':80,'z':z+80,'r':r}},cp=0)",
-    "    mov_l({'coordinate':{'x':300,'y':80,'z':z,'r':r}},cp=0)",
-    "    mov_l({'coordinate':{'x':300,'y':80,'z':z-2.5,'r':r}},cp=0)",
-    "    mov_l({'coordinate':{'x':300-60*math.cos(math.radians(r)),'y':80-60*math.sin(math.radians(r)),'z':z-2.5,'r':r}},cp=0)",
-    "    rel_mov_l([0,0,80,0],cp=0)", "joint_mov_j(Home,cp=0)", "sync()",
+    `    r = ${tower ? 180 : 0} if turn else ${tower ? 90 : -90}`,
+    `    mov_l({'coordinate':{'x':x,'y':${tower ? -140 : -20},'z':255,'r':${tower ? 90 : -90}}})`,
+    `    mov_l({'coordinate':{'x':x,'y':${tower ? -140 : -20},'z':132.5,'r':${tower ? 90 : -90}}})`,
+    `    mov_l({'coordinate':{'x':x,'y':-80,'z':132.5,'r':${tower ? 90 : -90}}})`,
+    "    rel_mov_l([0,0,2.5,0])", "    rel_mov_l([0,0,80,0])",
+    "    if turn: rel_mov_l([0,0,0,90])", "    z = 135 + 40*layer",
+    "    mov_j({'coordinate':{'x':300,'y':80,'z':z+80,'r':r}})",
+    "    mov_l({'coordinate':{'x':300,'y':80,'z':z,'r':r}})",
+    "    mov_l({'coordinate':{'x':300,'y':80,'z':z-2.5,'r':r}})",
+    "    mov_l({'coordinate':{'x':300-60*math.cos(math.radians(r)),'y':80-60*math.sin(math.radians(r)),'z':z-2.5,'r':r}})",
+    "    rel_mov_l([0,0,255-(z-2.5),0])", "joint_mov_j(Home)", "sync()",
   ].join("\n"));
 }
 

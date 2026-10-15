@@ -7,6 +7,7 @@ import { SimulatorScene, type LocalToolMeshes, type SceneStatus } from "./sim/Si
 import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
 
 type Props = {
+  onCollisionScene?: (scene: SimulatorScene | undefined) => void;
   workspaceTheme?: WorkspaceTheme;
   joints: JointAngles;
   project: ProjectDocument;
@@ -26,7 +27,7 @@ type Props = {
   onTableConfirm?: () => void;
 };
 
-export function RobotViewport({ joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", workspaceTheme = "light", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
+export function RobotViewport({ onCollisionScene, joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", workspaceTheme = "light", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
   const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1" && project.scene.blocks.some((block) => !block.kind || block.kind === "block");
   const standHeight = magneticSurfaceHeight(project.scene);
   const size = cellBlockSize(project.scene.blocks[0], project.tool.mode);
@@ -54,6 +55,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
       }
       created = scene;
       sceneRef.current = scene;
+      onCollisionScene?.(scene);
       scene.setState(latest.current);
       scene.setTheme(latest.current.workspaceTheme);
       if (latest.current.localToolMeshes) scene.setLocalToolMeshes(latest.current.localToolMeshes);
@@ -61,6 +63,7 @@ export function RobotViewport({ joints, project, blockPosition, attached, attach
     return () => {
       alive = false;
       sceneRef.current = undefined;
+      onCollisionScene?.(undefined);
       created?.dispose();
     };
   }, [urdfXml, modelError]);

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { CURRICULUM_VERSION } from "./curriculum";
 import { STORAGE_KEY } from "../projectStore";
 import {
   COURSE_PROGRESS_STORAGE_KEY,
@@ -49,7 +50,7 @@ describe("course progress", () => {
       attemptsByLesson: { "foundation-cell-and-coordinates": 1 },
       lastLessonId: "foundation-lua-decisions-and-loops",
     });
-    expect(previous.curriculumVersion).toBe("1.3.8");
+    expect(previous.curriculumVersion).toBe(CURRICULUM_VERSION);
     expect(previous.lastLessonId).toBe("foundation-if-else");
     expect(previous.completedLessonIds).toEqual(["foundation-cell-and-coordinates"]);
     expect(previous.attemptsByLesson).toEqual({ "foundation-cell-and-coordinates": 1 });
@@ -65,7 +66,7 @@ describe("course progress", () => {
       lastLessonId: "foundation-lua-decisions-and-loops",
     });
 
-    expect(migrated.curriculumVersion).toBe("1.3.8");
+    expect(migrated.curriculumVersion).toBe(CURRICULUM_VERSION);
     expect(migrated.completedLessonIds).toEqual(["foundation-if-else", "foundation-loops"]);
     expect(migrated.attemptsByLesson).toEqual({ "foundation-if-else": 2, "foundation-loops": 2 });
     expect(migrated.lastLessonId).toBe("foundation-loops");

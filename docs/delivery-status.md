@@ -498,3 +498,7 @@ The first robot-move lesson now matches the current practice flow: selecting Mag
 - Code commit `9850a8d2e13ac432e08b3acac8430bccb4ec3ac4` is on public GitHub `main`. Vercel production deployment `dpl_7E644LpHe3GZJq8LTx7NXmVA7YZ8` reached READY for that commit at `https://mg400-browser-simulator.vercel.app`.
 - Fresh Brave verification loaded the production app in Traditional Chinese, rendered the MG400, teaching platform and 40 × 40 × 40 mm Body1 block, and opened the RelMovL lesson. The math panel showed P₀, P1, and P2 all reachable with the active passive-fork TCP. The student-facing notice still states the collision, contact, and hardware-safety limits.
 - The production version is ready for a student usability trial. Student feedback, physical robot calibration, and hardware validation remain open; the simulator has no hardware connection.
+
+## 2026-10-15 local course1.3.9 collision/platform update
+
+The fixed teaching platform is500×600 mm at centre(350,0), topZ110. Built-in arm/tool geometry now receives finite-step collision stopping, with checked attachment/release and strict Cartesian-line validation. Fork lessons fully withdraw before lifting and returning; the tower uses centre-first pickup and preserves0°/90°/0°. Local focused verification and build are recorded in `.scratch/mg400-virtual-training-simulator/map.md`; publication is pending primary integration. Forces, self-collision and tower tipping remain outside this release.

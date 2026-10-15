@@ -1,6 +1,6 @@
 # Teaching contact and workpiece contract
 
-The fixed front teaching platform is 500 × 1200 mm, centred at (350, 0), with its top at Z110. Its footprint is X100–600, Y−600–600. The rear edge stays 5 mm ahead of the robot pedestal. The pinned URDF gives a conservative default-tool TCP XY radius of 524.507 mm; a rotating 40 mm square adds 28.284 mm, giving a 552.791 mm envelope and 47.209 mm outer margin. This covers the front teaching area, excluding the pedestal and the robot's rear. Custom extended TCPs require a new coverage assessment. Platform coverage does not establish IK reachability or collision clearance.
+The fixed front teaching platform is 500 × 600 mm, centred at (350, 0), with its top at Z110. Its footprint is X100–600, Y−300–300. The rear edge stays 5 mm ahead of the robot pedestal. Free placement requires the entire object footprint inside those bounds. These dimensions do not establish IK reachability or hardware clearance.
 
 The platform geometry and robot position remain fixed; counts, imported positions and Free Play do not resize or reposition them. Camera zoom and framing can change how large the platform looks on screen without changing its dimensions.
 
@@ -24,4 +24,4 @@ Four35 ×35 ×4 plates are arranged50 mm apart at X250/300/350/400,Y−100. Disc
 
 A pile is authored from workpiece type, XY and count. Body1 accepts1–3; magnetic plates1–10. `pileId` groups positional edits; each piece gets a true vertical `stackLevel`. Platform footprint and the actual model/tool IK guard the contact and approach points; invalid counts or locations report errors rather than being silently clamped. Z/R remain advanced controls for existing custom data. Preview reports TCP vertical distance and the80 mm lift, not physical elapsed time.
 
-The contact transitions are deterministic teaching rules; the engine does not calculate arbitrary STL collision, force or tower stability. Browser/WebGL appearance and worker integration need their own verification in addition to controller and scene tests.
+The contact transitions are deterministic teaching rules; the engine checks the built-in arm/tool STL and measured workpiece solids at finite motion steps. It does not calculate general rigid-body forces or tower stability; unsupported custom meshes are rejected. Browser/WebGL appearance and worker integration need their own verification in addition to controller and scene tests.

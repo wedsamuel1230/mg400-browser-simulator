@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
-import {createWorkpiecePile,teachPile} from "./workpiecePile";
+import {assertPlatformFootprint,createWorkpiecePile,teachPile} from "./workpiecePile";
 import {prepareLessonProject} from "../training/practiceSetup";
 import {cellBlockSize} from "../domain";
 import {validateProject} from "../projectStore";
@@ -33,4 +33,12 @@ it("retargets the named pickup contacts and scene datum when a free pile moves",
  expect(next.scene.block).toEqual({x:350,y:-40});
  expect(next.points.find(point=>point.name==="PickPoint")).toMatchObject({pose:{x:350,y:-40}});
  expect(next.points.find(point=>point.name==="PickApproach")).toMatchObject({pose:{x:350,y:20}});
+});
+
+it("requires the complete rotated footprint inside the fixed platform",()=>{
+ expect(()=>assertPlatformFootprint(350,400,40,40)).toThrow(/500×600/);
+ expect(()=>assertPlatformFootprint(580,0,40,40)).not.toThrow();
+ expect(()=>assertPlatformFootprint(580,0,40,40,45)).toThrow();
+ expect(()=>assertPlatformFootprint(350,280,40,40)).not.toThrow();
+ expect(()=>assertPlatformFootprint(350,281,40,40)).toThrow();
 });
