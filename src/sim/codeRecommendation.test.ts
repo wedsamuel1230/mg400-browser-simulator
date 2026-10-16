@@ -3,6 +3,7 @@ import { FORK_SUPPORT_HEIGHT_MM } from "../domain";
 import { DEFAULT_PROJECT } from "../data/defaultProject";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { recommendPickAndPlace } from "./codeRecommendation";
+import {prepareLessonProject} from "../training/practiceSetup";
 import { forkContactPose, forkEntryPose } from "./forkTool";
 
 const reachableKinematics = {
@@ -152,4 +153,11 @@ it("uses generic contact for other cells while first workpiece has Body1 calibra
  const result=recommendPickAndPlace(project,"lua",undefined,"","body1");
  expect(result.checks.find(c=>c.id==="pick")?.detail).toContain("Z=20 mm");
  expect(result.code).not.toContain("PlaceClear");
+});
+
+it("accepts the rotated destination heading while preserving the source groove check",()=>{
+ const project=prepareLessonProject("intermediate-rotate-carried-block");
+ expect(recommendPickAndPlace(project,"python",reachableKinematics,"","body1").ready).toBe(true);
+ const pick=project.points.find(p=>p.name==="PickPoint")!;if(pick.kind==="cartesian")pick.pose.r=0;
+ expect(recommendPickAndPlace(project,"python",reachableKinematics,"","body1").ready).toBe(false);
 });

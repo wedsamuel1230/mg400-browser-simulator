@@ -1,3 +1,4 @@
+import type { WorkcellPhysics } from "./workcellPhysics";
 import type { CollisionGeometry } from "./collisionInterlock";
 import { TEACHING_PLATFORM, body1SupportHeight } from "../domain";
 import {
@@ -92,6 +93,15 @@ export class SimulatorScene {
   private tcpMarker?: Mesh;
   private kinematics?: MG400Kinematics;
   private state?: SceneState;
+  physics?: WorkcellPhysics;
+  physicsError?: string;
+  onPhysicsFrame?: () => void;
+  onPhysicsStatus?: (status:"loading"|"ready"|"error",message?:string)=>void;
+  private physicsKey="";
+  private physicsLoading=false;
+  private physicsGeneration=0;
+  private disposed=false;
+  private lastPhysicsFrame=0;
   private raf = 0;
   private resizeRaf = 0;
   private resizeObserver?: ResizeObserver;
@@ -390,8 +400,11 @@ export class SimulatorScene {
     });
   }
 
+  setRobotJoints(joints:JointAngles) {if(this.state)this.state={...this.state,joints};}
+
   setState(state: SceneState) {
     this.state = state;
+    this.ensurePhysics();
     if (this.robot) {
       this.robot.setJointValues({ j1: state.joints[0], j2: state.joints[1], j3: state.joints[2], j4: state.joints[3] });
     }
@@ -422,10 +435,52 @@ export class SimulatorScene {
       this.prepareLocalBlock(geometry);
       this.updateBlockParent();
     }
+    if((this.physics || this.physicsLoading) && !this.collisionGeometry().supported) {
+      this.resetPhysics();this.onPhysicsStatus?.("error","自訂模型尚未有已驗證的物理接觸形狀。");
+    } else this.ensurePhysics();
   }
 
   collisionGeometry(): CollisionGeometry {
     return {links:this.collisionLinks,tools:{fork:this.forkMesh?.geometry,magnet:this.magnetMesh?.geometry},supported:Boolean(this.robot && this.appliedLocalMeshes?.bundledFork && this.appliedLocalMeshes?.bundledMagnet && (!this.appliedLocalMeshes.block || this.appliedLocalMeshes.blockProfile === "body1"))};
+  }
+
+  resetPhysics() {
+    this.physicsGeneration++;
+    this.physics?.dispose();this.physics=undefined;this.physicsKey="";this.physicsError=undefined;this.onPhysicsStatus?.("loading");
+  }
+
+  private ensurePhysics() {
+    if(!this.state || !this.kinematics || !this.collisionGeometry().supported || this.physicsLoading || this.disposed)return;
+    const key=JSON.stringify([this.state.project.scene.initialBlocks,this.state.project.tool,this.state.project.scene.body1SupportHeightMm]);
+    if(key===this.physicsKey)return;
+    this.resetPhysics();this.physicsLoading=true;
+    const generation=this.physicsGeneration;
+    void import("./workcellPhysics").then(async ({initializePhysics,WorkcellPhysics})=>{
+      await initializePhysics();
+      if(this.disposed || generation!==this.physicsGeneration || !this.state || !this.kinematics)return;
+      const geometry=this.state.project.tool.mode==="fork"?this.forkMesh?.geometry:this.magnetMesh?.geometry;
+      if(!geometry || !this.collisionGeometry().supported)throw new Error("物理工具尚未載入，或自訂模型尚未受支援。");
+      this.physics=new WorkcellPhysics(this.state.project,geometry,this.kinematics.flangeMatrix(this.state.joints,this.state.project.tool.flangeOffset));
+      this.physicsKey=JSON.stringify([this.state.project.scene.initialBlocks,this.state.project.tool,this.state.project.scene.body1SupportHeightMm]);
+      this.lastPhysicsFrame=performance.now();
+      this.onPhysicsStatus?.("ready");
+    }).catch(error=>{
+      if(!this.disposed && generation===this.physicsGeneration){this.physicsError=String(error);this.physicsKey=key;this.onPhysicsStatus?.("error",String(error));}
+    }).finally(()=>{this.physicsLoading=false;if(!this.disposed && generation!==this.physicsGeneration)this.ensurePhysics();});
+  }
+
+  private applyPhysicalPoses() {
+    if(!this.state || !this.physics)return;
+    const base=this.state.project.scene.blocks.find(block=>!block.kind || block.kind==="block");
+    for(const block of this.state.project.scene.blocks) {
+      const mesh=base?.id===block.id?this.block:this.additionalBlocks.get(block.id),pose=this.physics.pose(block.id);
+      if(!mesh || !pose)continue;
+      if(mesh.parent!==this.blockGroup)this.blockGroup.add(mesh);
+      mesh.quaternion.copy(pose.quaternion);
+      const body1=block.geometry==="body1" && Boolean(this.localForkBlockGeometry);
+      const centre=new Vector3(0,0,body1?0:cellBlockSize(block,this.state.project.tool.mode).z/2).applyQuaternion(mesh.quaternion);
+      mesh.position.copy(pose.position).add(centre);
+    }
   }
 
   resetCamera() {
@@ -626,6 +681,14 @@ export class SimulatorScene {
   private renderFrame = () => {
     this.raf = requestAnimationFrame(this.renderFrame);
     this.applyRobotAndTool();
+    const now=performance.now();
+    if(this.physics && this.state && this.kinematics) {
+      this.physics.setToolTarget(this.kinematics.flangeMatrix(this.state.joints,this.state.project.tool.flangeOffset));
+      this.physics.advance(Math.max(0,(now-this.lastPhysicsFrame)/1000));
+      this.onPhysicsFrame?.();
+      this.applyPhysicalPoses();
+    }
+    this.lastPhysicsFrame=now;
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };
@@ -640,6 +703,7 @@ export class SimulatorScene {
   }
 
   dispose() {
+    this.disposed=true;this.physics?.dispose();this.physics=undefined;
     for (const geometries of this.collisionLinks.values()) for (const geometry of geometries) geometry.dispose();
     this.collisionLinks.clear();
     cancelAnimationFrame(this.raf);

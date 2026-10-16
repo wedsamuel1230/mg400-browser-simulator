@@ -141,7 +141,7 @@ function checkPair(
   const contactHeightTolerance = profile === "body1" && project.tool.mode === "fork" || forkEntry ? POINT_TOLERANCE_MM : project.tool.pickupTolerance.z;
   const blockR = project.scene.blocks.find((block) => Math.hypot(block.position.x - project.scene.block.x, block.position.y - project.scene.block.y) <= 1)?.r ?? 0;
   const yawError = Math.abs((((contact.pose.r - blockR + 90) % 180) + 270) % 180 - 90);
-  const grooveAligned = profile !== "body1" || project.tool.mode !== "fork" || yawError <= 1;
+  const grooveAligned = !isPick || profile !== "body1" || project.tool.mode !== "fork" || yawError <= 1;
   const valid = grooveAligned && targetError <= project.tool.pickupTolerance.xy &&
     contactZError <= contactHeightTolerance &&
     approachPositionError <= POINT_TOLERANCE_MM &&

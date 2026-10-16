@@ -251,3 +251,25 @@ it("captures every visual in millimetre link coordinates including mesh scale an
  expect(geometries[1].boundingBox!.max.toArray()).toEqual([2010,3020,30]);
  view.dispose();
 });
+
+it.each(["body1","magnet"] as const)("renders the full fallen %s pose and advances gravity without a running controller",async kind=>{
+ vi.stubGlobal("fetch",async()=>new Response(gzipSync(stl)));
+ vi.stubGlobal("requestAnimationFrame",vi.fn(()=>1));
+ const view=await SimulatorScene.create(document.createElement("canvas"),xml,()=>undefined);
+ const project=structuredClone(DEFAULT_PROJECT);project.scene.blocks=[{id:"piece",kind:kind==="magnet"?"magnet":"block",...(kind==="body1"?{geometry:"body1" as const}:{}),source:"output",color:"neutral",position:{x:300,y:80},r:0}];
+ const internals=view as unknown as {block:Mesh;additionalBlocks:Map<string,Mesh>;blockGroup:Group;localForkBlockGeometry:BufferGeometry;lastPhysicsFrame:number;renderFrame:()=>void};
+ internals.localForkBlockGeometry=new BoxGeometry(40,40,40);internals.localForkBlockGeometry.translate(0,0,20);
+ view.setState({joints:[0,0,0,0],project,blockPosition:project.scene.block,attached:true,attachedCellBlockId:"piece",target:null});
+ const q=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),Math.PI/2),position={x:330,y:85,z:110};
+ const advance=vi.fn(),notify=vi.fn();view.onPhysicsFrame=notify;
+ view.physics={setToolTarget:vi.fn(),advance,pose:()=>({position,quaternion:q,settled:true}),dispose:vi.fn()} as unknown as NonNullable<SimulatorScene["physics"]>;
+ internals.lastPhysicsFrame=performance.now()-16;
+ internals.renderFrame();internals.renderFrame();
+ const mesh=kind==="body1"?internals.block:internals.additionalBlocks.get("piece")!;
+ expect(mesh.parent).toBe(internals.blockGroup);
+ expect(mesh.quaternion.angleTo(q)).toBeLessThan(.000001);
+ const expected=new Vector3(0,0,kind==="body1"?0:2).applyQuaternion(q).add(new Vector3().copy(position));
+ expect(mesh.position.distanceTo(expected)).toBeLessThan(.000001);
+ expect(advance).toHaveBeenCalledTimes(2);expect(advance.mock.calls[0][0]).toBeGreaterThan(.01);expect(notify).toHaveBeenCalledTimes(2);
+ view.dispose();
+});

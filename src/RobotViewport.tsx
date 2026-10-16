@@ -7,6 +7,8 @@ import { SimulatorScene, type LocalToolMeshes, type SceneStatus } from "./sim/Si
 import { localizeWorkspaceMessage } from "./localizeWorkspaceMessage";
 
 type Props = {
+  onPhysicsReadyChange?: (ready:boolean) => void;
+  onPhysicsFrame?: () => void;
   onCollisionScene?: (scene: SimulatorScene | undefined) => void;
   workspaceTheme?: WorkspaceTheme;
   joints: JointAngles;
@@ -27,17 +29,19 @@ type Props = {
   onTableConfirm?: () => void;
 };
 
-export function RobotViewport({ onCollisionScene, joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", workspaceTheme = "light", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
+export function RobotViewport({ onPhysicsReadyChange, onPhysicsFrame, onCollisionScene, joints, project, blockPosition, attached, attachedCellBlockId, target, cameraResetToken, localToolMeshes, urdfXml, modelError, uiLanguage = "en", workspaceTheme = "light", placementArmed = false, onTablePlace, onTableNudge, onTableCancel, onTableConfirm }: Props) {
   const body1 = project.tool.mode === "fork" && localToolMeshes?.blockProfile === "body1" && project.scene.blocks.some((block) => !block.kind || block.kind === "block");
   const standHeight = magneticSurfaceHeight(project.scene);
   const size = cellBlockSize(project.scene.blocks[0], project.tool.mode);
   const workpieceName = body1 ? (uiLanguage === "zh-Hant" ? "槽積木 (Body1) · 40 × 40 × 40 mm" : "Grooved block (Body1) · 40 × 40 × 40 mm") : `${size.x} × ${size.y} × ${size.z} mm ${uiLanguage === "zh-Hant" ? (size.z === 4 ? `磁吸片 · 平台高 ${standHeight} mm，取件 Z${standHeight + 4}` : "工件") : (size.z === 4 ? `magnetic plate · ${standHeight} mm platform, contact Z${standHeight + 4}` : "workpiece")}`;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<SimulatorScene | undefined>(undefined);
-  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme });
+  const latest = useRef({ joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme, onPhysicsFrame, onPhysicsReadyChange });
+  const [physicsStatus,setPhysicsStatus]=useState<"loading"|"ready"|"error">("loading");
+  const [physicsError,setPhysicsError]=useState("");
   const [status, setStatus] = useState<SceneStatus>({ kind: "loading", message: "Preparing viewport…" });
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
-  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme };
+  latest.current = { joints, project, blockPosition, attached, attachedCellBlockId, target, localToolMeshes, workspaceTheme, onPhysicsFrame, onPhysicsReadyChange };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -55,6 +59,8 @@ export function RobotViewport({ onCollisionScene, joints, project, blockPosition
       }
       created = scene;
       sceneRef.current = scene;
+      scene.onPhysicsFrame=()=>latest.current.onPhysicsFrame?.();
+      scene.onPhysicsStatus=(status,message)=>{setPhysicsStatus(status);setPhysicsError(message??"");latest.current.onPhysicsReadyChange?.(status==="ready");};
       onCollisionScene?.(scene);
       scene.setState(latest.current);
       scene.setTheme(latest.current.workspaceTheme);
@@ -117,7 +123,7 @@ export function RobotViewport({ onCollisionScene, joints, project, blockPosition
       <canvas ref={canvasRef} tabIndex={placementArmed ? 0 : -1} className={`robot-canvas${placementArmed ? " placement-armed" : ""}`} aria-label={placementArmed ? (uiLanguage === "zh-Hant" ? "已聚焦工作台；方向鍵移動，Enter 放置，Escape 取消" : "Worktable focused; arrows move, Enter places, Escape cancels") : (uiLanguage === "zh-Hant" ? "MG400 機械臂、工作台及工件" : "3D MG400 robot, work table, and block")} />
       {placementArmed && <div className="placement-hud" role="status"><strong>{uiLanguage === "zh-Hant" ? "工作台擺放模式" : "Table placement mode"}</strong><span>{uiLanguage === "zh-Hant" ? "點擊工作台放置；方向鍵移動，Enter 確認，Escape 取消。" : "Click the table to place; arrows move, Enter confirms, Escape cancels."}</span><button type="button" onClick={onTableCancel}>{uiLanguage === "zh-Hant" ? "取消／返回物件" : "Cancel / back to object"}</button></div>}
       <div className="viewport-hud viewport-hud-top">
-        <div className="hud-chip"><span className="live-dot" /> {uiLanguage === "zh-Hant" ? "即時模擬" : "LIVE SIMULATION"}</div>
+        <div className="hud-chip" role="status" title={physicsError}><span className="live-dot" /> {uiLanguage === "zh-Hant" ? (physicsStatus==="ready"?"重力與接觸模擬":physicsStatus==="error"?"物理引擎無法啟動；請重新載入":"正在準備物理引擎…") : (physicsStatus==="ready"?"GRAVITY & CONTACT":physicsStatus==="error"?"Physics failed; reload":"Preparing physics…")}</div>
         {!attached && project.scene.blocks.some(block => block.source === "output") && <button type="button" className="hud-chip viewport-focus-workpieces" onClick={() => sceneRef.current?.focusPlacedWorkpieces()}>{uiLanguage === "zh-Hant" ? "查看已放置工件" : "View placed workpieces"}</button>}
         <div className="hud-chip muted-chip">{uiLanguage === "zh-Hant" ? "毫米 · 度 · Z 向上" : "MM · DEG · Z-UP"}</div>
       </div>

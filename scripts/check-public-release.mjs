@@ -5,7 +5,7 @@ import { gunzipSync } from "node:zlib";
 
 const root = process.cwd();
 const forbiddenNames = /fork\.stl/i;
-const required = ["LICENSE", "vercel.json", "public/models/mg400/mg400_description/LICENSE"];
+const required = ["public/licenses/rapier3d-LICENSE.txt", "LICENSE", "vercel.json", "public/models/mg400/mg400_description/LICENSE"];
 for (const path of required) if (!existsSync(join(root, path))) throw new Error(`Missing release file: ${path}`);
 const scan = (directory) => {
   if (!existsSync(directory)) return;

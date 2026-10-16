@@ -11,6 +11,7 @@ This file records source-specific notices for bundled assets and browser depende
 
 | Package | Version | License |
 | --- | ---: | --- |
+| `@dimforge/rapier3d-compat` | 0.21.0 | Apache-2.0 |
 | `@monaco-editor/react` | 4.7.0 | MIT |
 | `lucide-react` | 1.48.0 | ISC |
 | `monaco-editor` | 0.57.0 | MIT |
@@ -19,6 +20,8 @@ This file records source-specific notices for bundled assets and browser depende
 | `three` | 0.186.1 | MIT |
 | `urdf-loader` | 0.13.1 | Apache-2.0 |
 | `wasmoon` | 1.16.0 | MIT |
+
+Rapier’s complete Apache-2.0 license is included at [`public/licenses/rapier3d-LICENSE.txt`](../public/licenses/rapier3d-LICENSE.txt). Its bundled WASM is loaded lazily after the robot viewport initializes.
 
 Vite, TypeScript, test packages, and transitive dependencies remain pinned in the lockfile. A publication pipeline should regenerate a complete dependency notice from the lockfile before release.
 

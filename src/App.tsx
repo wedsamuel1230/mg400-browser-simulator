@@ -251,6 +251,7 @@ export default function App() {
   const [modelError, setModelError] = useState("");
   const [failedToolModels, setFailedToolModels] = useState<string[]>([]);
   const [status, setStatus] = useState<RunStatus>("ready");
+  const [physicsReady,setPhysicsReady]=useState(false);
   const [lastRunContext, setLastRunContext] = useState<string | null>(null);
   const [latestPrintOutput, setLatestPrintOutput] = useState<string | null>(null);
   const [programRunLog, setProgramRunLog] = useState<LogEntry[]>([]);
@@ -288,7 +289,7 @@ export default function App() {
     importMagnet: "匯入磁吸工具 STL", importFork: "匯入叉臂工具 STL", activeTool: "目前工具",
     flangeToTcp: "法蘭至 TCP", robotWrist: "機械臂腕部", flange: "法蘭", toolLocalX: "工具局部 +X",
     flangeExplanation: "法蘭：安裝工具的機械臂端面。TCP：移動指令所到達的工具參考點。圖示沿工具自身 X 軸，不代表螢幕方向。",
-    toolBehavior: "工具安裝於法蘭下方。模擬器以規則處理拾取：叉臂滑入方塊下方並抬起後連接工件，放回平台或堆疊承托面時釋放。這不是接觸或抓取物理模型；程式不會連接實體機械臂。磁吸工具的 DO1 也只供模擬。",
+    toolBehavior: "工具安裝於法蘭下方。叉臂靠接觸與摩擦承托工件，過快移動或偏放可令工件滑落或倒塔。磁吸 DO1 只模擬固定及釋放；空中釋放會下墜。接觸形狀與材質為教學近似，未作實體校準；程式不會連接實體機械臂。",
     flangeOffset: "法蘭偏移", magnetTcp: "磁吸接觸 TCP", forkTcp: "叉臂支撐 TCP", pickupTolerance: "拾取容差", referencePositions: "參考工作格位置",
     cellState: "多工件工作格狀態", multiBlockCell: "多工件工作格", feederOrder: "供料次序", supplyBlock: "加入供料方塊",
     cellStateNote: "顏色及供料次序是預設的模擬狀態；沒有攝影機、顏色感測器或視覺辨識功能。",
@@ -309,7 +310,7 @@ export default function App() {
     importMagnet: "Import local magnet STL", importFork: "Import local fork STL", activeTool: "Active tool",
     flangeToTcp: "Flange to TCP", robotWrist: "Robot wrist", flange: "Flange", toolLocalX: "tool-local +X",
     flangeExplanation: "Flange: the robot face where the tool mounts. TCP: the tool reference point that motion commands target. This diagram is along the tool's own X axis, not the screen.",
-    toolBehavior: "The printed tool mounts below the flange. In this simulator, the passive fork attaches the block after it slides underneath and lifts it, then releases it when lowered onto the platform or stack support surface. This is a simulated motion rule, not contact or grasp physics; the app has no hardware connection. Magnet DO1 is also simulator-only.",
+    toolBehavior: "The printed tool mounts below the flange. The passive fork supports pieces through contact and friction; pieces may slip or towers may tip. Magnet DO1 simulates a fixed attachment and release; air releases fall under gravity. Contact shapes and material values are educational approximations without hardware calibration or connection.",
     flangeOffset: "Flange offset", magnetTcp: "Magnet contact TCP", forkTcp: "Fork support TCP", pickupTolerance: "Pickup tolerance", referencePositions: "Reference cell positions",
     cellState: "Multi-block cell state", multiBlockCell: "Multi-block cell", feederOrder: "Feeder order", supplyBlock: "Add supply block",
     cellStateNote: "Colors and feeder order are configured simulation state; no camera, color sensor, or vision claim is made.",
@@ -446,7 +447,7 @@ export default function App() {
   const tcpOffsetXLabel = `${tcpOffsetX >= 0 ? "+" : ""}${format(tcpOffsetX, 0)} mm`;
   const selectedPose = getPointPose(selectedPoint, kinematics, project);
   const busy = status === "running" || status === "paused";
-  const canRun = Boolean(kinematics) && !modelError && status !== "running" && status !== "paused";
+  const canRun = physicsReady && Boolean(kinematics) && !modelError && status !== "running" && status !== "paused";
   const programText = project.programmingLanguage === "lua" ? project.script : project.pythonScript;
   const projectSnapshot = useMemo(() => JSON.stringify(project), [project]);
   const hasCurrentRun = lastRunContext === projectSnapshot;
@@ -567,6 +568,7 @@ export default function App() {
 
   function setRobotJoints(next: JointAngles) {
     jointsRef.current = next;
+    collisionSceneRef.current?.setRobotJoints(next);
     observeRobotTask();
     setJoints([...next] as JointAngles);
   }
@@ -580,6 +582,8 @@ export default function App() {
     if (!kinematics) return null;
     if (!controllerRef.current) {
       controllerRef.current = new SimulationController(kinematics, {
+        getPhysics: () => collisionSceneRef.current?.physics,
+        resetPhysics: () => collisionSceneRef.current?.resetPhysics(),
         getCollisionGeometry: () => collisionSceneRef.current?.collisionGeometry(),
         getProject: () => projectRef.current,
         getJoints: () => jointsRef.current,
@@ -640,6 +644,7 @@ export default function App() {
     const controller = getController();
     if (!controller) return;
     if (practicePrepared && !freeMode && !attachedRef.current && status === "complete") {
+      collisionSceneRef.current?.resetPhysics();
       const arranged = resetCell(projectRef.current);
       projectRef.current = arranged;
       setProject(arranged);
@@ -672,8 +677,16 @@ export default function App() {
   }
 
   function setProgramLanguage(language: ProgramLanguage) {
-    if (projectRef.current.programmingLanguage === language) return;
-    replaceProject((current) => ({ ...current, programmingLanguage: language }));
+    if (busy || projectRef.current.programmingLanguage === language) return;
+    const current=projectRef.current,lesson=practicePrepared?LESSONS.find(item=>item.id===practiceLessonId):undefined;
+    const stored=language==="lua"?current.script:current.pythonScript;
+    const examples=[getStarterProgram(language,"magnet"),getStarterProgram(language,"fork"),getStarterProgram(language,"fork","body1"),...LESSONS.map(item=>item.examples[language])];
+    const useLesson=lesson && examples.includes(stored);
+    replaceProject(project=>({...project,programmingLanguage:language,...(useLesson?(language==="lua"?{script:lesson.examples.lua}:{pythonScript:lesson.examples.python}):{})}));
+    if(lesson && !useLesson) {
+      setPracticePrepared(false);
+      addLog(uiLanguage==="zh-Hant"?"已保留這個語言的自訂程式；如要載入課程範例，請重新準備練習。":"Your custom program was kept. Prepare the lesson again to load its example.","info");
+    }
   }
 
   function loadRecommendedProgram() {
@@ -704,11 +717,16 @@ export default function App() {
     controllerRef.current?.stop(true);
   }
 
+  function resetMotionAndPhysics() {
+    if(controllerRef.current)controllerRef.current.stop(false,true);
+    else collisionSceneRef.current?.resetPhysics();
+  }
+
   function resetRobot() {
     activeProgramRunRef.current = false;
     runStartedAtRef.current = null;
     setLastRunDurationMs(null);
-    controllerRef.current?.stop(false, true);
+    resetMotionAndPhysics();
     const home = projectRef.current.points.find((point) => point.name === "Home" && point.kind === "joint");
     setRobotJoints(home?.kind === "joint" ? [...home.joints] : initialJoints);
     attachedRef.current = false;
@@ -899,7 +917,9 @@ export default function App() {
   }
 
   function downloadProject() {
-    const blob = new Blob([exportProject(projectRef.current)], { type: "application/json" });
+    const current=projectRef.current;
+    const physical=collisionSceneRef.current?.physics?.blocks(current.scene.blocks);
+    const blob = new Blob([exportProject(physical?{...current,scene:{...current.scene,blocks:physical}}:current)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -915,7 +935,7 @@ export default function App() {
       const raw = await file.text();
       const imported = parseProjectFile(raw);
       setConvertedRoundPieces(containsRemovedRoundWorkpieces(JSON.parse(raw)));
-      controllerRef.current?.stop(false, true);
+      resetMotionAndPhysics();
       attachedRef.current = false;
       setAttached(false);
       setLocalToolMeshes((current) => ({ ...current, blockProfile: current.bundledFork ? "body1" : "reference" }));
@@ -1035,6 +1055,7 @@ export default function App() {
       const selected=base.scene.blocks.find(block=>block.id===id);
       const updateBlocks = (blocks: typeof base.scene.blocks) => blocks.map((block) => block.id !== id && !(selected?.pileId && block.pileId===selected.pileId && (update.x!==undefined || update.y!==undefined)) ? block : {
         ...block,
+        physicalPose: undefined,
         ...(update.color ? { color: update.color } : {}),
         ...(update.source ? { source: update.source } : {}),
         ...(update.kind ? { kind: update.kind } : {}),
@@ -1121,6 +1142,8 @@ export default function App() {
   }
 
   function toggleFreeMode() {
+    if(busy)return;
+    resetMotionAndPhysics();
     if (freeMode) {
       let guided = guidedSceneRef.current;
       if (!guided) {
@@ -1161,12 +1184,12 @@ export default function App() {
     setPlacementArmed(false);
     setPlacementMessage("");
     window.localStorage.setItem(FREE_MODE_KEY, "true");
-    addLog("已進入自由模式；物件只按模擬器邏輯接觸，不代表磁力或實體穩定性。", "info");
+    addLog("已進入自由模式；工件會受重力及接觸影響；材質為教學近似，未經實體校準。", "info");
   }
 
   function resetFreeCell() {
     if (!freeMode) return;
-    controllerRef.current?.stop(false, true);
+    resetMotionAndPhysics();
     const reset = resetCell(projectRef.current);
     replaceProject(() => reset);
     addLog("自由工作格已重設到最近一次儲存的配置。", "info");
@@ -1203,7 +1226,7 @@ export default function App() {
       const previousFreeMode = Boolean(snapshot.project && snapshot.freeMode);
       // Validate the optional guided cell through the same project schema before restoring it.
       const guided = snapshot.guidedScene ? parseProjectFile(JSON.stringify({ ...previous, scene: snapshot.guidedScene })).scene : previous.scene;
-      controllerRef.current?.stop(false, true);
+      resetMotionAndPhysics();
       projectRef.current = previous;
       setProject(previous);
       resetRobot();
@@ -1259,7 +1282,6 @@ export default function App() {
       try { window.localStorage.setItem(FREE_SCENE_KEY, JSON.stringify(current.scene)); } catch { /* keep current project on save failure */ }
     }
     const mode = BODY1_LESSONS.includes(id) ? "fork" : id === "foundation-first-robot-move" ? current.tool.mode : "magnet";
-    const profile = mode === "fork" ? "body1" : "reference";
     const next = prepareLessonProject(id, mode);
     next.tool = { ...structuredClone(current.tool), mode };
     next.simulation = { ...current.simulation };
@@ -1268,13 +1290,7 @@ export default function App() {
     next.pythonScript = current.pythonScript;
     const code = lesson.examples[language];
     if (language === "lua") next.script = code; else next.pythonScript = code;
-    if (mode === "fork") {
-      const pick = forkContactPose(next.scene.block, 0, profile, false, platformHeight(next.scene), body1SupportHeight(next.scene));
-      const place = forkContactPose(next.scene.drop, 0, profile, true, platformHeight(next.scene), body1SupportHeight(next.scene));
-      const poses: Record<string, Pose> = { PickPoint: pick, PickApproach: forkEntryPose(pick), PlacePoint: place, PlaceApproach: { ...place, z: place.z + 80 } };
-      next.points = next.points.map((point) => point.kind === "cartesian" && poses[point.name] ? { ...point, pose: poses[point.name] } : point);
-    }
-    controllerRef.current?.stop(false, true);
+    resetMotionAndPhysics();
     projectRef.current = next;
     setProject(next);
     setSaved(false);
@@ -1326,7 +1342,7 @@ export default function App() {
       </div>
     </div>
     <p className="free-pile-summary">{uiLanguage === "zh-Hant" ? `會建立 ${pileCount} 件${pileKind === "body1" ? "槽積木" : "磁吸片"}；預計堆高 ${(pileKind === "body1" ? 40 : 4) * pileCount} mm。工作台頂面固定在 Z${platformHeight(project.scene)} mm。開始執行後會顯示程式完成所需時間。` : `Creates ${pileCount} ${pileKind === "body1" ? "slotted blocks" : "magnetic plates"}; pile height ${(pileKind === "body1" ? 40 : 4) * pileCount} mm. The worktable stays at Z${platformHeight(project.scene)} mm. Run-to-finish time appears after execution.`}</p>
-    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "目前沒有物件；設定數量及 X/Y 後建立堆疊。" : "No objects yet. Set a quantity and X/Y, then create the pile.") : (uiLanguage === "zh-Hant" ? "已建立的物件使用有限步距碰撞停止及接觸規則；不模擬實體磁力或穩定性。" : "Created objects use finite-step collision stopping and contact rules; magnetic force and physical stability are not modeled."))}</small>
+    <small role="status" aria-live="polite">{placementMessage || (project.scene.blocks.length === 0 ? (uiLanguage === "zh-Hant" ? "目前沒有物件；設定數量及 X/Y 後建立堆疊。" : "No objects yet. Set a quantity and X/Y, then create the pile.") : (uiLanguage === "zh-Hant" ? "工件使用重力與摩擦接觸，可滑落或倒塔。碰撞停止採有限步距；未模擬真實磁場或作實體校準。" : "Pieces use gravity and friction contacts and can slip or tip. Arm stopping uses finite steps; magnetic fields and hardware calibration are not modeled."))}</small>
     {project.scene.blocks.length > 0 && <details className="free-advanced-settings">
       <summary>{uiLanguage === "zh-Hant" ? "進階工作格設定" : "Advanced workcell settings"}</summary>
       <div className="free-advanced-actions">
@@ -1760,7 +1776,7 @@ export default function App() {
           {workbenchView === "practice" && !practicePrepared && <p className="run-preflight" id="practice-run-help">{uiLanguage === "zh-Hant" ? (practiceLesson ? "先完成步驟 1：「準備這個練習」，再執行。" : "先按「開始第一個練習」，或選一個機械臂練習，再執行。") : (practiceLesson ? "Complete step 1: Prepare this practice, then run it." : "Start your first practice, or choose a robot practice, before running.")}</p>}
           {preflight.kind === "error" && (workbenchView !== "practice" || practiceLessonId !== null) && <div className="run-preflight run-preflight-error" role="alert">{preflight.text}<button className="text-button" onClick={() => openWorkbench("points")}>{uiLanguage === "zh-Hant" ? "查看教點" : "Review points"}</button></div>}
           <Suspense fallback={<div className="viewport-shell" role="status"><div className="viewport-overlay"><LoaderCircle className="spin" size={23} /><div><strong>{uiLanguage === "zh-Hant" ? "正在準備三維工作格" : "Preparing 3D view"}</strong><span>{uiLanguage === "zh-Hant" ? "正在載入互動式 MG400 訓練工作格…" : "Loading the interactive MG400 training cell…"}</span></div></div></div>}>
-            <RobotViewport onCollisionScene={(scene) => { collisionSceneRef.current = scene; }} workspaceTheme={workspaceTheme} joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
+            <RobotViewport onPhysicsReadyChange={setPhysicsReady} onPhysicsFrame={() => controllerRef.current?.synchronizePhysics()} onCollisionScene={(scene) => { collisionSceneRef.current = scene;if(!scene)setPhysicsReady(false); }} workspaceTheme={workspaceTheme} joints={joints} project={project} blockPosition={blockPosition} attached={attached} attachedCellBlockId={attachedCellBlockId} target={targetPose} cameraResetToken={cameraResetToken} localToolMeshes={localToolMeshes} urdfXml={kinematicsUrdf} modelError={modelError} uiLanguage={uiLanguage} placementArmed={freeMode && placementArmed} onTablePlace={placeSelectedOnTable} onTableNudge={nudgeSelectedPlacement} onTableCancel={cancelTablePlacement} onTableConfirm={confirmTablePlacement} />
           </Suspense>
 
           <section hidden={workbenchView !== "points" && workbenchView !== "settings"} className="telemetry-strip" aria-label={uiLanguage === "zh-Hant" ? "機械臂目前位置" : "Current robot position"}>

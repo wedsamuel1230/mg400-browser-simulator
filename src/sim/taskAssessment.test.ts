@@ -43,3 +43,22 @@ describe("prepared task outcome gates",()=>{
  it("retains historical Body1 support datum when absent",()=>{const x=result(BODY1_LESSONS[0]);delete x.after.scene.body1SupportHeightMm;x.evidence.cycles[0].release!.z=155;expect(assessRobotTask(BODY1_LESSONS[0],x.before,x.after,x.evidence,"body1").every(c=>c.passed)).toBe(true);});
  it("never accepts a no-motion pickup",()=>expect(assessRobotTask("intermediate-pick-and-place",DEFAULT_PROJECT,DEFAULT_PROJECT,newTaskEvidence()).every(c=>c.passed)).toBe(false));
 });
+
+it.each(["tipped","fallen","moving"])("rejects a metadata-perfect but physically %s tower",state=>{
+ const x=result(BODY1_LESSONS[2]);
+ x.after.scene.blocks.forEach((b,i)=>{b.physicalPose={position:{...b.position,z:110+i*40},quaternion:i===1?{x:0,y:0,z:Math.SQRT1_2,w:Math.SQRT1_2}:{x:0,y:0,z:0,w:1},settled:true};});
+ expect(assessRobotTask(BODY1_LESSONS[2],x.before,x.after,x.evidence,"body1").find(c=>c.id==="tower")?.passed).toBe(true);
+ const pose=x.after.scene.blocks[2].physicalPose!;
+ if(state==="tipped")pose.quaternion={x:Math.sin(.3),y:0,z:0,w:Math.cos(.3)};
+ if(state==="fallen")pose.position.z=110;
+ if(state==="moving")pose.settled=false;
+ expect(assessRobotTask(BODY1_LESSONS[2],x.before,x.after,x.evidence,"body1").find(c=>c.id==="tower")?.passed).toBe(false);
+});
+
+it("accepts a stable physical tower with slot-clearance offsets and rejects a nearby separate pile",()=>{
+ const x=result(BODY1_LESSONS[2]);
+ x.after.scene.blocks.forEach((b,i)=>{b.physicalPose={position:{x:300+(i===1?-6:0),y:80,z:110+i*40},quaternion:i===1?{x:0,y:0,z:Math.SQRT1_2,w:Math.SQRT1_2}:{x:0,y:0,z:0,w:1},settled:true};if(i===1)b.position.x-=6;});
+ expect(assessRobotTask(BODY1_LESSONS[2],x.before,x.after,x.evidence,"body1").find(c=>c.id==="tower")?.passed).toBe(true);
+ x.after.scene.blocks[1].physicalPose!.position.x=320;
+ expect(assessRobotTask(BODY1_LESSONS[2],x.before,x.after,x.evidence,"body1").find(c=>c.id==="tower")?.passed).toBe(false);
+});

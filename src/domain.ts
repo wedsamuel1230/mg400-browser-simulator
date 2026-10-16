@@ -4,8 +4,7 @@ export const BLOCK_SIZE_MM = { x: 40, y: 40, z: 15 } as const;
 export const MAGNET_SIZE_MM = { x: 35, y: 35, z: 4 } as const;
 export const MAGNET_SUPPORT_HEIGHT_MM = 110;
 export const FORK_SUPPORT_HEIGHT_MM = 20;
-// Fixed front workspace: X100–600, Y±600, with its rear edge 5 mm clear
-// of the pedestal. Covers the default tool/workpiece XY envelope (<553 mm).
+// Fixed front workspace: X100–600, Y±300; rear edge5 mm clear of the pedestal.
 export const TEACHING_PLATFORM = { width:500, depth:600, x:350, y:0, top:110 } as const;
 export type ProgramLanguage = "lua" | "python";
 export type ForkContactProfile = "reference" | "body1";
@@ -15,12 +14,16 @@ export type BlockColor = "neutral" | "black" | "white";
 export type BlockSource = "pickup" | "feeder" | "output" | "unloaded";
 export type CellObjectKind = "block" | "magnet";
 
+export type PhysicalPose = { position: {x:number;y:number;z:number}; quaternion: {x:number;y:number;z:number;w:number}; settled: boolean; outsideCell?: boolean };
+
 export type CellBlock = {
   id: string;
   /** Omitted kind uses the active tool: magnetic plate or fork reference block. */
   kind?: CellObjectKind;
   geometry?: "body1";
   pileId?: string;
+  /** Runtime world pose in mm, bottom-origin, preserved after falling. */
+  physicalPose?: PhysicalPose;
   color: BlockColor;
   source: BlockSource;
   position: { x: number; y: number };

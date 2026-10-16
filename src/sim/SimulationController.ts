@@ -1,5 +1,7 @@
+import type { WorkcellPhysics } from "./workcellPhysics";
+import { Quaternion, Vector3 } from "three";
 import { assertCollisionFree, assertPlacementClear, type CollisionGeometry } from "./collisionInterlock";
-import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockTopZ, effectiveForkContactProfile, deg, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
+import { BODY1_FORK_CONTACT, body1SupportHeight, platformHeight, magneticSurfaceHeight, activeTcpOffset, cellBlockSize, cellBlockTopZ, effectiveForkContactProfile, deg, type ForkContactProfile, type CellBlock, type JointAngles, type Pose, type ProjectDocument, type TeachPoint } from "../domain";
 import type { LuaRuntimeCallbacks } from "./luaRuntime";
 import { LuaRuntime } from "./luaRuntime";
 import { PythonRuntime } from "./pythonRuntime";
@@ -17,6 +19,8 @@ type Action =
 export type RunStatus = "ready" | "running" | "paused" | "complete" | "stopped" | "error";
 
 export type ControllerEvents = {
+  getPhysics?: () => WorkcellPhysics | undefined;
+  resetPhysics?: () => void;
   getCollisionGeometry?: () => CollisionGeometry | undefined;
   getProject: () => ProjectDocument;
   getJoints: () => JointAngles;
@@ -42,12 +46,18 @@ export class SimulationController {
   private readonly queue: Action[] = [];
   private processing = false;
   private paused = false;
+  private cpWarningShown=false;
   private stopped = true;
   private scriptEnded = false;
   private executionProject?: ProjectDocument;
   private passiveForkState: PassiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
   private attachedCellBlockId: string | null = null;
   private attachedForkYaw = 0;
+  private releasedPhysicalId: string | null=null;
+  private lostContactAt=0;
+  private lastPhysicsSnapshot=0;
+  private physicsSnapshotKey="";
+  private readonly reportedLost=new Set<string>();
   private generation = 0;
   private readonly pendingFrames = new Map<number, (timestamp: number) => void>();
   private idleWaiters: (() => void)[] = [];
@@ -66,6 +76,7 @@ export class SimulationController {
 
   run(script: string, points: TeachPoint[], language: "lua" | "python" = "lua") {
     this.stop(false);
+    this.cpWarningShown=false;this.reportedLost.clear();
     this.executionProject = structuredClone(this.events.getProject());
     this.stopped = false;
     this.scriptEnded = false;
@@ -143,6 +154,8 @@ export class SimulationController {
     this.scriptEnded = false;
     this.executionProject = undefined;
     if (resetContact) {
+      this.events.resetPhysics?.();
+      this.releasedPhysicalId=null;this.physicsSnapshotKey="";this.reportedLost.clear();
       this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
       this.attachedCellBlockId = null;
       this.attachedForkYaw = 0;
@@ -175,7 +188,11 @@ export class SimulationController {
         this.replyState(message.requestId, message.state);
         break;
       case "print":
-        this.events.setPrintOutput?.(message.message);
+        if(message.level==="warning" && message.message.startsWith("CP omitted;")) {
+          if(this.cpWarningShown)return;
+          this.cpWarningShown=true;
+        }
+        if(message.level==="info")this.events.setPrintOutput?.(message.message);
         this.events.addLog(message.message, message.level);
         break;
       case "script-complete":
@@ -274,7 +291,7 @@ export class SimulationController {
     const current = this.events.getJoints();
     const currentPose = this.kinematics.forward(current, project.tool.flangeOffset, activeTcpOffset(project.tool));
     // The measured Body1 contact band is narrower than ordinary IK endpoint accuracy.
-    const toleranceMm=project.tool.mode === "fork" && (this.events.getForkContactProfile?.()==="body1" || project.scene.blocks.some(block=>block.geometry==="body1")) ? 0.01 : 0.5;
+    const toleranceMm=this.events.getPhysics ? 0.01 : project.tool.mode === "fork" && (this.events.getForkContactProfile?.()==="body1" || project.scene.blocks.some(block=>block.geometry==="body1")) ? 0.01 : 0.5;
     let destination: JointAngles;
     let targetPose: Pose;
 
@@ -299,9 +316,9 @@ export class SimulationController {
     }
 
     const distance = request.command === "MovL"
-      ? Math.hypot(targetPose.x - currentPose.x, targetPose.y - currentPose.y, targetPose.z - currentPose.z)
+      ? Math.max(Math.hypot(targetPose.x - currentPose.x, targetPose.y - currentPose.y, targetPose.z - currentPose.z), Math.abs(targetPose.r-currentPose.r)*Math.PI/180*100)
       : Math.max(...destination.map((angle, index) => Math.abs(deg(angle - current[index]))));
-    const nominalRate = request.command === "MovL" ? 230 : 165;
+    const nominalRate = this.events.getPhysics ? (request.command === "MovL" ? 80 : 45) : (request.command === "MovL" ? 230 : 165);
     const ratio = Math.max(0.05, request.speed / 100);
     const accelerationScale = 0.75 + 0.25 * Math.sqrt(100 / Math.max(1, request.acceleration));
     const duration = Math.max(250, Math.min(12000, (distance / (nominalRate * ratio)) * 1000 * accelerationScale * (100 / project.simulation.speed)));
@@ -382,14 +399,29 @@ export class SimulationController {
       progress = candidateProgress;
       }
     }
+    // Let the scene apply the final tool pose before the next command reads contact state.
+    if(this.events.getPhysics && generation===this.generation && !this.stopped)await this.nextFrame(generation);
   }
 
   private guardCandidate(joints: JointAngles, attachedId = this.events.isAttached() ? this.attachedCellBlockId : null, yaw = this.attachedForkYaw) {
+    if(this.events.getPhysics && !this.events.getPhysics())throw new Error("物理引擎正在載入或未能啟動；請稍候再執行。");
     if (!this.events.getCollisionGeometry) return; // Legacy headless integrations supply their own guard.
     this.assertJointLimits(joints);
     const geometry = this.events.getCollisionGeometry();
     if (!geometry) throw new Error("碰撞檢查模型尚未載入。");
-    assertCollisionFree(this.kinematics,joints,this.currentProject(),this.events.getCellBlocks?.() ?? [],geometry,attachedId,yaw);
+    const project=this.currentProject(),physics=this.events.getPhysics?.();
+    const blocks=physics?.blocks(this.events.getCellBlocks?.()??[]) ?? this.events.getCellBlocks?.() ?? [];
+    const tcp=this.kinematics.forward(joints,project.tool.flangeOffset,activeTcpOffset(project.tool));
+    const contactId=physics ? (attachedId ?? blocks.find(block=>{
+      if(block.geometry!=="body1" || block.id===this.releasedPhysicalId)return false;
+      const p=block.physicalPose;if(!p)return false;
+      const up=new Vector3(0,0,1).applyQuaternion(new Quaternion().copy(p.quaternion));
+      const angle=tcp.r*Math.PI/180,dx=tcp.x-p.position.x,dy=tcp.y-p.position.y;
+      const direction=new Vector3(1,0,0).applyQuaternion(new Quaternion().copy(p.quaternion));
+      const slotHeading=((tcp.r-Math.atan2(direction.y,direction.x)*180/Math.PI)%180+180)%180;
+      return up.z>.99 && Math.abs(slotHeading-90)<2 && Math.abs(-dx*Math.sin(angle)+dy*Math.cos(angle))<1.5 && Math.abs(dx*Math.cos(angle)+dy*Math.sin(angle))<1.5 && tcp.z>=p.position.z+22 && tcp.z<=p.position.z+26;
+    })?.id ?? this.releasedPhysicalId) : null;
+    assertCollisionFree(this.kinematics,joints,project,blocks,geometry,attachedId,yaw,contactId);
   }
 
   jog(point: TeachPoint, linear = false) {
@@ -399,6 +431,7 @@ export class SimulationController {
 
   private updatePassiveFork(previous: Pose, current: Pose, joints = this.events.getJoints()) {
     const project = this.currentProject();
+    if(this.events.getPhysics?.()) {this.events.setJoints(joints);return;}
     if (project.tool.mode !== "fork") {
       this.events.setJoints(joints);
       this.passiveForkState = { ...EMPTY_PASSIVE_FORK_STATE };
@@ -453,6 +486,56 @@ export class SimulationController {
     }
   }
 
+  /** Scene ticks keep gravity/contact alive even after Stop or interpreter completion. */
+  synchronizePhysics(now=performance.now()) {
+    const physics=this.events.getPhysics?.();if(!physics)return;
+    const project=this.events.getProject(),blocks=physics.blocks(this.events.getCellBlocks?.()??[]);
+    for(const block of blocks)if(block.physicalPose?.outsideCell && !this.reportedLost.has(block.id)) {
+      this.reportedLost.add(block.id);this.events.addLog(`工件 ${block.id} 已掉出工作區；按「重設」恢復。`,"warning");
+    }
+    if(this.releasedPhysicalId && !physics.contactWithTool(this.releasedPhysicalId))this.releasedPhysicalId=null;
+    if(!this.stopped && this.attachedCellBlockId && physics.hasSideContact(this.attachedCellBlockId))this.fail("碰撞停止：承載工件碰到側面障礙；重力計算繼續。");
+    if(project.tool.mode==="fork") {
+      if(this.attachedCellBlockId) {
+        const id=this.attachedCellBlockId;
+        if(physics.contactWithTool(id))this.lostContactAt=0;
+        else if(!this.lostContactAt)this.lostContactAt=now;
+        const slipped=this.lostContactAt>0 && now-this.lostContactAt>150;
+        if(physics.hasExternalSupport(id) || slipped) {
+          this.recordPhysicalRelease(id,blocks);
+          this.releasedPhysicalId=id;
+          if(slipped && !this.stopped)this.fail("工件從叉具滑落，機械臂已停止；重力繼續計算。請降低載件移動速度後重設再試。");
+        }
+      } else {
+        const block=blocks.find(b=>b.id!==this.releasedPhysicalId && physics.supportedByTool(b.id));
+        if(block) {
+          this.attachedCellBlockId=block.id;this.lostContactAt=0;
+          const tcp=this.kinematics.forward(this.events.getJoints(),project.tool.flangeOffset,activeTcpOffset(project.tool));
+          this.attachedForkYaw=block.r-tcp.r;
+          this.events.setAttachedCellBlockId?.(block.id);this.events.setAttached(true);
+          this.events.addLog("叉具靠接觸承托工件；過快移動可能滑落。","info");
+        }
+      }
+    }
+    if(!this.events.isAttached() && now-this.lastPhysicsSnapshot>=500 && blocks.every(b=>b.physicalPose?.settled || b.physicalPose?.outsideCell)) {
+      this.lastPhysicsSnapshot=now;
+      const key=JSON.stringify(blocks.map(b=>[b.id,b.source,b.physicalPose && Object.values(b.physicalPose.position).map(v=>Math.round(v*10)),b.physicalPose && Object.values(b.physicalPose.quaternion).map(v=>Math.round(v*1000))]));
+      if(key!==this.physicsSnapshotKey){this.physicsSnapshotKey=key;this.events.setCellBlocks?.(blocks);}
+    }
+  }
+
+  private recordPhysicalRelease(id:string,blocks:CellBlock[]) {
+    this.physicsSnapshotKey="";
+    const project=this.events.getProject(),block=blocks.find(b=>b.id===id),pose=block?.physicalPose;
+    if(!block || !pose)return;
+    const direction=new Vector3(1,0,0).applyQuaternion(new Quaternion().copy(pose.quaternion));
+    const level=Math.max(0,Math.min(block.geometry==="body1"?2:9,Math.round((pose.position.z-platformHeight(project.scene)-(block.z??0))/ (block.geometry==="body1"?40:4))));
+    this.events.setCellBlocks?.(blocks.map(b=>b.id===id?{...b,source:"output",position:{x:pose.position.x,y:pose.position.y},r:Math.atan2(direction.y,direction.x)*180/Math.PI,stackLevel:level}:b));
+    this.events.setAttached(false);this.events.setAttachedCellBlockId?.(null);
+    this.events.setBlock({x:pose.position.x,y:pose.position.y});this.attachedCellBlockId=null;
+    this.events.addLog("工件已離開工具承托；位置與傾斜由物理引擎繼續計算。","info");
+  }
+
   private assertJointLimits(joints: JointAngles) {
     const ranges = [[-160, 160], [-25, 85], [-25, 105], [-360, 360]];
     for (let i = 0; i < 4; i += 1) {
@@ -468,6 +551,26 @@ export class SimulationController {
     const project = this.currentProject();
     if (project.tool.mode === "fork") {
       throw new Error(`The fork is passive. Use the saved insertion and support points above platform Z=${platformHeight(project.scene)} mm, slide beneath the block, then lift; lower it onto the support pads to release it. Remove DO1 and Pick()/Place() actions from the fork program.`);
+    }
+    const physics=this.events.getPhysics?.();
+    if(physics) {
+      const blocks=physics.blocks(this.events.getCellBlocks?.()??[]);
+      if(action==="pick") {
+        if(this.events.isAttached())throw new Error("工具已有工件。");
+        const tcp=this.kinematics.forward(this.events.getJoints(),project.tool.flangeOffset,activeTcpOffset(project.tool));
+        const target=blocks.find(b=>{
+          const p=b.physicalPose;if(cellBlockSize(b,project.tool.mode).z!==4 || !p)return false;
+          const up=new Vector3(0,0,1).applyQuaternion(new Quaternion().copy(p.quaternion));
+          return up.z>.995 && Math.hypot(tcp.x-p.position.x,tcp.y-p.position.y)<=Math.min(5,project.tool.pickupTolerance.xy) && Math.abs(tcp.z-p.position.z-4)<=.5;
+        });
+        if(!target)throw new Error("磁吸失敗：請對準平放磁吸片頂面（距離須在0.5 mm內）。");
+        physics.attachMagnet(target.id);this.attachedCellBlockId=target.id;
+        this.events.setAttachedCellBlockId?.(target.id);this.events.setAttached(true);
+      } else {
+        const id=physics.attachedMagnetId;if(!id)throw new Error("工具沒有磁吸工件。");
+        physics.releaseMagnet();this.recordPhysicalRelease(id,blocks);
+      }
+      return;
     }
     const attached = this.events.isAttached();
     if (action === "pick") {

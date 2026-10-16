@@ -13,11 +13,11 @@ export const DEFAULT_CELL_BLOCKS: CellBlock[] = [
 export const DEFAULT_FEEDER_ORDER = ["feed-black-1", "feed-white-1", "feed-black-2", "feed-white-2"];
 
 export function cloneCellBlocks(blocks: CellBlock[]): CellBlock[] {
-  return blocks.map((block) => ({ ...block, position: { ...block.position } }));
+  return blocks.map((block) => ({ ...block, position: { ...block.position }, ...(block.physicalPose ? {physicalPose: structuredClone(block.physicalPose)} : {}) }));
 }
 
 export function resetCell(project: ProjectDocument): ProjectDocument {
-  const blocks = cloneCellBlocks(project.scene.initialBlocks);
+  const blocks = cloneCellBlocks(project.scene.initialBlocks).map(({physicalPose: _pose,...block})=>block);
   return {
     ...project,
     scene: {
@@ -69,6 +69,10 @@ export function validateCellBlocks(blocks: CellBlock[], feederOrder: string[]): 
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(block.id) || ids.has(block.id)) throw new Error("Cell block IDs must be unique lowercase identifiers.");
     ids.add(block.id);
     if (!["block", "magnet", undefined].includes(block.kind) || !["neutral", "black", "white"].includes(block.color) || !["pickup", "feeder", "output", "unloaded"].includes(block.source)) throw new Error("Cell object kind, color or source is invalid.");
+    if(block.physicalPose) {
+      const {position,quaternion,settled}=block.physicalPose;
+      if((block.physicalPose.outsideCell!==undefined && typeof block.physicalPose.outsideCell!=="boolean") || !position || !quaternion || typeof settled!=="boolean" || ![position.x,position.y,position.z,quaternion.x,quaternion.y,quaternion.z,quaternion.w].every(Number.isFinite) || Math.max(Math.abs(position.x),Math.abs(position.y),Math.abs(position.z))>10000 || Math.abs(Math.hypot(quaternion.x,quaternion.y,quaternion.z,quaternion.w)-1)>.001) throw new Error("Invalid physical workpiece pose.");
+    }
     if (block.geometry !== undefined && block.geometry !== "body1") throw new Error("Unknown workpiece geometry.");
     if (block.stackLevel !== undefined && (!Number.isInteger(block.stackLevel) || block.stackLevel < 0 || block.stackLevel > (block.geometry === "body1" ? 2 : block.kind === "magnet" ? 9 : 2))) throw new Error("Cell block stack levels must be valid integer layers for the selected workpiece.");
     if (![block.position.x, block.position.y, block.r, block.z ?? 0].every(Number.isFinite) || (block.position.x < -500 || block.position.x > Math.max(500,TEACHING_PLATFORM.x+TEACHING_PLATFORM.width/2)) || Math.abs(block.position.y) > 500 || (block.z ?? 0) < 0 || (block.z ?? 0) > 300 || Math.abs(block.r) > 360) throw new Error("Cell object position is outside the supported reachable range.");

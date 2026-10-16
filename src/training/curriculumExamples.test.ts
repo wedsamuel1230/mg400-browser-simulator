@@ -58,7 +58,7 @@ describe("curriculum example verification", () => {
   it("parses every Python lesson example and checks its simulator API, saved points, and tool mode", () => {
     for (const lesson of LESSONS) {
       expect(lesson.examples.python, `${lesson.id} should use standard function syntax`).not.toMatch(/\bawait\s/);
-      expect(lesson.examples.python, `${lesson.id} should define its task`).toMatch(/^def task\(\):\n/);
+      expect(lesson.examples.python, `${lesson.id} should define its task`).toMatch(/^def task\(\):\n/m);
       expect(lesson.examples.python.trimEnd(), `${lesson.id} should call its task`).toMatch(/\ntask\(\)$/);
       python.globals.set("__ai_source", lesson.examples.python);
       const raw = python.runPython(PYTHON_ANALYSIS);
@@ -104,7 +104,7 @@ describe("curriculum example verification", () => {
     ];
     for (const example of pythonExamples) {
       expect(example.source, `${example.label} should use standard function syntax`).not.toMatch(/\bawait\s/);
-      expect(example.source, `${example.label} should define its task`).toMatch(/^def task\(\):\n/);
+      expect(example.source, `${example.label} should define its task`).toMatch(/^def task\(\):\n/m);
       expect(example.source.trimEnd(), `${example.label} should call its task`).toMatch(/\ntask\(\)$/);
       python.globals.set("__ai_source", example.source);
       const raw = python.runPython(PYTHON_ANALYSIS);

@@ -1,4 +1,4 @@
-import { Box3, Matrix4, Ray, Triangle, Vector3, type BufferGeometry } from "three";
+import { Box3, Matrix4, Quaternion, Ray, Triangle, Vector3, type BufferGeometry } from "three";
 import { OBB } from "three/examples/jsm/math/OBB.js";
 import { activeTcpOffset, body1SupportHeight, cellBlockSize, cellBlockBottomZ, magneticSurfaceHeight, rad, TEACHING_PLATFORM, type CellBlock, type JointAngles, type ProjectDocument } from "../domain";
 import type { MG400Kinematics } from "./mg400Kinematics";
@@ -61,18 +61,18 @@ function meshIntersects(geometry: BufferGeometry, matrix: Matrix4, obstacle: Sol
 }
 export function workpieceSolids(block: CellBlock, project: ProjectDocument, matrix?: Matrix4): Solid[] {
   const size = cellBlockSize(block, project.tool.mode);
-  const world = matrix ?? transform(block.position.x,block.position.y,cellBlockBottomZ(block, project.tool.mode, magneticSurfaceHeight(project.scene), project.scene.platformHeightMm ?? 0, body1SupportHeight(project.scene)),block.r);
+  const world = matrix ?? (block.physicalPose ? new Matrix4().compose(new Vector3().copy(block.physicalPose.position),new Quaternion().copy(block.physicalPose.quaternion),new Vector3(1,1,1)) : transform(block.position.x,block.position.y,cellBlockBottomZ(block, project.tool.mode, magneticSurfaceHeight(project.scene), project.scene.platformHeightMm ?? 0, body1SupportHeight(project.scene)),block.r));
   const boxes = block.geometry === "body1" ? [box(-20,-20,0,20,20,15),box(-7.5,-20,15,7.5,20,25),box(-20,-20,25,20,20,40)] : [box(-size.x/2,-size.y/2,0,size.x/2,size.y/2,size.z)];
   return boxes.map(bounds=>({ name: block.id, box: bounds, matrix: world }));
 }
-function fixedSolids(): Solid[] {
+export function fixedSolids(): Solid[] {
   const p = TEACHING_PLATFORM;
   return [
     {name:"教學平台",box:box(p.x-p.width/2,p.y-p.depth/2,0,p.x+p.width/2,p.y+p.depth/2,p.top),matrix:new Matrix4()},
     {name:"工作台",box:box(-380,-700,-40,670,700,0),matrix:new Matrix4()},
   ];
 }
-function supportSolids(project: ProjectDocument, blocks: CellBlock[]) {
+export function supportSolids(project: ProjectDocument, blocks: CellBlock[]) {
   const stands: Solid[] = [];
   for (const block of blocks) {
     if (cellBlockSize(block,project.tool.mode).z===4 && (project.scene.platformHeightMm ?? 0)===0) stands.push({name:"磁吸教學座",box:box(-19,-19,0,19,19,magneticSurfaceHeight(project.scene)),matrix:transform(block.position.x,block.position.y,block.z??0,block.r)});
@@ -88,7 +88,7 @@ export function assertPlacementClear(block: CellBlock, blocks: CellBlock[], proj
     if (overlaps(a,b)) throw new Error(`碰撞停止：放置工件與 ${other.id} 重疊。`);
   }
 }
-export function assertCollisionFree(kinematics: MG400Kinematics, joints: JointAngles, project: ProjectDocument, blocks: CellBlock[], assets: CollisionGeometry, attachedId: string | null, attachedYaw: number) {
+export function assertCollisionFree(kinematics: MG400Kinematics, joints: JointAngles, project: ProjectDocument, blocks: CellBlock[], assets: CollisionGeometry, attachedId: string | null, attachedYaw: number, toolContactId: string | null = null) {
   const tool = assets.tools[project.tool.mode];
   if (!assets.supported || !tool || assets.links.size === 0) throw new Error("碰撞檢查未就緒或自訂模型未支援；請載入內置模型。");
   const fixed = fixedSolids();
@@ -108,9 +108,10 @@ export function assertCollisionFree(kinematics: MG400Kinematics, joints: JointAn
   const flange = kinematics.flangeMatrix(joints,project.tool.flangeOffset);
   const toolSolid = {name:"工具",box:tool.boundingBox!,matrix:flange};
   const base = {name:"機座",box:box(-95,-95,0,95,95,113),matrix:new Matrix4()};
-  for (const obstacle of [...fixed,...stands,base,...pieces]) if (overlaps(toolSolid,obstacle) && meshIntersects(tool,flange,obstacle)) throw new Error(`碰撞停止：工具接觸 ${obstacle.name}。`);
+  for (const obstacle of [...fixed,...stands,base,...blocks.filter(b=>b.id!==attachedId && b.id!==toolContactId).flatMap(b=>workpieceSolids(b,project))]) if (overlaps(toolSolid,obstacle) && meshIntersects(tool,flange,obstacle)) throw new Error(`碰撞停止：工具接觸 ${obstacle.name}。`);
   const carried = blocks.find(b=>b.id===attachedId);
-  if (carried) {
+  // Dynamic payload side contacts stop through the physics callback; support contacts remain physical.
+  if (carried && !carried.physicalPose) {
     const tcp = kinematics.forward(joints,project.tool.flangeOffset,activeTcpOffset(project.tool));
     const height = cellBlockSize(carried,project.tool.mode).z;
     const bottom = tcp.z - (project.tool.mode==="magnet" ? height : carried.geometry==="body1" ? 25 : 0);

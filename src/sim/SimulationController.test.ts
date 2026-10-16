@@ -3,7 +3,7 @@ import { DEFAULT_PROJECT } from "../data/defaultProject";
 import { makeJointPoint } from "../projectStore";
 import { MAGNET_SUPPORT_HEIGHT_MM, FORK_SUPPORT_HEIGHT_MM, rad, type ForkContactProfile, type JointAngles, type Pose, type ProjectDocument } from "../domain";
 import { SimulationController, type ControllerEvents, type RunStatus } from "./SimulationController";
-import type { MotionRequest } from "./luaTypes";
+import type { LuaWorkerMessage, MotionRequest } from "./luaTypes";
 import type { MG400Kinematics } from "./mg400Kinematics";
 import { createWorkpiecePile } from "./workpiecePile";
 
@@ -436,4 +436,23 @@ it("rejects magnetic pickup through an upper plate and picks the top plate", () 
  const pick=()=> (harness.controller as unknown as {performToolAction:(action:"pick")=>void}).performToolAction("pick");
  expect(pick).toThrow(/no eligible/);
  harness.setJoints([300,-80,122,0]);expect(pick).not.toThrow();expect(harness.attachedId()).toBe("magnet-pile-3");
+});
+
+it("keeps repeated simulator CP diagnostics out of student print output",()=>{
+ const h=makeHarness(),internal=h.controller as unknown as {events:ControllerEvents;stopped:boolean;handleMessage:(message:LuaWorkerMessage)=>void};
+ const printed=vi.fn(),logged=vi.fn();internal.events.setPrintOutput=printed;internal.events.addLog=logged;internal.stopped=false;
+ const warning={type:"print" as const,level:"warning" as const,message:"CP omitted; this simulator uses CP=0. DobotStudio Pro documents CP=1 by default."};
+ internal.handleMessage(warning);internal.handleMessage(warning);
+ expect(printed).not.toHaveBeenCalled();expect(logged).toHaveBeenCalledTimes(1);
+ internal.handleMessage({type:"print",level:"info",message:"Hello, robot!"});
+ expect(printed).toHaveBeenCalledWith("Hello, robot!");
+});
+
+it("stops the program when a passive load slips without disposing its gravity world",()=>{
+ const project=structuredClone(DEFAULT_PROJECT);project.tool.mode="fork";project.scene.blocks=[{id:"piece",geometry:"body1",kind:"block",source:"pickup",color:"neutral",position:{x:300,y:0},r:0}];
+ const h=makeHarness({project}),c=h.controller as unknown as {events:ControllerEvents;stopped:boolean;attachedCellBlockId:string|null};
+ const dispose=vi.fn();c.events.getPhysics=()=>({blocks:(b:ProjectDocument["scene"]["blocks"])=>b.map(block=>({...block,physicalPose:{position:{x:300,y:0,z:200},quaternion:{x:0,y:0,z:0,w:1},settled:false}})),contactWithTool:()=>false,hasExternalSupport:()=>false,hasSideContact:()=>false,dispose}) as unknown as NonNullable<ReturnType<NonNullable<ControllerEvents["getPhysics"]>>>;
+ c.stopped=false;c.attachedCellBlockId="piece";c.events.setAttached(true);
+ h.controller.synchronizePhysics(1);h.controller.synchronizePhysics(200);
+ expect(h.status()).toBe("error");expect(h.attached()).toBe(false);expect(dispose).not.toHaveBeenCalled();
 });
