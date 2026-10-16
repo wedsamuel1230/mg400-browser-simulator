@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Instructor Guide
 
-**Course release:** 1.3.9
+**Course release:** 1.4.0
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 5 October 2026
+**Last checked against the app:** 16 October 2026
 
 ## Purpose and boundary
 
@@ -64,11 +64,11 @@ Fresh exercises use the front 110 mm teaching platform:
 - **First fork task:** exactly one supplied 40 × 40 × 40 mm Body1 rests directly on the shared platform at Z = 110 mm. Fork insertion is TCP Z = 132.5 mm and support/release is Z = 135 mm. Slide the passive fork under the block, lift it, lower it to release, clear, and withdraw. No `DO`, `Pick()`, or `Place()` call is required; there are no magnet plates in this task.
 - **Next:** practise carrying that single block through a +90° turn after an 80 mm lift. This isolates the movement used by the tower's middle layer without adding props to the beginner fork task. Then stack three supplied Body1 blocks vertically at the same XY: bottom 0°, middle +90° after pickup and lift, top 0°.
 
-The fork support and release rules are deterministic simulation logic, not a physics or force model. Teach magnetic-plate pickup later, after RelMovL; keep its 35 × 35 × 4 mm plate and simulator-only `DO` behavior distinct from the fork task.
+Fork support uses simplified rigid-body contacts without a welded attachment. Blocks can slip, fall and tip; material values are uncalibrated teaching defaults. After placement, fully withdraw horizontally before lifting and returning. Gravity continues after robot Stop/Pause; Reset restores the exercise. Teach magnetic-plate pickup later, after RelMovL; keep its 35 × 35 × 4 mm plate and simulator-only `DO` behavior distinct from the fork task.
 
 ### Make the carried wrist rotation visible
 
-Point out the asymmetric dark arrow on the block; it marks the block's local +X direction while its square dimensions stay unchanged. In the Body1 fork-rotation lesson, have learners observe and say the sequence: slide the passive fork into the groove, lift the block, raise it another 80 mm, then turn the carried tool +90°. The block stays carried during the turn; lower it onto the destination before clearing and withdrawing the fork. No `DO`, `Pick()`, or `Place()` command is involved. Ask learners to predict the +X arrow's final direction before running. This is a deterministic attachment rule, not rigid-body contact or force physics.
+Point out the asymmetric dark arrow on the block; it marks the block's local +X direction while its square dimensions stay unchanged. In the Body1 fork-rotation lesson, have learners observe and say the sequence: slide the passive fork into the groove, lift the block, raise it another 80 mm, then turn the carried tool +90°. Keep the turn slow enough to retain contact; lower the block onto the destination before clearing and withdrawing the fork. No `DO`, `Pick()`, or `Place()` command is involved. Ask learners to predict the +X arrow's final direction before running. Support and tipping use simplified rigid-body contacts, not calibrated physical forces.
 
 ### Control flow and relative motion
 
@@ -114,7 +114,7 @@ For OpenRouter Space Bunny Alpha, the model listing says its third-party provide
 
 Keep these identities separate when presenting the product:
 
-- **Course release:** 1.3.9, the version of the bilingual lesson content.
+- **Course release:** 1.4.0, the version of the bilingual lesson content.
 - **Lua profile:** the documented DobotStudio Pro 2.8 command subset in [the compatibility guide](dobotstudio-pro-28-subset.md). Exact embedded Lua VM identity and full controller equivalence are unknown.
 - **Python profile:** simulator-only API, not a Dobot controller SDK.
 - **Model and cell:** vendor visual robot model plus locally supplied tool meshes and one reference block; see [model provenance](model-provenance.md).
@@ -189,11 +189,11 @@ Do not present the user-specified +60 mm TCP offset, simulated joint limits, pic
 - **第一個叉臂任務：**只用一件原裝 40 × 40 × 40 mm Body1，直接放在頂面 Z = 110 mm 的共用平台上。叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。先把無動力叉臂沿槽滑到方塊下方，再抬起、降下釋放、恢復間隙並退出。此任務沒有磁吸片，毋須 **DO**、**Pick()** 或 **Place()**。
 - **之後：**先用同一件方塊練習抬高 80 mm 後攜件轉 +90°，為三層塔中層使用的動作作準備，但不在初學叉臂任務加入其他物件。再把三件 Body1 放在相同 XY 垂直堆疊：底層 0°、中層取件抬高後 +90°、頂層 0°。
 
-叉臂承托和釋放屬確定性模擬規則，不是物理或受力模型。完成 RelMovL 後才教授磁吸片取放；該課使用 35 × 35 × 4 mm 磁吸片及模擬器專用 DO，並與叉臂任務分開說明。
+叉臂使用簡化剛體接觸承托，沒有焊接附著。方塊可能滑落、跌下或倒塔；物料參數是未經校準的教學預設值。放下後應先完全水平退出，再抬高返回。停止／暫停機械臂後重力仍會繼續；「重設」會還原練習。完成 RelMovL 後才教授磁吸片取放；該課使用 35 × 35 × 4 mm 磁吸片及模擬器專用 DO，並與叉臂任務分開說明。
 
 #### 讓學生看見攜件手腕旋轉
 
-指出方塊上的深色不對稱箭嘴；它標示方塊本身的 +X 方向，而不是改變方塊尺寸。在 Body1 叉臂旋轉課中，請學生觀察並說出次序：把無動力叉臂滑入槽內、抬起方塊、再上升 80 mm，然後讓叉臂承托著的方塊旋轉 +90°。把方塊降到目的承托面後，先恢復槽口間隙，再水平退出；不需要 `DO`、`Pick()` 或 `Place()`。執行前先問箭嘴最後會指向哪一邊。這是確定性的模擬附著規則，不代表剛體接觸或力學模擬。
+指出方塊上的深色不對稱箭嘴；它標示方塊本身的 +X 方向，而不是改變方塊尺寸。在 Body1 叉臂旋轉課中，請學生觀察並說出次序：把無動力叉臂滑入槽內、抬起方塊、再上升 80 mm，然後以慢速讓叉臂承托著的方塊旋轉 +90°。把方塊降到目的承托面後，先恢復槽口間隙，再完全水平退出，最後抬高返回；不需要 `DO`、`Pick()` 或 `Place()`。執行前先問箭嘴最後會指向哪一邊。承托與倒塔由簡化剛體接觸模擬產生，不代表經過校準的實體力學。
 
 #### 控制流程及相對移動
 
@@ -237,7 +237,7 @@ OpenRouter 的 Space Bunny Alpha 模型頁指出其第三方模型供應商可�
 
 向學生介紹產品時，請分清以下身分：
 
-- **課程版本：**1.3.9，代表雙語教材版本。
+- **課程版本：**1.4.0，代表雙語教材版本。
 - **Lua 支援範圍：**見 [相容性指南](dobotstudio-pro-28-subset.md) 所列的 DobotStudio Pro 2.8 指令子集。內置 Lua VM 的確切身分及完整控制器相容性未知。
 - **Python 支援範圍：**模擬器專用 API，不是 Dobot 控制器 SDK。
 - **模型及工作站：**原廠機械臂視覺模型、提供的本機工具網格和一個示範方塊；詳情見[模型來源](model-provenance.md)。

@@ -1,8 +1,8 @@
 # MG400 Virtual Training Simulator — Student Guide
 
-**Course release:** 1.3.9
+**Course release:** 1.4.0
 **Languages:** English and Traditional Chinese  
-**Last checked against the app:** 5 October 2026
+**Last checked against the app:** 16 October 2026
 
 ## What this simulator can do
 
@@ -11,7 +11,7 @@ Use the browser workspace to learn programming, teach named robot points, and wa
 - **Lua** is a bounded training subset based on the documented DobotStudio Pro 2.8 command contract.
 - **Python** uses this simulator's own API. It is for simulation practice and cannot run on a physical Dobot controller.
 
-There is no physical robot connection, collision-safety system, contact-force model, or hardware calibration. Never assume a simulated point or path is safe to copy to a real robot.
+Workpieces use gravity, friction and simplified rigid-body contacts. The built-in robot/tool collision guard stops detected collisions, but is not a safety system and does not model robot self-collision. There is no physical robot connection or hardware calibration. Never assume a simulated point or path is safe to copy to a real robot.
 
 ## Start a lesson
 
@@ -38,7 +38,7 @@ Choose the tool before teaching or refreshing its points. A saved point is a pos
 | **Magnet** | A 35 × 35 × 4 mm plate rests on the front 110 mm platform. A contrasting arrow marks the workpiece's local +X direction; the magnetic tool approaches the top face. | `DO(1, ON)` and `DO(1, OFF)` are simulator-only attach and release actions. They are not physical I/O. In the black/white stacking lesson, the white plate is attached and lifted before the wrist turns +45°. |
 | **Fork** | The supplied printed fork enters the 40 × 40 × 40 mm Body1 grooves. Body1 rests directly on the shared platform at Z = 110 mm; the fork insertion TCP is Z = 132.5 mm and the support/release height is Z = 135 mm. | Move to the entry point, slide under the block, lift to pick it up, then lower it to release. No `DO`, `Pick()`, or `Place()` call is needed. |
 
-The fork is passive: it has no motor or powered fingers. The app models support and release with deterministic simulator rules, not rigid-body physics. A completed run is evidence about this simulator only.
+The fork is passive: it has no motor or powered fingers. Simplified fork contacts support the rigid-body block without a welded attachment; it can slip, fall or tip. Lower the block onto support, withdraw horizontally, then lift and return. Gravity continues after robot Stop/Pause; Reset restores the exercise. Material values are uncalibrated teaching defaults. A completed run is evidence about this simulator only.
 
 In the carried-block rotation lesson, the passive fork carries the supplied grooved Body1. Watch its arrow: it turns with the block only after pickup and an 80 mm lift. The arrow shows orientation; the square block's dimensions do not change. This fork task needs no powered gripper or `DO` command.
 
@@ -125,7 +125,7 @@ The browser saves the current robot project locally. You can export a project JS
 - **Lua** 是根據 DobotStudio Pro 2.8 已列明指令合約建立的有限訓練子集。
 - **Python** 使用本模擬器專用 API，只供模擬器練習，不能在實體 Dobot 控制器執行。
 
-本程式沒有連接實體機械臂、碰撞安全系統、接觸力模型或硬件校準。不要假設模擬教點或路徑可以安全地用於實體機械臂。
+工件使用重力、摩擦及簡化剛體接觸模擬。內置機械臂／工具碰撞檢查會在偵測碰撞時停止，但並非安全系統，亦未模擬機械臂自身碰撞。本程式沒有連接實體機械臂或進行硬件校準。不要假設模擬教點或路徑可以安全地用於實體機械臂。
 
 ### 開始課堂練習
 
@@ -152,7 +152,7 @@ The browser saves the current robot project locally. You can export a project JS
 | **Magnet** | 35 × 35 × 4 mm 磁吸片放在前方 110 mm 平台上，對比色箭嘴標示方塊本身的 +X 方向；磁吸工具從上方接觸頂面。 | **DO(1, ON)** 和 **DO(1, OFF)** 只在模擬器內代表吸附及釋放，並非實體 I/O。黑白磁吸片堆疊課會先吸附及抬高白片，再把手腕轉 +45°。 |
 | **Fork** | 隨附叉臂沿 40 × 40 × 40 mm Body1 槽滑入。Body1 直接放在頂面 Z = 110 mm 的共用平台上；叉臂插入 TCP 為 Z = 132.5 mm，承托／釋放高度為 Z = 135 mm。 | 移至入口點，沿槽滑入、抬起方塊，再降下釋放。毋須呼叫 **DO**、**Pick()** 或 **Place()**。 |
 
-叉臂是被動工具：沒有馬達或動力手指。程式以確定性的模擬規則處理承托和釋放，並非剛體物理模擬。成功完成模擬只代表模擬器內的結果。
+叉臂是被動工具：沒有馬達或動力手指。簡化叉具接觸面承托剛體方塊，沒有把它焊接在工具上，因此可能滑落、跌下或倒塔。把方塊降到承托面後，先水平退出，再抬高及返回。停止／暫停機械臂後重力仍會繼續；「重設」會還原練習。物料參數是未經校準的教學預設值。成功完成模擬只代表模擬器內的結果。
 
 在 Body1 叉臂旋轉課中觀察箭嘴：被動叉臂承托方塊並抬高 80 mm 後，才旋轉 +90°；箭嘴會跟隨方塊轉向。箭嘴顯示方向，方塊尺寸保持不變。此課不使用動力夾具，也不需 DO 指令。
 

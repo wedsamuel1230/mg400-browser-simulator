@@ -2,9 +2,19 @@
 
 ## Product
 
-A public Dobot MG400 browser training simulator is deployed on Vercel. It loads the pinned robot URDF/STL model plus the supplied Body1 workpiece, passive fork, and magnetic tool by default; includes a front teaching platform with a 110 mm top surface, Guided Training and Free Mode, and a 14-lesson bilingual course; computes four-axis FK and numerical IK; teaches named targets; and runs a bounded DobotStudio Pro 2.8 Lua subset plus simulator-only Python. Pick, carry, release, and stacking are deterministic simulation rules, not hardware control, force, or general collision physics. The optional read-only AI coach uses a learner-provided OpenAI-compatible key.
+A public Dobot MG400 browser training simulator is deployed on Vercel. It loads the pinned robot URDF/STL model plus the supplied Body1 workpiece, passive fork, and magnetic tool by default; includes a fixed 500 × 600 mm front teaching platform with a 110 mm top surface, Guided Training and Free Mode, and a 14-lesson bilingual course; computes four-axis FK and numerical IK; teaches named targets; and runs a bounded DobotStudio Pro 2.8 Lua subset plus simulator-only Python. Workpieces use Rapier gravity, friction and simplified rigid-body contact, alongside finite-step built-in robot/tool collision stopping. This is not hardware control, calibrated physical behavior, or safety-rated collision detection. The optional read-only AI coach uses a learner-provided OpenAI-compatible key.
 
 This public report summarizes implementation and verification outcomes. Private workspace paths, Wayfinder planning files, screenshots, and raw browser traces are intentionally omitted; plain-text local-evidence notes below are not links or public artifacts. Product files, source provenance, and the Lua compatibility boundary are documented in the linked project README and guides.
+
+## Current student-trial release — 16 October 2026
+
+- Runtime commit `98b32cb287881cb3bc599d25d63f84e1653532c5` is pushed to public GitHub `main`. Vercel production deployment `dpl_75W75Mxf86jtLmEGe1X1ntPfnZLx` is READY for that exact commit and assigned to https://mg400-browser-simulator.vercel.app/. The unique deployment URL requires Vercel authentication; use the public alias for students.
+- Course 1.4.0 retains 14 bilingual lessons, source-attributed teaching colors, default supplied tool/workpiece models, normal Python functions without authored `await`, bounded `RelMovL`, and the 0° / carried +90° / 0° vertical Body1 tower. Detailed physics and Lua/Python browser acceptance appear in the 16 October entries below.
+- Final production inspection confirmed Traditional Chinese course 1.4.0, the gravity/contact readiness status, keyboard Tab focus through language and close controls, and Escape returning focus to the course launcher. The inspected lesson title is 30 px and navigation text 16 px. Earlier axe/contrast, responsive-layout, and focus-containment evidence remains scoped to the tested UI; no full screen-reader or WCAG conformance claim is made.
+- Existing independent AI novice reviews and Poe physics/curriculum consultations informed the implementation. These are advisory reviews, not real learner trials. The release is ready for the requested student usability trial; comprehension and classroom usability still require those students' feedback.
+- The last observed public-alias readiness time was 3.996 s in the existing browser context, not a cache-cleared cold-load benchmark. Historical pre-physics cold-load samples below do not establish current worst-case loading time. No physical robot calibration, arm self-collision, real magnetic-field simulation, or hardware safety validation is claimed.
+
+Older dated sections below are historical snapshots and may describe superseded versions or open gates that were later resolved.
 
 ## 2026-10-05 Monaco sanitizer advisory triage
 
